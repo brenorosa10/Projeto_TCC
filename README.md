@@ -47,3 +47,6 @@ A plataforma combina sessões síncronas gamificadas com materiais de fixação 
 
 - Índice de erros consolidado por questão.
 - Destaque visual de questões com taxa de erro superior a 50%, para orientar revisão de conteúdo.
+
+<img width="925" height="364" alt="image" src="https://github.com/user-attachments/assets/e2ee022e-d513-4c46-a344-0448f4c2a0c1" />
+
