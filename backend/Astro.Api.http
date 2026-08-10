@@ -1,0 +1,6 @@
+@Astro.Api_HostAddress = http://localhost:5003
+
+GET {{Astro.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

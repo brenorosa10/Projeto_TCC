@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+**/bin/
+**/obj/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.local
+backend/appsettings.*.local.json
+**/secrets.json
+
+# Build / IDE
+dist/
+build/
+.vs/
+.vscode/*
+!.vscode/extensions.json
+*.user
+*.suo
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Supabase local
+supabase/.branches
+supabase/.temp
+
+# Misc
+*.swp
+.cursor/

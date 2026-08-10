@@ -1,0 +1,18 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.AspNetCore": "Information"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=aws-0-YOUR_REGION.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.YOUR_PROJECT;Password=YOUR_DB_PASSWORD;SSL Mode=Require;Trust Server Certificate=true"
+  },
+  "Supabase": {
+    "Url": "https://YOUR_PROJECT.supabase.co",
+    "JwtSecret": "YOUR_SUPABASE_JWT_SECRET"
+  },
+  "Cors": {
+    "Origins": [ "http://localhost:5173" ]
+  }
+}

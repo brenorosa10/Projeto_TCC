@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="orbit" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#8B45FF"/>
+      <stop offset="0.55" stop-color="#6C72FF"/>
+      <stop offset="1" stop-color="#29B8F2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Minimal ASTRO favicon -->
+  <rect width="512" height="512" rx="112" fill="#070D42"/>
+
+  <!-- A -->
+  <path fill="#FFFFFF" d="
+    M132 382 L214 151
+    Q221 130 243 130
+    L269 130 Q291 130 298 151
+    L380 382 L320 382
+    L300 319 L212 319 L192 382 Z
+    M228 266 L284 266 L256 178 Z"/>
+
+  <!-- Orbit -->
+  <path fill="url(#orbit)" d="
+    M74 335
+    C132 382 260 372 360 316
+    C412 287 444 250 430 228
+    C419 211 379 210 337 220
+    C391 198 442 198 456 222
+    C475 255 431 302 369 337
+    C255 401 118 400 70 356
+    C63 349 65 341 74 335 Z"/>
+
+  <!-- Star -->
+  <path fill="#FFFFFF" d="
+    M388 94
+    L397 116 L419 125
+    L397 134 L388 156
+    L379 134 L357 125
+    L379 116 Z"/>
+</svg>
