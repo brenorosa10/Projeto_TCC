@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase"
+import { getAccessToken } from "@/lib/auth-token"
 import type {
   ApiErrorBody,
   ClassRoom,
@@ -19,13 +19,8 @@ export class ApiError extends Error {
   }
 }
 
-async function getAccessToken() {
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token ?? null
-}
-
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = await getAccessToken()
+  const token = getAccessToken()
   const headers = new Headers(init.headers)
   headers.set("Content-Type", "application/json")
   if (token) {
@@ -78,4 +73,11 @@ export const api = {
 
 export function getApiBaseUrl() {
   return API_URL
+}
+
+export function startGoogleLogin() {
+  const returnUrl = `${window.location.origin}/auth/callback`
+  window.location.assign(
+    `${API_URL}/api/auth/google?returnUrl=${encodeURIComponent(returnUrl)}`
+  )
 }

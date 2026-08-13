@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getApiBaseUrl } from "@/lib/api"
-import { supabase } from "@/lib/supabase"
+import { getAccessToken } from "@/lib/auth-token"
 
 export function AlunoLiveJoinPage() {
   const [pin, setPin] = useState("")
@@ -25,8 +25,7 @@ export function AlunoLiveJoinPage() {
       return
     }
 
-    const { data } = await supabase.auth.getSession()
-    const token = data.session?.access_token
+    const token = getAccessToken()
     if (!token) {
       toast.error("Faça login novamente.")
       return

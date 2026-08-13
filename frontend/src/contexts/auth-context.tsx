@@ -7,16 +7,19 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import type { Session, User } from "@supabase/supabase-js"
-import { api, ApiError } from "@/lib/api"
-import { supabase } from "@/lib/supabase"
-import type { Profile, UserRole } from "@/lib/types"
+import { api, ApiError, startGoogleLogin } from "@/lib/api"
+import {
+  clearAccessToken,
+  consumeTokenFromUrl,
+  getAccessToken,
+  setAccessToken,
+} from "@/lib/auth-token"
+import type { AuthSession, Profile, UserRole } from "@/lib/types"
 
 const INTENDED_ROLE_KEY = "astro_intended_role"
 
 interface AuthContextValue {
-  session: Session | null
-  user: User | null
+  session: AuthSession | null
   profile: Profile | null
   loading: boolean
   signInWithGoogle: (role: UserRole) => Promise<void>
@@ -33,8 +36,17 @@ function isUserRole(value: string | null | undefined): value is UserRole {
   return value === "professor" || value === "aluno"
 }
 
+function readInitialSession(): AuthSession | null {
+  const token = consumeTokenFromUrl() ?? getAccessToken()
+  if (!token) {
+    return null
+  }
+  setAccessToken(token)
+  return { accessToken: token }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
+  const [session, setSession] = useState<AuthSession | null>(readInitialSession)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -55,35 +67,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return
-      setSession(data.session)
-      if (data.session) {
-        refreshProfile()
-          .catch(() => setProfile(null))
-          .finally(() => {
-            if (mounted) setLoading(false)
-          })
-      } else {
-        setLoading(false)
-      }
-    })
+    if (!session) {
+      setLoading(false)
+      return
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession)
-      if (!nextSession) {
-        setProfile(null)
-        setLoading(false)
-      }
-    })
+    refreshProfile()
+      .catch(() => {
+        if (mounted) setProfile(null)
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
 
     return () => {
       mounted = false
-      subscription.unsubscribe()
     }
-  }, [refreshProfile])
+  }, [refreshProfile, session])
 
   const getIntendedRole = useCallback(() => {
     const stored = sessionStorage.getItem(INTENDED_ROLE_KEY)
@@ -96,24 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async (role: UserRole) => {
     sessionStorage.setItem(INTENDED_ROLE_KEY, role)
-    const redirectTo = `${window.location.origin}/auth/callback?role=${role}`
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
-      },
-    })
-    if (error) throw error
+    startGoogleLogin()
   }, [])
 
   const signOut = useCallback(async () => {
     clearIntendedRole()
+    clearAccessToken()
     setProfile(null)
-    await supabase.auth.signOut()
+    setSession(null)
   }, [clearIntendedRole])
 
   const ensureProfile = useCallback(
@@ -133,7 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
-      user: session?.user ?? null,
       profile,
       loading,
       signInWithGoogle,

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { ApiError } from "@/lib/api"
+import { getAuthErrorFromUrl } from "@/lib/auth-token"
 import { useAuth } from "@/contexts/auth-context"
 import type { UserRole } from "@/lib/types"
 
@@ -20,6 +21,12 @@ export function AuthCallbackPage() {
     if (loading) return
 
     async function complete() {
+      const authError = getAuthErrorFromUrl()
+      if (authError) {
+        setError("Não foi possível entrar com o Google. Tente novamente.")
+        return
+      }
+
       if (!session) {
         setError("Sessão não encontrada. Tente entrar novamente.")
         return

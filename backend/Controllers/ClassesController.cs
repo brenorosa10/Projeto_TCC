@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
 using Astro.Api.Contracts;
 using Astro.Api.Data;
 using Astro.Api.Domain;
@@ -12,7 +12,7 @@ namespace Astro.Api.Controllers;
 [Authorize]
 [Route("api/classes")]
 public class ClassesController(
-    AppDbContext db,
+    MongoDbContext db,
     CurrentUserService currentUser,
     ClassCodeGenerator codeGenerator) : ControllerBase
 {
@@ -25,37 +25,16 @@ public class ClassesController(
             return Unauthorized(new { detail = "Perfil não encontrado. Conclua o login." });
         }
 
-        if (profile.Role == UserRoles.Professor)
-        {
-            var taught = await db.Classes.AsNoTracking()
-                .Where(c => c.ProfessorId == profile.Id)
-                .OrderByDescending(c => c.CreatedAt)
-                .Select(c => new ClassResponse(
-                    c.Id,
-                    c.Name,
-                    c.Code,
-                    c.ProfessorId,
-                    c.Professor!.FullName,
-                    c.CreatedAt,
-                    c.Enrollments.Count))
-                .ToListAsync(cancellationToken);
-            return Ok(taught);
-        }
+        var filter = profile.Role == UserRoles.Professor
+            ? Builders<ClassRoom>.Filter.Eq(c => c.ProfessorId, profile.Id)
+            : Builders<ClassRoom>.Filter.ElemMatch(c => c.Enrollments, e => e.StudentId == profile.Id);
 
-        var enrolled = await db.ClassEnrollments.AsNoTracking()
-            .Where(e => e.StudentId == profile.Id)
-            .OrderByDescending(e => e.JoinedAt)
-            .Select(e => new ClassResponse(
-                e.Class!.Id,
-                e.Class.Name,
-                e.Class.Code,
-                e.Class.ProfessorId,
-                e.Class.Professor!.FullName,
-                e.Class.CreatedAt,
-                e.Class.Enrollments.Count))
+        var classrooms = await db.Classes
+            .Find(filter)
+            .SortByDescending(c => c.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        return Ok(enrolled);
+        return Ok(classrooms.Select(ToResponse));
     }
 
     [HttpGet("{id:guid}")]
@@ -67,16 +46,8 @@ public class ClassesController(
             return Unauthorized(new { detail = "Perfil não encontrado." });
         }
 
-        var classroom = await db.Classes.AsNoTracking()
-            .Where(c => c.Id == id)
-            .Select(c => new ClassResponse(
-                c.Id,
-                c.Name,
-                c.Code,
-                c.ProfessorId,
-                c.Professor!.FullName,
-                c.CreatedAt,
-                c.Enrollments.Count))
+        var classroom = await db.Classes
+            .Find(c => c.Id == id)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (classroom is null)
@@ -85,16 +56,14 @@ public class ClassesController(
         }
 
         var allowed = classroom.ProfessorId == profile.Id
-            || await db.ClassEnrollments.AnyAsync(
-                e => e.ClassId == id && e.StudentId == profile.Id,
-                cancellationToken);
+            || classroom.Enrollments.Any(e => e.StudentId == profile.Id);
 
         if (!allowed)
         {
             return Forbid();
         }
 
-        return Ok(classroom);
+        return Ok(ToResponse(classroom));
     }
 
     [HttpPost]
@@ -120,23 +89,13 @@ public class ClassesController(
             Name = request.Name.Trim(),
             Code = code,
             ProfessorId = profile.Id,
+            ProfessorName = profile.FullName,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        db.Classes.Add(classroom);
-        await db.SaveChangesAsync(cancellationToken);
+        await db.Classes.InsertOneAsync(classroom, cancellationToken: cancellationToken);
 
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = classroom.Id },
-            new ClassResponse(
-                classroom.Id,
-                classroom.Name,
-                classroom.Code,
-                classroom.ProfessorId,
-                profile.FullName,
-                classroom.CreatedAt,
-                0));
+        return CreatedAtAction(nameof(GetById), new { id = classroom.Id }, ToResponse(classroom));
     }
 
     [HttpPost("join")]
@@ -157,39 +116,32 @@ public class ClassesController(
 
         var code = request.Code.Trim().ToUpperInvariant();
         var classroom = await db.Classes
-            .Include(c => c.Professor)
-            .Include(c => c.Enrollments)
-            .FirstOrDefaultAsync(c => c.Code == code, cancellationToken);
+            .Find(c => c.Code == code)
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (classroom is null)
         {
             return NotFound(new { detail = "Código de turma inválido." });
         }
 
-        var already = classroom.Enrollments.Any(e => e.StudentId == profile.Id);
-        if (!already)
+        if (classroom.Enrollments.All(e => e.StudentId != profile.Id))
         {
-            db.ClassEnrollments.Add(new ClassEnrollment
+            var enrollment = new ClassEnrollment
             {
-                ClassId = classroom.Id,
                 StudentId = profile.Id,
+                StudentName = profile.FullName,
                 JoinedAt = DateTimeOffset.UtcNow
-            });
-            await db.SaveChangesAsync(cancellationToken);
+            };
+
+            await db.Classes.UpdateOneAsync(
+                c => c.Id == classroom.Id,
+                Builders<ClassRoom>.Update.Push(c => c.Enrollments, enrollment),
+                cancellationToken: cancellationToken);
+
+            classroom.Enrollments.Add(enrollment);
         }
 
-        var studentCount = await db.ClassEnrollments.CountAsync(
-            e => e.ClassId == classroom.Id,
-            cancellationToken);
-
-        return Ok(new ClassResponse(
-            classroom.Id,
-            classroom.Name,
-            classroom.Code,
-            classroom.ProfessorId,
-            classroom.Professor?.FullName,
-            classroom.CreatedAt,
-            studentCount));
+        return Ok(ToResponse(classroom));
     }
 
     private async Task<Profile?> GetCurrentProfileAsync(CancellationToken cancellationToken)
@@ -200,6 +152,18 @@ public class ClassesController(
             return null;
         }
 
-        return await db.Profiles.FirstOrDefaultAsync(p => p.Id == userId, cancellationToken);
+        return await db.Profiles
+            .Find(p => p.Id == userId)
+            .FirstOrDefaultAsync(cancellationToken);
     }
+
+    private static ClassResponse ToResponse(ClassRoom classroom) =>
+        new(
+            classroom.Id,
+            classroom.Name,
+            classroom.Code,
+            classroom.ProfessorId,
+            classroom.ProfessorName,
+            classroom.CreatedAt,
+            classroom.StudentCount);
 }

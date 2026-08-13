@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
 using Astro.Api.Data;
 
 namespace Astro.Api.Services;
 
-public class ClassCodeGenerator(AppDbContext db)
+public class ClassCodeGenerator(MongoDbContext db)
 {
     private const string Alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -13,7 +13,9 @@ public class ClassCodeGenerator(AppDbContext db)
         for (var attempt = 0; attempt < 20; attempt++)
         {
             var code = GenerateCode();
-            var exists = await db.Classes.AnyAsync(c => c.Code == code, cancellationToken);
+            var exists = await db.Classes
+                .Find(c => c.Code == code)
+                .AnyAsync(cancellationToken);
             if (!exists)
             {
                 return code;

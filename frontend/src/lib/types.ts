@@ -1,5 +1,9 @@
 export type UserRole = "professor" | "aluno"
 
+export interface AuthSession {
+  accessToken: string
+}
+
 export interface Profile {
   id: string
   email: string

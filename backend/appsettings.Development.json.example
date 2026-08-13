@@ -6,11 +6,20 @@
     }
   },
   "ConnectionStrings": {
-    "DefaultConnection": "Host=aws-0-YOUR_REGION.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.YOUR_PROJECT;Password=YOUR_DB_PASSWORD;SSL Mode=Require;Trust Server Certificate=true"
+    "MongoDb": "mongodb+srv://USER:PASSWORD@clustertcc.r9fd94c.mongodb.net/astro?appName=ClusterTCC"
   },
-  "Supabase": {
-    "Url": "https://YOUR_PROJECT.supabase.co",
-    "JwtSecret": "YOUR_SUPABASE_JWT_SECRET"
+  "Auth": {
+    "FrontendUrl": "http://localhost:5173",
+    "Google": {
+      "ClientId": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+      "ClientSecret": "YOUR_GOOGLE_CLIENT_SECRET"
+    },
+    "Jwt": {
+      "Issuer": "Astro.Api",
+      "Audience": "Astro.Frontend",
+      "Key": "CHANGE_ME_USE_A_LONG_RANDOM_SECRET_AT_LEAST_32_CHARS",
+      "ExpiresHours": 168
+    }
   },
   "Cors": {
     "Origins": [ "http://localhost:5173" ]

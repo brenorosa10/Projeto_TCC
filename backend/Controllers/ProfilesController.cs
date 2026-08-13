@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
 using Astro.Api.Contracts;
 using Astro.Api.Data;
 using Astro.Api.Domain;
@@ -12,7 +12,7 @@ namespace Astro.Api.Controllers;
 [Authorize]
 [Route("api/profiles")]
 public class ProfilesController(
-    AppDbContext db,
+    MongoDbContext db,
     CurrentUserService currentUser) : ControllerBase
 {
     [HttpGet("me")]
@@ -24,10 +24,11 @@ public class ProfilesController(
             return Unauthorized();
         }
 
-        var profile = await db.Profiles.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == userId, cancellationToken);
+        var profile = await db.Profiles
+            .Find(p => p.Id == userId)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (profile is null)
+        if (profile is null || string.IsNullOrWhiteSpace(profile.Role))
         {
             return NotFound(new { detail = "Perfil ainda não criado." });
         }
@@ -51,10 +52,14 @@ public class ProfilesController(
             return BadRequest(new { detail = "Role inválida. Use professor ou aluno." });
         }
 
-        var existing = await db.Profiles.FirstOrDefaultAsync(p => p.Id == userId, cancellationToken);
+        var existing = await db.Profiles
+            .Find(p => p.Id == userId)
+            .FirstOrDefaultAsync(cancellationToken);
+
         if (existing is not null)
         {
-            if (!string.Equals(existing.Role, request.Role, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(existing.Role)
+                && !string.Equals(existing.Role, request.Role, StringComparison.OrdinalIgnoreCase))
             {
                 return Conflict(new
                 {
@@ -65,7 +70,10 @@ public class ProfilesController(
             existing.Email = currentUser.Email ?? existing.Email;
             existing.FullName = currentUser.FullName ?? existing.FullName;
             existing.AvatarUrl = currentUser.AvatarUrl ?? existing.AvatarUrl;
-            await db.SaveChangesAsync(cancellationToken);
+            existing.Role = string.IsNullOrWhiteSpace(existing.Role)
+                ? request.Role.ToLowerInvariant()
+                : existing.Role;
+            await db.Profiles.ReplaceOneAsync(p => p.Id == existing.Id, existing, cancellationToken: cancellationToken);
             return Ok(ToResponse(existing));
         }
 
@@ -79,8 +87,7 @@ public class ProfilesController(
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        db.Profiles.Add(profile);
-        await db.SaveChangesAsync(cancellationToken);
+        await db.Profiles.InsertOneAsync(profile, cancellationToken: cancellationToken);
         return Ok(ToResponse(profile));
     }
 

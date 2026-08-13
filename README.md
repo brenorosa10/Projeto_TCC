@@ -6,7 +6,12 @@ Stack:
 
 - **Frontend:** React + Vite + TypeScript + Tailwind CSS + shadcn/ui
 - **Backend:** ASP.NET Core 8 + SignalR
-- **Dados/Auth:** PostgreSQL e Google OAuth via Supabase
+- **Dados:** MongoDB Atlas (documentos polimórficos para quizzes, flashcards e novos tipos)
+- **Auth:** Google OAuth no ASP.NET Core (JWT próprio)
+
+Coleções: `profiles`, `classes` (matrículas embutidas), `activities` (itens polimórficos por `type`/`kind`), `liveSessions`, `answerAttempts` e `reviewProgress`. Novos formatos de questão entram como documentos com campos extras, sem migration SQL.
+
+No Google Cloud Console, crie um cliente OAuth **Web** e coloque `ClientId`/`ClientSecret` em `backend/appsettings.Development.json`. URI de redirecionamento: `http://localhost:5080/signin-google`.
 
 ## Funcionalidades
 
@@ -16,7 +21,7 @@ A plataforma combina sessões síncronas gamificadas com materiais de fixação 
 
 - **Professor:** cria turmas, elabora e gerencia atividades (quizzes, provas e flashcards), inicia/controla sessões ao vivo e acessa o painel analítico.
 - **Aluno:** ingressa em turmas por código, participa de sessões síncronas e usa o módulo de estudo assíncrono.
-- **Login obrigatório com Google (OAuth2):** o perfil (professor ou aluno) é definido na primeira entrada e permanece fixo.
+- **Login obrigatório com Google (OAuth2 no ASP.NET):** o perfil (professor ou aluno) é definido na primeira entrada e permanece fixo.
 
 ### Gestão de turmas
 

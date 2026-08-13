@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getApiBaseUrl } from "@/lib/api"
-import { supabase } from "@/lib/supabase"
+import { getAccessToken } from "@/lib/auth-token"
 
 export function ProfessorLivePage() {
   const [pin, setPin] = useState("")
@@ -23,8 +23,7 @@ export function ProfessorLivePage() {
     const sessionPin = pin.trim() || String(Math.floor(100000 + Math.random() * 900000))
     setPin(sessionPin)
 
-    const { data } = await supabase.auth.getSession()
-    const token = data.session?.access_token
+    const token = getAccessToken()
     if (!token) {
       toast.error("Faça login novamente.")
       return
