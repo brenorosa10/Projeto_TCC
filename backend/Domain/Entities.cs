@@ -10,6 +10,9 @@ public class Profile
 
     public string? GoogleId { get; set; }
     public string Email { get; set; } = string.Empty;
+    public string? Username { get; set; }
+    public string? UsernameNormalized { get; set; }
+    public string? PasswordHash { get; set; }
     public string? FullName { get; set; }
     public string? AvatarUrl { get; set; }
     public string Role { get; set; } = string.Empty;
@@ -58,6 +61,7 @@ public class Activity
     public string Title { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public Guid? SourceActivityId { get; set; }
+    public bool IsPublic { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<ActivityItem> Items { get; set; } = [];
 
@@ -89,6 +93,12 @@ public class ActivityItem
     public List<QuestionOption>? Options { get; set; }
     public string? Front { get; set; }
     public string? Back { get; set; }
+
+    [BsonIgnoreIfNull]
+    public byte[]? ImageBytes { get; set; }
+
+    [BsonIgnoreIfNull]
+    public string? ImageContentType { get; set; }
 
     [BsonExtraElements]
     public BsonDocument? Extra { get; set; }

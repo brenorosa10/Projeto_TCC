@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
+import { DeleteActivityButton } from "@/components/activity/delete-activity-button"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,7 @@ function typeLabel(type: string) {
 
 export function ProfessorActivityDetailPage() {
   const { activityId } = useParams()
+  const navigate = useNavigate()
   const [activity, setActivity] = useState<Activity | null>(null)
   const [classes, setClasses] = useState<ClassRoom[]>([])
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
@@ -91,10 +93,32 @@ export function ProfessorActivityDetailPage() {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <h1 className="font-display text-3xl font-semibold">{activity.title}</h1>
               <Badge variant="secondary">{typeLabel(activity.type)}</Badge>
+              <Badge variant="outline">{activity.isPublic ? "Público" : "Privado"}</Badge>
             </div>
             <p className="mt-2 text-muted-foreground">
               {activity.itemCount} {activity.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
             </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button asChild variant="outline">
+                <Link
+                  to={
+                    activity.type === "flashcards"
+                      ? `/professor/flashcards/${activity.id}/editar`
+                      : `/professor/quiz/${activity.id}/editar`
+                  }
+                >
+                  Editar
+                </Link>
+              </Button>
+              <DeleteActivityButton
+                activityId={activity.id}
+                title={activity.title}
+                type={activity.type}
+                variant="destructive"
+                size="default"
+                onDeleted={() => navigate("/professor/atividades")}
+              />
+            </div>
           </div>
 
           <section className="space-y-4 rounded-lg border border-border p-4">
@@ -147,6 +171,13 @@ export function ProfessorActivityDetailPage() {
                       Cartão {index + 1}
                     </p>
                     <p className="mt-2 font-medium">{item.front}</p>
+                    {item.imageDataUrl ? (
+                      <img
+                        src={item.imageDataUrl}
+                        alt=""
+                        className="mt-3 max-h-56 w-full rounded-md border border-border object-contain bg-muted/30"
+                      />
+                    ) : null}
                     <p className="mt-1 text-muted-foreground">{item.back}</p>
                   </>
                 ) : (
@@ -156,6 +187,13 @@ export function ProfessorActivityDetailPage() {
                       {item.timeLimitSeconds ? ` · ${item.timeLimitSeconds}s` : null}
                     </p>
                     <p className="mt-2 font-medium">{item.prompt}</p>
+                    {item.imageDataUrl ? (
+                      <img
+                        src={item.imageDataUrl}
+                        alt=""
+                        className="mt-3 max-h-56 w-full rounded-md border border-border object-contain bg-muted/30"
+                      />
+                    ) : null}
                     <ul className="mt-3 space-y-1 text-sm">
                       {item.options?.map((option) => (
                         <li key={option.id} className={option.isCorrect ? "font-medium text-primary" : ""}>

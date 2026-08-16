@@ -29,6 +29,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route
+            path="/explorar/quiz/:activityId"
+            element={<AlunoQuizStudyPage />}
+          />
+          <Route
+            path="/explorar/flashcards/:activityId"
+            element={<AlunoFlashcardStudyPage />}
+          />
 
           <Route
             path="/professor"
@@ -79,7 +87,23 @@ export default function App() {
             }
           />
           <Route
+            path="/professor/quiz/:activityId/editar"
+            element={
+              <RequireRole role="professor">
+                <ProfessorCreateQuizPage />
+              </RequireRole>
+            }
+          />
+          <Route
             path="/professor/flashcards/novo"
+            element={
+              <RequireRole role="professor">
+                <ProfessorCreateFlashcardsPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/professor/flashcards/:activityId/editar"
             element={
               <RequireRole role="professor">
                 <ProfessorCreateFlashcardsPage />

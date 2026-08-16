@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useLocation, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import type { StudyFlashcardCard, StudyFlashcardSession } from "@/lib/types"
 
 export function AlunoFlashcardStudyPage() {
   const { activityId } = useParams()
+  const location = useLocation()
+  const { session: authSession } = useAuth()
+  const isGuest = location.pathname.startsWith("/explorar") || !authSession
   const [session, setSession] = useState<StudyFlashcardSession | null>(null)
   const [queue, setQueue] = useState<StudyFlashcardCard[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,8 +22,10 @@ export function AlunoFlashcardStudyPage() {
 
   useEffect(() => {
     if (!activityId) return
-    api
-      .getFlashcardSession(activityId)
+    const load = isGuest
+      ? api.getPublicFlashcardSession(activityId)
+      : api.getFlashcardSession(activityId)
+    load
       .then((data) => {
         setSession(data)
         setQueue(data.cards)
@@ -29,7 +35,7 @@ export function AlunoFlashcardStudyPage() {
         toast.error(error instanceof Error ? error.message : "Erro ao carregar flashcards")
       )
       .finally(() => setLoading(false))
-  }, [activityId])
+  }, [activityId, isGuest])
 
   const card = queue[0]
 
@@ -37,6 +43,18 @@ export function AlunoFlashcardStudyPage() {
     if (!activityId || !card || submitting) return
     setSubmitting(true)
     try {
+      if (isGuest) {
+        setReviewed((prev) => prev + 1)
+        setFlipped(false)
+        setQueue((prev) => {
+          const rest = prev.slice(1)
+          if (!remembered) {
+            return [...rest, card]
+          }
+          return rest
+        })
+        return
+      }
       const result = await api.submitFlashcardReview(activityId, card.id, remembered)
       setReviewed((prev) => prev + 1)
       setFlipped(false)
@@ -70,8 +88,8 @@ export function AlunoFlashcardStudyPage() {
         <div className="space-y-8">
           <div>
             <p className="text-sm text-muted-foreground">
-              <Link to="/aluno/estudar" className="hover:text-primary">
-                Estudar
+              <Link to={isGuest ? "/" : "/aluno/estudar"} className="hover:text-primary">
+                {isGuest ? "Início" : "Estudar"}
               </Link>{" "}
               / {session.title}
             </p>
@@ -92,7 +110,7 @@ export function AlunoFlashcardStudyPage() {
                   : "Nenhum cartão está devido. Volte mais tarde para a repetição espaçada."}
               </p>
               <Button asChild variant="outline">
-                <Link to="/aluno/estudar">Voltar à lista</Link>
+                <Link to={isGuest ? "/" : "/aluno/estudar"}>Voltar à lista</Link>
               </Button>
             </div>
           ) : (
@@ -109,6 +127,13 @@ export function AlunoFlashcardStudyPage() {
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {flipped ? "Verso" : "Frente"}
                 </p>
+                {!flipped && card.imageDataUrl ? (
+                  <img
+                    src={card.imageDataUrl}
+                    alt=""
+                    className="mt-3 max-h-56 w-full rounded-md object-contain"
+                  />
+                ) : null}
                 <p className="mt-3 font-display text-2xl font-semibold">
                   {flipped ? card.back : card.front}
                 </p>

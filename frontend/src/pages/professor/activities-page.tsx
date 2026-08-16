@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
+import { DeleteActivityButton } from "@/components/activity/delete-activity-button"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -67,6 +68,7 @@ export function ProfessorActivitiesPage() {
                 </Link>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Badge variant="secondary">{typeLabel(item.type)}</Badge>
+                  <Badge variant="outline">{item.isPublic ? "Público" : "Privado"}</Badge>
                   <span>
                     {item.itemCount} {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
                   </span>
@@ -77,9 +79,30 @@ export function ProfessorActivitiesPage() {
                   </span>
                 </div>
               </div>
-              <Button asChild variant="outline" size="sm">
-                <Link to={`/professor/atividades/${item.id}`}>Abrir</Link>
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    to={
+                      item.type === "flashcards"
+                        ? `/professor/flashcards/${item.id}/editar`
+                        : `/professor/quiz/${item.id}/editar`
+                    }
+                  >
+                    Editar
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link to={`/professor/atividades/${item.id}`}>Abrir</Link>
+                </Button>
+                <DeleteActivityButton
+                  activityId={item.id}
+                  title={item.title}
+                  type={item.type}
+                  onDeleted={() =>
+                    setActivities((prev) => prev.filter((activity) => activity.id !== item.id))
+                  }
+                />
+              </div>
             </li>
           ))}
         </ul>

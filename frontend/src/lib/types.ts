@@ -7,6 +7,7 @@ export interface AuthSession {
 export interface Profile {
   id: string
   email: string
+  username: string | null
   fullName: string | null
   avatarUrl: string | null
   role: UserRole
@@ -25,6 +26,23 @@ export interface ClassRoom {
 
 export interface EnsureProfileRequest {
   role: UserRole
+}
+
+export interface RegisterRequest {
+  username: string
+  email: string
+  password: string
+  role: UserRole
+}
+
+export interface LoginRequest {
+  login: string
+  password: string
+}
+
+export interface AuthResponse {
+  accessToken: string
+  profile: Profile
 }
 
 export interface CreateClassRequest {
@@ -46,6 +64,7 @@ export interface ActivitySummary {
   itemCount: number
   sourceActivityId?: string | null
   classIds: string[]
+  isPublic: boolean
 }
 
 export interface QuestionOption {
@@ -65,6 +84,7 @@ export interface ActivityItem {
   options?: QuestionOption[] | null
   front?: string | null
   back?: string | null
+  imageDataUrl?: string | null
 }
 
 export interface Activity extends ActivitySummary {
@@ -72,23 +92,36 @@ export interface Activity extends ActivitySummary {
 }
 
 export interface CreateQuestionOptionRequest {
+  id?: string
   text: string
   isCorrect: boolean
 }
 
 export interface CreateActivityItemRequest {
+  id?: string
   prompt?: string
   explanation?: string
   timeLimitSeconds?: number
   options?: CreateQuestionOptionRequest[]
   front?: string
   back?: string
+  imageDataUrl?: string
 }
 
 export interface CreateActivityRequest {
   title: string
   type: "quiz" | "flashcards"
   items: CreateActivityItemRequest[]
+  isPublic?: boolean
+}
+
+export interface PublicActivitySummary {
+  id: string
+  title: string
+  type: ActivityType
+  itemCount: number
+  createdAt: string
+  professorName?: string | null
 }
 
 export interface StudyQuizSummary {
@@ -96,6 +129,7 @@ export interface StudyQuizSummary {
   title: string
   itemCount: number
   classNames: string[]
+  isPublic?: boolean
 }
 
 export interface SubmitStudyAnswerRequest {
@@ -118,6 +152,7 @@ export interface StudyFlashcardSummary {
   itemCount: number
   dueCount: number
   classNames: string[]
+  isPublic?: boolean
 }
 
 export interface StudyFlashcardCard {
@@ -125,6 +160,7 @@ export interface StudyFlashcardCard {
   front: string
   back: string
   boxLevel: number
+  imageDataUrl?: string | null
 }
 
 export interface StudyFlashcardSession {

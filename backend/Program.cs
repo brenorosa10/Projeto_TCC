@@ -18,6 +18,11 @@ using Astro.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 20_971_520;
+});
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -52,6 +57,7 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddSingleton<PasswordHashingService>();
 builder.Services.AddScoped<ClassCodeGenerator>();
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSignalR();

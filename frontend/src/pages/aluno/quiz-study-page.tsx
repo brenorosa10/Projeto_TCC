@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { Activity, ActivityItem, StudyAnswerFeedback } from "@/lib/types"
@@ -10,6 +11,9 @@ import type { Activity, ActivityItem, StudyAnswerFeedback } from "@/lib/types"
 export function AlunoQuizStudyPage() {
   const { activityId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const { session } = useAuth()
+  const isGuest = location.pathname.startsWith("/explorar") || !session
   const [quiz, setQuiz] = useState<Activity | null>(null)
   const [loading, setLoading] = useState(true)
   const [index, setIndex] = useState(0)
@@ -26,16 +30,21 @@ export function AlunoQuizStudyPage() {
 
   useEffect(() => {
     if (!activityId) return
-    api
-      .getActivity(activityId)
+    const load = isGuest ? api.getPublicActivity(activityId) : api.getActivity(activityId)
+    load
       .then((activity) => {
         if (activity.type === "flashcards") {
-          navigate(`/aluno/estudar/flashcards/${activityId}`, { replace: true })
+          navigate(
+            isGuest
+              ? `/explorar/flashcards/${activityId}`
+              : `/aluno/estudar/flashcards/${activityId}`,
+            { replace: true }
+          )
           return
         }
         if (activity.type !== "quiz") {
           toast.error("Esta atividade não é um quiz.")
-          navigate("/aluno/estudar")
+          navigate(isGuest ? "/" : "/aluno/estudar")
           return
         }
         setQuiz(activity)
@@ -44,18 +53,21 @@ export function AlunoQuizStudyPage() {
         toast.error(error instanceof Error ? error.message : "Erro ao carregar quiz")
       )
       .finally(() => setLoading(false))
-  }, [activityId, navigate])
+  }, [activityId, isGuest, navigate])
 
   async function submitAnswer(optionId: string) {
     if (!activityId || !question || submittingRef.current || feedback) return
     submittingRef.current = true
     setSubmitting(true)
     try {
-      const response = await api.submitStudyAnswer(activityId, {
+      const payload = {
         itemId: question.id,
         selectedOptionId: optionId,
         responseTimeMs: Date.now() - startedAtRef.current,
-      })
+      }
+      const response = isGuest
+        ? await api.submitPublicAnswer(activityId, payload)
+        : await api.submitStudyAnswer(activityId, payload)
       setFeedback(response)
       setResults((prev) => [...prev, response])
     } catch (error) {
@@ -99,8 +111,8 @@ export function AlunoQuizStudyPage() {
         <div className="space-y-8">
           <div>
             <p className="text-sm text-muted-foreground">
-              <Link to="/aluno/estudar" className="hover:text-primary">
-                Estudar
+              <Link to={isGuest ? "/" : "/aluno/estudar"} className="hover:text-primary">
+                {isGuest ? "Início" : "Estudar"}
               </Link>{" "}
               / {quiz.title}
             </p>
@@ -119,7 +131,7 @@ export function AlunoQuizStudyPage() {
                   Refazer
                 </Button>
                 <Button asChild variant="outline">
-                  <Link to="/aluno/estudar">Voltar à lista</Link>
+                  <Link to={isGuest ? "/" : "/aluno/estudar"}>Voltar à lista</Link>
                 </Button>
               </div>
             </div>
@@ -130,6 +142,13 @@ export function AlunoQuizStudyPage() {
               </p>
 
               <p className="font-display text-xl font-semibold">{question.prompt}</p>
+              {question.imageDataUrl ? (
+                <img
+                  src={question.imageDataUrl}
+                  alt=""
+                  className="max-h-64 w-full rounded-lg border border-border object-contain bg-muted/30"
+                />
+              ) : null}
 
               <ul className="grid gap-2">
                 {question.options?.map((option) => {

@@ -31,18 +31,13 @@ public class StudyController(
         }
 
         var classes = await EnrolledClassesAsync(profile.Id, cancellationToken);
-        if (classes.Count == 0)
-        {
-            return Ok(Array.Empty<StudyQuizSummaryResponse>());
-        }
-
         var classIds = classes.Select(c => c.Id).ToList();
         var nameById = classes.ToDictionary(c => c.Id, c => c.Name);
 
         var filter = Builders<Activity>.Filter.Eq(a => a.Type, ActivityTypes.Quiz)
-            & Builders<Activity>.Filter.Or(
-                Builders<Activity>.Filter.AnyIn(a => a.ClassIds, classIds),
-                Builders<Activity>.Filter.In(a => a.ClassId, classIds));
+            & (Builders<Activity>.Filter.Eq(a => a.IsPublic, true)
+                | Builders<Activity>.Filter.AnyIn(a => a.ClassIds, classIds)
+                | Builders<Activity>.Filter.In(a => a.ClassId, classIds));
 
         var quizzes = await db.Activities
             .Find(filter)
@@ -57,7 +52,7 @@ public class StudyController(
                 .Distinct()
                 .ToList();
 
-            return new StudyQuizSummaryResponse(quiz.Id, quiz.Title, quiz.Items.Count, names);
+            return new StudyQuizSummaryResponse(quiz.Id, quiz.Title, quiz.Items.Count, names, quiz.IsPublic);
         });
 
         return Ok(summaries);
@@ -74,14 +69,9 @@ public class StudyController(
         }
 
         var classes = await EnrolledClassesAsync(access.Profile!.Id, cancellationToken);
-        if (classes.Count == 0)
-        {
-            return Ok(Array.Empty<StudyFlashcardSummaryResponse>());
-        }
-
         var classIds = classes.Select(c => c.Id).ToList();
         var nameById = classes.ToDictionary(c => c.Id, c => c.Name);
-        var decks = await FindLinkedActivitiesAsync(classIds, ActivityTypes.Flashcards, cancellationToken);
+        var decks = await FindStudyActivitiesAsync(classIds, ActivityTypes.Flashcards, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         var summaries = new List<StudyFlashcardSummaryResponse>();
 
@@ -99,7 +89,7 @@ public class StudyController(
                 .Distinct()
                 .ToList();
 
-            summaries.Add(new StudyFlashcardSummaryResponse(deck.Id, deck.Title, deck.Items.Count, dueCount, names));
+            summaries.Add(new StudyFlashcardSummaryResponse(deck.Id, deck.Title, deck.Items.Count, dueCount, names, deck.IsPublic));
         }
 
         return Ok(summaries);
@@ -150,7 +140,8 @@ public class StudyController(
                     item.Id,
                     item.Front ?? string.Empty,
                     item.Back ?? string.Empty,
-                    state?.BoxLevel ?? LeitnerScheduler.MinBox);
+                    state?.BoxLevel ?? LeitnerScheduler.MinBox,
+                    ActivityImage.ToDataUrl(item));
             })
             .Where(card => card is not null)
             .Cast<StudyFlashcardCardResponse>()
@@ -244,15 +235,15 @@ public class StudyController(
         return (profile, null);
     }
 
-    private Task<List<Activity>> FindLinkedActivitiesAsync(
+    private Task<List<Activity>> FindStudyActivitiesAsync(
         List<Guid> classIds,
         string type,
         CancellationToken cancellationToken)
     {
         var filter = Builders<Activity>.Filter.Eq(a => a.Type, type)
-            & Builders<Activity>.Filter.Or(
-                Builders<Activity>.Filter.AnyIn(a => a.ClassIds, classIds),
-                Builders<Activity>.Filter.In(a => a.ClassId, classIds));
+            & (Builders<Activity>.Filter.Eq(a => a.IsPublic, true)
+                | Builders<Activity>.Filter.AnyIn(a => a.ClassIds, classIds)
+                | Builders<Activity>.Filter.In(a => a.ClassId, classIds));
 
         return db.Activities
             .Find(filter)
@@ -336,6 +327,11 @@ public class StudyController(
 
     private async Task<bool> StudentCanAccessAsync(Guid studentId, Activity activity, CancellationToken cancellationToken)
     {
+        if (activity.IsPublic)
+        {
+            return true;
+        }
+
         var linked = activity.LinkedClassIds();
         if (linked.Count == 0)
         {

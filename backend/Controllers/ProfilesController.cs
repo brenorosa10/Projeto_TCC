@@ -92,5 +92,5 @@ public class ProfilesController(
     }
 
     private static ProfileResponse ToResponse(Profile profile) =>
-        new(profile.Id, profile.Email, profile.FullName, profile.AvatarUrl, profile.Role, profile.CreatedAt);
+        new(profile.Id, profile.Email, profile.Username, profile.FullName, profile.AvatarUrl, profile.Role, profile.CreatedAt);
 }

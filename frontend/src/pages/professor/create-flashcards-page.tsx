@@ -1,26 +1,62 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Plus, Trash2 } from "lucide-react"
+import { ItemImageField } from "@/components/activity/item-image-field"
+import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
+import { assertActivityPayloadFits } from "@/lib/compress-image"
 import type { CreateActivityRequest } from "@/lib/types"
 
-type DraftCard = { key: string; front: string; back: string }
+type DraftCard = { key: string; id?: string; front: string; back: string; imageDataUrl?: string }
 
 function newCard(): DraftCard {
   return { key: crypto.randomUUID(), front: "", back: "" }
 }
 
 export function ProfessorCreateFlashcardsPage() {
+  const { activityId } = useParams()
+  const isEditing = Boolean(activityId)
   const navigate = useNavigate()
   const [title, setTitle] = useState("")
+  const [isPublic, setIsPublic] = useState(false)
   const [cards, setCards] = useState<DraftCard[]>([newCard()])
+  const [loading, setLoading] = useState(isEditing)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!activityId) return
+    api
+      .getActivity(activityId)
+      .then((activity) => {
+        if (activity.type !== "flashcards") {
+          toast.error("Esta atividade não é um deck de flashcards.")
+          navigate(`/professor/atividades/${activity.id}`, { replace: true })
+          return
+        }
+        setTitle(activity.title)
+        setIsPublic(Boolean(activity.isPublic))
+        setCards(
+          activity.items.map((item) => ({
+            key: item.id,
+            id: item.id,
+            front: item.front ?? "",
+            back: item.back ?? "",
+            imageDataUrl: item.imageDataUrl ?? undefined,
+          }))
+        )
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : "Erro ao carregar flashcards")
+        navigate("/professor/atividades")
+      })
+      .finally(() => setLoading(false))
+  }, [activityId, navigate])
 
   function updateCard(key: string, patch: Partial<DraftCard>) {
     setCards((prev) => prev.map((card) => (card.key === key ? { ...card, ...patch } : card)))
@@ -41,40 +77,71 @@ export function ProfessorCreateFlashcardsPage() {
       }
     }
 
+    try {
+      assertActivityPayloadFits(cards.map((card) => card.imageDataUrl))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Imagens grandes demais.")
+      return
+    }
+
     const payload: CreateActivityRequest = {
       title: title.trim(),
       type: "flashcards",
+      isPublic,
       items: cards.map((card) => ({
+        id: card.id,
         front: card.front.trim(),
         back: card.back.trim(),
+        imageDataUrl: card.imageDataUrl,
       })),
     }
 
     setSaving(true)
     try {
-      const created = await api.createActivity(payload)
-      toast.success("Deck de flashcards criado. Vincule-o às turmas quando quiser.")
-      navigate(`/professor/atividades/${created.id}`)
+      const saved = isEditing && activityId
+        ? await api.updateActivity(activityId, payload)
+        : await api.createActivity(payload)
+      toast.success(
+        isEditing
+          ? "Deck atualizado."
+          : "Deck de flashcards criado. Vincule-o às turmas quando quiser."
+      )
+      navigate(`/professor/atividades/${saved.id}`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar flashcards")
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar flashcards")
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <AppShell title="Novos flashcards">
+    <AppShell title={isEditing ? "Editar flashcards" : "Novos flashcards"}>
+      {loading ? (
+        <p className="text-muted-foreground">Carregando...</p>
+      ) : (
       <form className="space-y-8" onSubmit={(event) => void handleSubmit(event)}>
         <div>
           <p className="text-sm text-muted-foreground">
             <Link to="/professor/atividades" className="hover:text-primary">
               Atividades
-            </Link>{" "}
-            / Novos flashcards
+            </Link>
+            {isEditing && activityId ? (
+              <>
+                {" "}
+                /{" "}
+                <Link to={`/professor/atividades/${activityId}`} className="hover:text-primary">
+                  Detalhe
+                </Link>
+              </>
+            ) : null}{" "}
+            / {isEditing ? "Editar flashcards" : "Novos flashcards"}
           </p>
-          <h1 className="mt-2 font-display text-3xl font-semibold">Criar flashcards</h1>
+          <h1 className="mt-2 font-display text-3xl font-semibold">
+            {isEditing ? "Editar flashcards" : "Criar flashcards"}
+          </h1>
           <p className="mt-2 text-muted-foreground">
-            Frente com o conceito ou pergunta; verso com a resposta.
+            Frente com o conceito ou pergunta; verso com a resposta. A imagem opcional aparece na
+            frente do cartão.
           </p>
         </div>
 
@@ -88,6 +155,8 @@ export function ProfessorCreateFlashcardsPage() {
             required
           />
         </div>
+
+        <VisibilityCheckbox id="deck-public" checked={isPublic} onChange={setIsPublic} />
 
         <div className="space-y-6">
           {cards.map((card, index) => (
@@ -126,6 +195,11 @@ export function ProfessorCreateFlashcardsPage() {
                   />
                 </div>
               </div>
+              <ItemImageField
+                id={`image-${card.key}`}
+                imageDataUrl={card.imageDataUrl}
+                onChange={(imageDataUrl) => updateCard(card.key, { imageDataUrl })}
+              />
             </section>
           ))}
         </div>
@@ -137,10 +211,11 @@ export function ProfessorCreateFlashcardsPage() {
 
         <div>
           <Button type="submit" disabled={saving}>
-            {saving ? "Salvando..." : "Criar flashcards"}
+            {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar flashcards"}
           </Button>
         </div>
       </form>
+      )}
     </AppShell>
   )
 }

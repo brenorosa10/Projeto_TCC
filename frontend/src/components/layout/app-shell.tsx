@@ -23,11 +23,12 @@ export function AppShell({
 }) {
   const { profile, signOut } = useAuth()
   const { pathname } = useLocation()
-  const home = profile?.role === "professor" ? "/professor" : "/aluno"
-  const backTo = parentRoute(pathname)
+  const home = !profile ? "/" : profile.role === "professor" ? "/professor" : "/aluno"
+  const backTo = pathname.startsWith("/explorar") ? "/" : parentRoute(pathname)
+  const displayName = profile?.username ?? profile?.fullName ?? profile?.email
   const initials =
-    profile?.fullName
-      ?.split(" ")
+    displayName
+      ?.split(/[\s_]+/)
       .slice(0, 2)
       .map((part) => part[0])
       .join("")
@@ -58,12 +59,12 @@ export function AppShell({
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-auto gap-3 px-2 py-1.5">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={profile.avatarUrl ?? undefined} alt={profile.fullName ?? ""} />
+                    <AvatarImage src={profile.avatarUrl ?? undefined} alt={displayName ?? ""} />
                     <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
                   <div className="hidden text-left sm:block">
                     <p className="text-sm font-medium leading-none">
-                      {profile.fullName ?? profile.email}
+                      {displayName}
                     </p>
                     <Badge
                       variant={profile.role === "professor" ? "professor" : "aluno"}
@@ -83,7 +84,11 @@ export function AppShell({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : null}
+          ) : (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/">Entrar</Link>
+            </Button>
+          )}
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>

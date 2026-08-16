@@ -1,22 +1,27 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Plus, Trash2 } from "lucide-react"
+import { ItemImageField } from "@/components/activity/item-image-field"
+import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
+import { assertActivityPayloadFits } from "@/lib/compress-image"
 import type { CreateActivityRequest } from "@/lib/types"
 
-type DraftOption = { key: string; text: string; isCorrect: boolean }
+type DraftOption = { key: string; id?: string; text: string; isCorrect: boolean }
 type DraftQuestion = {
   key: string
+  id?: string
   prompt: string
   explanation: string
   timeLimitSeconds: number
   options: DraftOption[]
+  imageDataUrl?: string
 }
 
 function newOption(isCorrect = false): DraftOption {
@@ -34,10 +39,53 @@ function newQuestion(): DraftQuestion {
 }
 
 export function ProfessorCreateQuizPage() {
+  const { activityId } = useParams()
+  const isEditing = Boolean(activityId)
   const navigate = useNavigate()
   const [title, setTitle] = useState("")
+  const [isPublic, setIsPublic] = useState(false)
   const [questions, setQuestions] = useState<DraftQuestion[]>([newQuestion()])
+  const [loading, setLoading] = useState(isEditing)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!activityId) return
+    api
+      .getActivity(activityId)
+      .then((activity) => {
+        if (activity.type !== "quiz") {
+          toast.error("Esta atividade não é um quiz.")
+          navigate(`/professor/atividades/${activity.id}`, { replace: true })
+          return
+        }
+        setTitle(activity.title)
+        setIsPublic(Boolean(activity.isPublic))
+        setQuestions(
+          activity.items.map((item) => ({
+            key: item.id,
+            id: item.id,
+            prompt: item.prompt ?? "",
+            explanation: item.explanation ?? "",
+            timeLimitSeconds: item.timeLimitSeconds ?? 30,
+            imageDataUrl: item.imageDataUrl ?? undefined,
+            options:
+              item.options && item.options.length > 0
+                ? item.options.map((option) => ({
+                    key: option.id,
+                    id: option.id,
+                    text: option.text,
+                    isCorrect: Boolean(option.isCorrect),
+                  }))
+                : [newOption(true), newOption()],
+          }))
+        )
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : "Erro ao carregar quiz")
+        navigate("/professor/atividades")
+      })
+      .finally(() => setLoading(false))
+  }, [activityId, navigate])
 
   function updateQuestion(key: string, patch: Partial<DraftQuestion>) {
     setQuestions((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)))
@@ -118,14 +166,25 @@ export function ProfessorCreateQuizPage() {
       }
     }
 
+    try {
+      assertActivityPayloadFits(questions.map((question) => question.imageDataUrl))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Imagens grandes demais.")
+      return null
+    }
+
     return {
       title: title.trim(),
       type: "quiz",
+      isPublic,
       items: questions.map((question) => ({
+        id: question.id,
         prompt: question.prompt.trim(),
         explanation: question.explanation.trim() || undefined,
         timeLimitSeconds: question.timeLimitSeconds || 30,
+        imageDataUrl: question.imageDataUrl,
         options: question.options.map((option) => ({
+          id: option.id,
           text: option.text.trim(),
           isCorrect: option.isCorrect,
         })),
@@ -139,34 +198,56 @@ export function ProfessorCreateQuizPage() {
 
     setSaving(true)
     try {
-      const quiz = await api.createActivity(payload)
+      const quiz = isEditing && activityId
+        ? await api.updateActivity(activityId, payload)
+        : await api.createActivity(payload)
       if (importCards) {
         const deck = await api.importFlashcards(quiz.id)
         toast.success(
-          `Quiz criado. ${deck.itemCount} flashcard(s) importados a partir das respostas corretas.`
+          isEditing
+            ? `Quiz atualizado. ${deck.itemCount} flashcard(s) sincronizados a partir das respostas corretas.`
+            : `Quiz criado. ${deck.itemCount} flashcard(s) importados a partir das respostas corretas.`
         )
       } else {
-        toast.success("Quiz criado. Vincule-o às turmas quando quiser.")
+        toast.success(
+          isEditing
+            ? "Quiz atualizado."
+            : "Quiz criado. Vincule-o às turmas quando quiser."
+        )
       }
       navigate(`/professor/atividades/${quiz.id}`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar quiz")
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar quiz")
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <AppShell title="Novo quiz">
+    <AppShell title={isEditing ? "Editar quiz" : "Novo quiz"}>
+      {loading ? (
+        <p className="text-muted-foreground">Carregando...</p>
+      ) : (
       <div className="space-y-8">
         <div>
           <p className="text-sm text-muted-foreground">
             <Link to="/professor/atividades" className="hover:text-primary">
               Atividades
-            </Link>{" "}
-            / Novo quiz
+            </Link>
+            {isEditing && activityId ? (
+              <>
+                {" "}
+                /{" "}
+                <Link to={`/professor/atividades/${activityId}`} className="hover:text-primary">
+                  Detalhe
+                </Link>
+              </>
+            ) : null}{" "}
+            / {isEditing ? "Editar quiz" : "Novo quiz"}
           </p>
-          <h1 className="mt-2 font-display text-3xl font-semibold">Criar quiz</h1>
+          <h1 className="mt-2 font-display text-3xl font-semibold">
+            {isEditing ? "Editar quiz" : "Criar quiz"}
+          </h1>
           <p className="mt-2 text-muted-foreground">
             2 a 5 alternativas por questão, com exatamente uma resposta correta. O mesmo quiz
             pode ser vinculado a várias turmas depois; a sessão ao vivo é iniciada à parte.
@@ -183,6 +264,8 @@ export function ProfessorCreateQuizPage() {
             required
           />
         </div>
+
+        <VisibilityCheckbox id="quiz-public" checked={isPublic} onChange={setIsPublic} />
 
         <div className="space-y-6">
           {questions.map((question, index) => (
@@ -213,6 +296,12 @@ export function ProfessorCreateQuizPage() {
                   placeholder="Qual o maior planeta do Sistema Solar?"
                 />
               </div>
+
+              <ItemImageField
+                id={`image-${question.key}`}
+                imageDataUrl={question.imageDataUrl}
+                onChange={(imageDataUrl) => updateQuestion(question.key, { imageDataUrl })}
+              />
 
               <div className="grid gap-3">
                 {question.options.map((option, optionIndex) => (
@@ -291,7 +380,7 @@ export function ProfessorCreateQuizPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button type="button" disabled={saving} onClick={() => void saveQuiz(false)}>
-            {saving ? "Salvando..." : "Criar quiz"}
+            {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar quiz"}
           </Button>
           <Button
             type="button"
@@ -299,14 +388,15 @@ export function ProfessorCreateQuizPage() {
             disabled={saving}
             onClick={() => void saveQuiz(true)}
           >
-            Importar flashcards
+            {isEditing ? "Salvar e sincronizar flashcards" : "Importar flashcards"}
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Importar flashcards cria o quiz e um deck em que a frente é o enunciado e o verso é a
-          alternativa correta.
+          Importar flashcards cria (ou atualiza) um deck em que a frente é o enunciado, o verso é a
+          alternativa correta e a imagem da questão é copiada.
         </p>
       </div>
+      )}
     </AppShell>
   )
 }

@@ -24,6 +24,11 @@ public class JwtTokenService(IConfiguration configuration)
             new(ClaimTypes.Email, profile.Email)
         };
 
+        if (!string.IsNullOrWhiteSpace(profile.Username))
+        {
+            claims.Add(new Claim("username", profile.Username));
+        }
+
         if (!string.IsNullOrWhiteSpace(profile.FullName))
         {
             claims.Add(new Claim("name", profile.FullName));

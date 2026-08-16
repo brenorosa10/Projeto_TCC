@@ -23,6 +23,10 @@ interface AuthContextValue {
   profile: Profile | null
   loading: boolean
   signInWithGoogle: (role: UserRole) => Promise<void>
+  signInWithPassword: (login: string, password: string) => Promise<Profile>
+  registerWithPassword: (
+    input: { username: string; email: string; password: string; role: UserRole }
+  ) => Promise<Profile>
   signOut: () => Promise<void>
   ensureProfile: (role?: UserRole) => Promise<Profile>
   refreshProfile: () => Promise<Profile | null>
@@ -99,6 +103,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     startGoogleLogin()
   }, [])
 
+  const applyAuthResponse = useCallback((accessToken: string, nextProfile: Profile) => {
+    setAccessToken(accessToken)
+    setSession({ accessToken })
+    setProfile(nextProfile)
+    clearIntendedRole()
+    return nextProfile
+  }, [clearIntendedRole])
+
+  const signInWithPassword = useCallback(
+    async (login: string, password: string) => {
+      const result = await api.login({ login, password })
+      return applyAuthResponse(result.accessToken, result.profile)
+    },
+    [applyAuthResponse]
+  )
+
+  const registerWithPassword = useCallback(
+    async (input: { username: string; email: string; password: string; role: UserRole }) => {
+      const result = await api.register(input)
+      return applyAuthResponse(result.accessToken, result.profile)
+    },
+    [applyAuthResponse]
+  )
+
   const signOut = useCallback(async () => {
     clearIntendedRole()
     clearAccessToken()
@@ -126,6 +154,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       loading,
       signInWithGoogle,
+      signInWithPassword,
+      registerWithPassword,
       signOut,
       ensureProfile,
       refreshProfile,
@@ -137,6 +167,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       loading,
       signInWithGoogle,
+      signInWithPassword,
+      registerWithPassword,
       signOut,
       ensureProfile,
       refreshProfile,

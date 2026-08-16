@@ -58,6 +58,7 @@ export function AlunoStudyPage() {
                       <p className="font-medium">{quiz.title}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                         <Badge variant="secondary">Quiz</Badge>
+                        {quiz.isPublic ? <Badge variant="outline">Público</Badge> : null}
                         <span>
                           {quiz.itemCount} questão(ões)
                           {quiz.classNames.length > 0 ? ` · ${quiz.classNames.join(", ")}` : null}
@@ -88,6 +89,7 @@ export function AlunoStudyPage() {
                       <p className="font-medium">{deck.title}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                         <Badge variant="secondary">Flashcards</Badge>
+                        {deck.isPublic ? <Badge variant="outline">Público</Badge> : null}
                         <span>
                           {deck.dueCount} para revisar agora · {deck.itemCount} cartão(ões)
                           {deck.classNames.length > 0 ? ` · ${deck.classNames.join(", ")}` : null}

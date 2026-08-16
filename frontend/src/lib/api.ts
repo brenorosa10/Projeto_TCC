@@ -8,7 +8,11 @@ import type {
   CreateClassRequest,
   EnsureProfileRequest,
   JoinClassRequest,
+  LoginRequest,
   Profile,
+  RegisterRequest,
+  AuthResponse,
+  PublicActivitySummary,
   StudyAnswerFeedback,
   StudyFlashcardSession,
   StudyFlashcardSummary,
@@ -44,8 +48,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     let message = `Erro ${response.status}`
     try {
-      const body = (await response.json()) as ApiErrorBody
-      message = body.detail ?? body.message ?? body.title ?? message
+      const body = (await response.json()) as ApiErrorBody & {
+        errors?: Record<string, string[] | string>
+      }
+      const validation = body.errors
+        ? Object.values(body.errors).flat().find((item) => typeof item === "string")
+        : undefined
+      message =
+        (typeof validation === "string" ? validation : undefined) ??
+        body.detail ??
+        body.message ??
+        body.title ??
+        message
     } catch {
       // ignore parse errors
     }
@@ -60,6 +74,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  register: (body: RegisterRequest) =>
+    request<AuthResponse>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  login: (body: LoginRequest) =>
+    request<AuthResponse>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   ensureProfile: (body: EnsureProfileRequest) =>
     request<Profile>("/api/profiles/ensure", {
       method: "POST",
@@ -87,6 +111,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  updateActivity: (id: string, body: CreateActivityRequest) =>
+    request<Activity>(`/api/activities/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteActivity: (id: string) =>
+    request<void>(`/api/activities/${id}`, {
+      method: "DELETE",
+    }),
   importFlashcards: (activityId: string) =>
     request<Activity>(`/api/activities/${activityId}/import-flashcards`, {
       method: "POST",
@@ -104,6 +137,15 @@ export const api = {
     request<Activity>(`/api/classes/${classId}/activities/${activityId}`, {
       method: "DELETE",
     }),
+  listPublicActivities: () => request<PublicActivitySummary[]>("/api/public/activities"),
+  getPublicActivity: (id: string) => request<Activity>(`/api/public/activities/${id}`),
+  submitPublicAnswer: (activityId: string, body: SubmitStudyAnswerRequest) =>
+    request<StudyAnswerFeedback>(`/api/public/quizzes/${activityId}/answers`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getPublicFlashcardSession: (activityId: string) =>
+    request<StudyFlashcardSession>(`/api/public/flashcards/${activityId}`),
   listStudyQuizzes: () => request<StudyQuizSummary[]>("/api/study/quizzes"),
   submitStudyAnswer: (activityId: string, body: SubmitStudyAnswerRequest) =>
     request<StudyAnswerFeedback>(`/api/study/quizzes/${activityId}/answers`, {

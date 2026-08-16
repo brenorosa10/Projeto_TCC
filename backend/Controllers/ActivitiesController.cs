@@ -48,6 +48,7 @@ public class ActivitiesController(
     }
 
     [HttpPost("api/activities")]
+    [RequestSizeLimit(20_971_520)]
     public async Task<ActionResult<ActivityResponse>> Create(
         [FromBody] CreateActivityRequest request,
         CancellationToken cancellationToken)
@@ -64,13 +65,10 @@ public class ActivitiesController(
         }
 
         var type = request.Type.Trim().ToLowerInvariant();
-        var validationError = type == ActivityTypes.Quiz
-            ? ValidateQuizItems(request.Items)
-            : ValidateFlashcardItems(request.Items);
-
-        if (validationError is not null)
+        var built = BuildItems(type, request.Items);
+        if (built.Error is not null)
         {
-            return BadRequest(new { detail = validationError });
+            return BadRequest(new { detail = built.Error });
         }
 
         var activity = new Activity
@@ -79,14 +77,103 @@ public class ActivitiesController(
             ProfessorId = profile.Id,
             Title = request.Title.Trim(),
             Type = type,
+            IsPublic = request.IsPublic,
             CreatedAt = DateTimeOffset.UtcNow,
-            Items = type == ActivityTypes.Quiz
-                ? MapQuizItems(request.Items)
-                : MapFlashcardItems(request.Items)
+            Items = built.Items!
         };
+
+        var sizeError = ActivityImage.ValidateDocumentSize(activity);
+        if (sizeError is not null)
+        {
+            return BadRequest(new { detail = sizeError });
+        }
 
         await db.Activities.InsertOneAsync(activity, cancellationToken: cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = activity.Id }, ToResponse(activity, includeAnswers: true));
+    }
+
+    [HttpPut("api/activities/{id:guid}")]
+    [RequestSizeLimit(20_971_520)]
+    public async Task<ActionResult<ActivityResponse>> Update(
+        Guid id,
+        [FromBody] CreateActivityRequest request,
+        CancellationToken cancellationToken)
+    {
+        var profile = await GetCurrentProfileAsync(cancellationToken);
+        if (profile is null)
+        {
+            return Unauthorized(new { detail = "Perfil não encontrado." });
+        }
+
+        var activity = await db.Activities
+            .Find(a => a.Id == id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (activity is null)
+        {
+            return NotFound(new { detail = "Atividade não encontrada." });
+        }
+
+        if (!await OwnsActivityAsync(profile, activity, cancellationToken))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Apenas o autor da atividade pode editá-la." });
+        }
+
+        var type = request.Type.Trim().ToLowerInvariant();
+        if (type != activity.Type)
+        {
+            return BadRequest(new { detail = "Não é possível alterar o tipo da atividade." });
+        }
+
+        var existingById = activity.Items.ToDictionary(item => item.Id);
+        var built = BuildItems(type, request.Items, existingById);
+        if (built.Error is not null)
+        {
+            return BadRequest(new { detail = built.Error });
+        }
+
+        activity.Title = request.Title.Trim();
+        activity.IsPublic = request.IsPublic;
+        activity.Items = built.Items!;
+
+        var sizeError = ActivityImage.ValidateDocumentSize(activity);
+        if (sizeError is not null)
+        {
+            return BadRequest(new { detail = sizeError });
+        }
+
+        await db.Activities.ReplaceOneAsync(a => a.Id == activity.Id, activity, cancellationToken: cancellationToken);
+        return Ok(ToResponse(activity, includeAnswers: true));
+    }
+
+    [HttpDelete("api/activities/{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        var profile = await GetCurrentProfileAsync(cancellationToken);
+        if (profile is null)
+        {
+            return Unauthorized(new { detail = "Perfil não encontrado." });
+        }
+
+        var activity = await db.Activities
+            .Find(a => a.Id == id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (activity is null)
+        {
+            return NotFound(new { detail = "Atividade não encontrada." });
+        }
+
+        if (!await OwnsActivityAsync(profile, activity, cancellationToken))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Apenas o autor da atividade pode excluí-la." });
+        }
+
+        await db.AnswerAttempts.DeleteManyAsync(a => a.ActivityId == id, cancellationToken);
+        await db.ReviewProgress.DeleteManyAsync(p => p.ActivityId == id, cancellationToken);
+        await db.LiveSessions.DeleteManyAsync(s => s.ActivityId == id, cancellationToken);
+        await db.Activities.DeleteOneAsync(a => a.Id == id, cancellationToken);
+        return NoContent();
     }
 
     [HttpGet("api/classes/{classId:guid}/activities")]
@@ -204,6 +291,11 @@ public class ActivitiesController(
             return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você não tem acesso a esta atividade." });
         }
 
+        if (activity.IsPublic)
+        {
+            return Ok(ToResponse(activity, includeAnswers: false));
+        }
+
         var linked = activity.LinkedClassIds();
         if (linked.Count == 0)
         {
@@ -268,7 +360,9 @@ public class ActivitiesController(
                     Kind = ItemKinds.Flashcard,
                     Front = item.Prompt!.Trim(),
                     Back = correct.Text.Trim(),
-                    Position = 0
+                    Position = 0,
+                    ImageBytes = item.ImageBytes,
+                    ImageContentType = item.ImageContentType
                 };
             })
             .Where(card => card is not null)
@@ -302,6 +396,7 @@ public class ActivitiesController(
             existing.ProfessorId = quiz.ProfessorId != Guid.Empty ? quiz.ProfessorId : profile.Id;
             existing.ClassIds = linked;
             existing.ClassId = Guid.Empty;
+            existing.IsPublic = quiz.IsPublic;
             await db.Activities.ReplaceOneAsync(a => a.Id == existing.Id, existing, cancellationToken: cancellationToken);
             return Ok(ToResponse(existing, includeAnswers: true));
         }
@@ -314,6 +409,7 @@ public class ActivitiesController(
             Title = title,
             Type = ActivityTypes.Flashcards,
             SourceActivityId = quiz.Id,
+            IsPublic = quiz.IsPublic,
             CreatedAt = DateTimeOffset.UtcNow,
             Items = cards
         };
@@ -506,35 +602,104 @@ public class ActivitiesController(
         return null;
     }
 
-    private static List<ActivityItem> MapQuizItems(List<CreateActivityItemRequest> items) =>
-        items.Select((item, index) => new ActivityItem
-        {
-            Id = Guid.NewGuid(),
-            Kind = ItemKinds.MultipleChoice,
-            Prompt = item.Prompt!.Trim(),
-            Explanation = string.IsNullOrWhiteSpace(item.Explanation) ? null : item.Explanation.Trim(),
-            TimeLimitSeconds = item.TimeLimitSeconds ?? 30,
-            Position = index,
-            Options = item.Options!
-                .Select((option, optionIndex) => new QuestionOption
-                {
-                    Id = Guid.NewGuid(),
-                    Text = option.Text.Trim(),
-                    IsCorrect = option.IsCorrect,
-                    Position = optionIndex
-                })
-                .ToList()
-        }).ToList();
+    private static (List<ActivityItem>? Items, string? Error) BuildItems(
+        string type,
+        List<CreateActivityItemRequest> items,
+        IReadOnlyDictionary<Guid, ActivityItem>? existingById = null)
+    {
+        var validationError = type == ActivityTypes.Quiz
+            ? ValidateQuizItems(items)
+            : ValidateFlashcardItems(items);
 
-    private static List<ActivityItem> MapFlashcardItems(List<CreateActivityItemRequest> items) =>
-        items.Select((item, index) => new ActivityItem
+        if (validationError is not null)
         {
-            Id = Guid.NewGuid(),
-            Kind = ItemKinds.Flashcard,
-            Front = item.Front!.Trim(),
-            Back = item.Back!.Trim(),
-            Position = index
-        }).ToList();
+            return (null, validationError);
+        }
+
+        return type == ActivityTypes.Quiz
+            ? MapQuizItems(items, existingById)
+            : MapFlashcardItems(items, existingById);
+    }
+
+    private static (List<ActivityItem>? Items, string? Error) MapQuizItems(
+        List<CreateActivityItemRequest> items,
+        IReadOnlyDictionary<Guid, ActivityItem>? existingById)
+    {
+        var mapped = new List<ActivityItem>(items.Count);
+        foreach (var (item, index) in items.Select((value, i) => (value, i)))
+        {
+            var existing = ResolveExisting(item.Id, existingById);
+            var mappedItem = new ActivityItem
+            {
+                Id = existing?.Id ?? Guid.NewGuid(),
+                Kind = ItemKinds.MultipleChoice,
+                Prompt = item.Prompt!.Trim(),
+                Explanation = string.IsNullOrWhiteSpace(item.Explanation) ? null : item.Explanation.Trim(),
+                TimeLimitSeconds = item.TimeLimitSeconds ?? 30,
+                Position = index,
+                Options = item.Options!
+                    .Select((option, optionIndex) => new QuestionOption
+                    {
+                        Id = ResolveOptionId(option.Id, existing?.Options),
+                        Text = option.Text.Trim(),
+                        IsCorrect = option.IsCorrect,
+                        Position = optionIndex
+                    })
+                    .ToList()
+            };
+
+            var imageError = ActivityImage.Apply(mappedItem, item.ImageDataUrl);
+            if (imageError is not null)
+            {
+                return (null, imageError);
+            }
+
+            mapped.Add(mappedItem);
+        }
+
+        return (mapped, null);
+    }
+
+    private static (List<ActivityItem>? Items, string? Error) MapFlashcardItems(
+        List<CreateActivityItemRequest> items,
+        IReadOnlyDictionary<Guid, ActivityItem>? existingById)
+    {
+        var mapped = new List<ActivityItem>(items.Count);
+        foreach (var (item, index) in items.Select((value, i) => (value, i)))
+        {
+            var existing = ResolveExisting(item.Id, existingById);
+            var mappedItem = new ActivityItem
+            {
+                Id = existing?.Id ?? Guid.NewGuid(),
+                Kind = ItemKinds.Flashcard,
+                Front = item.Front!.Trim(),
+                Back = item.Back!.Trim(),
+                Position = index
+            };
+
+            var imageError = ActivityImage.Apply(mappedItem, item.ImageDataUrl);
+            if (imageError is not null)
+            {
+                return (null, imageError);
+            }
+
+            mapped.Add(mappedItem);
+        }
+
+        return (mapped, null);
+    }
+
+    private static ActivityItem? ResolveExisting(
+        Guid? id,
+        IReadOnlyDictionary<Guid, ActivityItem>? existingById) =>
+        id is Guid itemId && existingById is not null && existingById.TryGetValue(itemId, out var found)
+            ? found
+            : null;
+
+    private static Guid ResolveOptionId(Guid? id, List<QuestionOption>? existingOptions) =>
+        id is Guid optionId && existingOptions is not null && existingOptions.Any(option => option.Id == optionId)
+            ? optionId
+            : Guid.NewGuid();
 
     private static ActivitySummaryResponse ToSummary(Activity activity) =>
         new(
@@ -545,7 +710,8 @@ public class ActivitiesController(
             activity.CreatedAt,
             activity.Items.Count,
             activity.SourceActivityId,
-            activity.LinkedClassIds());
+            activity.LinkedClassIds(),
+            activity.IsPublic);
 
     private static ActivityResponse ToResponse(Activity activity, bool includeAnswers) =>
         new(
@@ -556,6 +722,7 @@ public class ActivitiesController(
             activity.CreatedAt,
             activity.SourceActivityId,
             activity.LinkedClassIds(),
+            activity.IsPublic,
             activity.Items
                 .OrderBy(item => item.Position)
                 .Select(item => ToItemResponse(item, includeAnswers))
@@ -578,5 +745,6 @@ public class ActivitiesController(
                     option.Position))
                 .ToList(),
             item.Front,
-            item.Back);
+            item.Back,
+            ActivityImage.ToDataUrl(item));
 }
