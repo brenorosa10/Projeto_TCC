@@ -245,7 +245,7 @@ sequenceDiagram
     V->>FE: seção Estudo público na landing
     FE->>API: GET /api/public/activities
     V->>API: GET /api/public/activities/{id}
-    Note over API: gabarito só após responder; sem persistir tentativa
+    Note over API: gabarito só após responder, sem persistir tentativa
   end
 ```
 
