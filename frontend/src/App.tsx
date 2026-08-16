@@ -7,6 +7,10 @@ import { AuthCallbackPage } from "@/pages/auth-callback-page"
 import { ProfessorDashboardPage } from "@/pages/professor/dashboard-page"
 import { ProfessorClassesPage } from "@/pages/professor/classes-page"
 import { ProfessorClassDetailPage } from "@/pages/professor/class-detail-page"
+import { ProfessorCreateQuizPage } from "@/pages/professor/create-quiz-page"
+import { ProfessorCreateFlashcardsPage } from "@/pages/professor/create-flashcards-page"
+import { ProfessorActivitiesPage } from "@/pages/professor/activities-page"
+import { ProfessorActivityDetailPage } from "@/pages/professor/activity-detail-page"
 import { ProfessorLivePage } from "@/pages/professor/live-page"
 import { ProfessorAnalyticsPage } from "@/pages/professor/analytics-page"
 import { AlunoDashboardPage } from "@/pages/aluno/dashboard-page"
@@ -14,6 +18,8 @@ import { AlunoJoinClassPage } from "@/pages/aluno/join-class-page"
 import { AlunoClassesPage } from "@/pages/aluno/classes-page"
 import { AlunoClassDetailPage } from "@/pages/aluno/class-detail-page"
 import { AlunoStudyPage } from "@/pages/aluno/study-page"
+import { AlunoQuizStudyPage } from "@/pages/aluno/quiz-study-page"
+import { AlunoFlashcardStudyPage } from "@/pages/aluno/flashcard-study-page"
 import { AlunoLiveJoinPage } from "@/pages/aluno/live-join-page"
 
 export default function App() {
@@ -45,6 +51,38 @@ export default function App() {
             element={
               <RequireRole role="professor">
                 <ProfessorClassDetailPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/professor/atividades"
+            element={
+              <RequireRole role="professor">
+                <ProfessorActivitiesPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/professor/atividades/:activityId"
+            element={
+              <RequireRole role="professor">
+                <ProfessorActivityDetailPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/professor/quiz/novo"
+            element={
+              <RequireRole role="professor">
+                <ProfessorCreateQuizPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/professor/flashcards/novo"
+            element={
+              <RequireRole role="professor">
+                <ProfessorCreateFlashcardsPage />
               </RequireRole>
             }
           />
@@ -102,6 +140,22 @@ export default function App() {
             element={
               <RequireRole role="aluno">
                 <AlunoStudyPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/aluno/estudar/flashcards/:activityId"
+            element={
+              <RequireRole role="aluno">
+                <AlunoFlashcardStudyPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/aluno/estudar/:activityId"
+            element={
+              <RequireRole role="aluno">
+                <AlunoQuizStudyPage />
               </RequireRole>
             }
           />

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { BookOpenCheck, KeyRound, Radio } from "lucide-react"
+import { BookOpen, BookOpenCheck, KeyRound, Radio } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
@@ -19,7 +19,7 @@ export function AlunoDashboardPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Button asChild className="h-auto flex-col items-start gap-2 p-5">
             <Link to="/aluno/entrar">
               <KeyRound className="h-5 w-5" />
@@ -31,10 +31,19 @@ export function AlunoDashboardPage() {
           </Button>
           <Button asChild variant="secondary" className="h-auto flex-col items-start gap-2 p-5">
             <Link to="/aluno/turmas">
-              <BookOpenCheck className="h-5 w-5" />
+              <BookOpen className="h-5 w-5" />
               <span className="text-base font-semibold">Minhas turmas</span>
               <span className="text-xs font-normal text-secondary-foreground/70">
-                Conteúdos e revisão
+                Conteúdos publicados
+              </span>
+            </Link>
+          </Button>
+          <Button asChild variant="secondary" className="h-auto flex-col items-start gap-2 p-5">
+            <Link to="/aluno/estudar">
+              <BookOpenCheck className="h-5 w-5" />
+              <span className="text-base font-semibold">Estudar</span>
+              <span className="text-xs font-normal text-secondary-foreground/70">
+                Quizzes e flashcards no seu ritmo
               </span>
             </Link>
           </Button>

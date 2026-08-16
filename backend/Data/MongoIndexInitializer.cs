@@ -31,6 +31,10 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
         await db.Activities.Indexes.CreateManyAsync(
             [
                 new CreateIndexModel<Activity>(
+                    Builders<Activity>.IndexKeys.Ascending(x => x.ProfessorId).Descending(x => x.CreatedAt)),
+                new CreateIndexModel<Activity>(
+                    Builders<Activity>.IndexKeys.Ascending(x => x.ClassIds)),
+                new CreateIndexModel<Activity>(
                     Builders<Activity>.IndexKeys.Ascending(x => x.ClassId).Ascending(x => x.Type)),
                 new CreateIndexModel<Activity>(
                     Builders<Activity>.IndexKeys.Ascending(x => x.ClassId).Descending(x => x.CreatedAt))

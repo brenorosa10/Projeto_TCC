@@ -1,11 +1,20 @@
 import { getAccessToken } from "@/lib/auth-token"
 import type {
+  Activity,
+  ActivitySummary,
   ApiErrorBody,
   ClassRoom,
+  CreateActivityRequest,
   CreateClassRequest,
   EnsureProfileRequest,
   JoinClassRequest,
   Profile,
+  StudyAnswerFeedback,
+  StudyFlashcardSession,
+  StudyFlashcardSummary,
+  StudyQuizSummary,
+  SubmitStudyAnswerRequest,
+  FlashcardReviewFeedback,
 } from "@/lib/types"
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5080"
@@ -68,6 +77,46 @@ export const api = {
     request<ClassRoom>("/api/classes/join", {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  listActivities: (classId: string) =>
+    request<ActivitySummary[]>(`/api/classes/${classId}/activities`),
+  listMyActivities: () => request<ActivitySummary[]>("/api/activities"),
+  getActivity: (id: string) => request<Activity>(`/api/activities/${id}`),
+  createActivity: (body: CreateActivityRequest) =>
+    request<Activity>("/api/activities", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  importFlashcards: (activityId: string) =>
+    request<Activity>(`/api/activities/${activityId}/import-flashcards`, {
+      method: "POST",
+    }),
+  assignActivityClasses: (activityId: string, classIds: string[]) =>
+    request<Activity>(`/api/activities/${activityId}/classes`, {
+      method: "PUT",
+      body: JSON.stringify({ classIds }),
+    }),
+  linkActivityToClass: (classId: string, activityId: string) =>
+    request<Activity>(`/api/classes/${classId}/activities/${activityId}`, {
+      method: "POST",
+    }),
+  unlinkActivityFromClass: (classId: string, activityId: string) =>
+    request<Activity>(`/api/classes/${classId}/activities/${activityId}`, {
+      method: "DELETE",
+    }),
+  listStudyQuizzes: () => request<StudyQuizSummary[]>("/api/study/quizzes"),
+  submitStudyAnswer: (activityId: string, body: SubmitStudyAnswerRequest) =>
+    request<StudyAnswerFeedback>(`/api/study/quizzes/${activityId}/answers`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listStudyFlashcards: () => request<StudyFlashcardSummary[]>("/api/study/flashcards"),
+  getFlashcardSession: (activityId: string) =>
+    request<StudyFlashcardSession>(`/api/study/flashcards/${activityId}`),
+  submitFlashcardReview: (activityId: string, itemId: string, remembered: boolean) =>
+    request<FlashcardReviewFeedback>(`/api/study/flashcards/${activityId}/reviews`, {
+      method: "POST",
+      body: JSON.stringify({ itemId, remembered }),
     }),
 }
 

@@ -2,20 +2,31 @@ import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
-import type { ClassRoom } from "@/lib/types"
+import type { ActivitySummary, ClassRoom } from "@/lib/types"
+
+function typeLabel(type: string) {
+  if (type === "quiz") return "Quiz"
+  if (type === "flashcards") return "Flashcards"
+  if (type === "prova") return "Prova"
+  return type
+}
 
 export function AlunoClassDetailPage() {
   const { id } = useParams()
   const [classroom, setClassroom] = useState<ClassRoom | null>(null)
+  const [activities, setActivities] = useState<ActivitySummary[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!id) return
-    api
-      .getClass(id)
-      .then(setClassroom)
+    Promise.all([api.getClass(id), api.listActivities(id)])
+      .then(([classData, activityData]) => {
+        setClassroom(classData)
+        setActivities(activityData)
+      })
       .catch((error: unknown) =>
         toast.error(error instanceof Error ? error.message : "Erro ao carregar turma")
       )
@@ -53,6 +64,44 @@ export function AlunoClassDetailPage() {
               <Link to="/aluno/sessao">Entrar em sessão ao vivo</Link>
             </Button>
           </div>
+
+          <section>
+            <h2 className="font-display text-xl font-semibold">Atividades</h2>
+            {activities.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                O professor ainda não publicou quizzes ou flashcards nesta turma.
+              </p>
+            ) : (
+              <ul className="mt-4 divide-y divide-border border-y border-border">
+                {activities.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-medium">{item.title}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                        <Badge variant="secondary">{typeLabel(item.type)}</Badge>
+                        <span>
+                          {item.itemCount}{" "}
+                          {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
+                        </span>
+                      </div>
+                    </div>
+                    {item.type === "quiz" ? (
+                      <Button asChild size="sm">
+                        <Link to={`/aluno/estudar/${item.id}`}>Estudar</Link>
+                      </Button>
+                    ) : item.type === "flashcards" ? (
+                      <Button asChild size="sm">
+                        <Link to={`/aluno/estudar/flashcards/${item.id}`}>Estudar</Link>
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       )}
     </AppShell>

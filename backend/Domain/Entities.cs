@@ -48,15 +48,31 @@ public class Activity
     [BsonId]
     public Guid Id { get; set; }
 
+    public Guid ProfessorId { get; set; }
+
+    /// <summary>Campo legado de quando a atividade pertencia a uma única turma.</summary>
+    [BsonIgnoreIfDefault]
     public Guid ClassId { get; set; }
+
+    public List<Guid> ClassIds { get; set; } = [];
     public string Title { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
-    public string Mode { get; set; } = ActivityModes.Async;
+    public Guid? SourceActivityId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<ActivityItem> Items { get; set; } = [];
 
     [BsonExtraElements]
     public BsonDocument? Extra { get; set; }
+
+    public List<Guid> LinkedClassIds()
+    {
+        if (ClassIds.Count > 0)
+        {
+            return ClassIds;
+        }
+
+        return ClassId != Guid.Empty ? [ClassId] : [];
+    }
 }
 
 /// <summary>

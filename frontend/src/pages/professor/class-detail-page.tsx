@@ -2,25 +2,83 @@ import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { api } from "@/lib/api"
-import type { ClassRoom } from "@/lib/types"
+import type { ActivitySummary, ClassRoom } from "@/lib/types"
+
+function typeLabel(type: string) {
+  if (type === "quiz") return "Quiz"
+  if (type === "flashcards") return "Flashcards"
+  if (type === "prova") return "Prova"
+  return type
+}
 
 export function ProfessorClassDetailPage() {
   const { id } = useParams()
   const [classroom, setClassroom] = useState<ClassRoom | null>(null)
+  const [activities, setActivities] = useState<ActivitySummary[]>([])
+  const [library, setLibrary] = useState<ActivitySummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkingId, setLinkingId] = useState<string | null>(null)
+
+  async function load() {
+    if (!id) return
+    const [classData, activityData, libraryData] = await Promise.all([
+      api.getClass(id),
+      api.listActivities(id),
+      api.listMyActivities(),
+    ])
+    setClassroom(classData)
+    setActivities(activityData)
+    setLibrary(libraryData)
+  }
 
   useEffect(() => {
     if (!id) return
-    api
-      .getClass(id)
-      .then(setClassroom)
+    load()
       .catch((error: unknown) =>
         toast.error(error instanceof Error ? error.message : "Erro ao carregar turma")
       )
       .finally(() => setLoading(false))
   }, [id])
+
+  const linkedIds = new Set(activities.map((item) => item.id))
+  const available = library.filter((item) => !linkedIds.has(item.id))
+
+  async function handleLink(activityId: string) {
+    if (!id) return
+    setLinkingId(activityId)
+    try {
+      await api.linkActivityToClass(id, activityId)
+      await load()
+      toast.success("Atividade vinculada a esta turma.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao vincular atividade")
+    } finally {
+      setLinkingId(null)
+    }
+  }
+
+  async function handleUnlink(activityId: string) {
+    if (!id) return
+    try {
+      await api.unlinkActivityFromClass(id, activityId)
+      await load()
+      toast.success("Atividade desvinculada desta turma.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao desvincular")
+    }
+  }
 
   return (
     <AppShell title="Detalhe da turma">
@@ -47,9 +105,46 @@ export function ProfessorClassDetailPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Button asChild variant="secondary">
-              <Link to="/professor/turmas">Nova atividade (em breve)</Link>
-            </Button>
+            <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+              <DialogTrigger asChild>
+                <Button variant="secondary">Vincular atividade</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Vincular da biblioteca</DialogTitle>
+                  <DialogDescription>
+                    Use o mesmo quiz ou deck em várias turmas. Crie novos em Atividades.
+                  </DialogDescription>
+                </DialogHeader>
+                {available.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Não há atividades disponíveis.{" "}
+                    <Link to="/professor/atividades" className="text-primary hover:underline">
+                      Ir para a biblioteca
+                    </Link>
+                  </p>
+                ) : (
+                  <ul className="max-h-72 space-y-2 overflow-y-auto">
+                    {available.map((item) => (
+                      <li key={item.id} className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium">{item.title}</p>
+                          <p className="text-xs text-muted-foreground">{typeLabel(item.type)}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={linkingId === item.id}
+                          onClick={() => void handleLink(item.id)}
+                        >
+                          Vincular
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </DialogContent>
+            </Dialog>
             <Button asChild variant="outline">
               <Link to="/professor/ao-vivo">Iniciar ao vivo</Link>
             </Button>
@@ -59,10 +154,50 @@ export function ProfessorClassDetailPage() {
           </div>
 
           <section>
-            <h2 className="font-display text-xl font-semibold">Atividades</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Quizzes, provas e flashcards aparecerão aqui nas próximas entregas.
-            </p>
+            <h2 className="font-display text-xl font-semibold">Atividades desta turma</h2>
+            {activities.length === 0 ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Nenhuma atividade vinculada. Crie na biblioteca e vincule aqui.
+              </p>
+            ) : (
+              <ul className="mt-4 divide-y divide-border border-y border-border">
+                {activities.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <Link
+                        to={`/professor/atividades/${item.id}`}
+                        className="font-medium text-foreground hover:text-primary"
+                      >
+                        {item.title}
+                      </Link>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                        <Badge variant="secondary">{typeLabel(item.type)}</Badge>
+                        <span>
+                          {item.itemCount}{" "}
+                          {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={`/professor/atividades/${item.id}`}>Abrir</Link>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleUnlink(item.id)}
+                      >
+                        Desvincular
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
       )}

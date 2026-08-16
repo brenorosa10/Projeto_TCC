@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
-import { Link } from "react-router-dom"
-import { LogOut } from "lucide-react"
+import { Link, useLocation } from "react-router-dom"
+import { ArrowLeft, LogOut } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +22,9 @@ export function AppShell({
   title?: string
 }) {
   const { profile, signOut } = useAuth()
+  const { pathname } = useLocation()
   const home = profile?.role === "professor" ? "/professor" : "/aluno"
+  const backTo = parentRoute(pathname)
   const initials =
     profile?.fullName
       ?.split(" ")
@@ -35,7 +37,14 @@ export function AppShell({
     <div className="min-h-screen bg-hero-atmosphere">
       <header className="border-b border-border/70 bg-background/70 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-6">
+            {backTo ? (
+              <Button asChild variant="ghost" size="icon" className="-ml-2" aria-label="Voltar">
+                <Link to={backTo}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+              </Button>
+            ) : null}
             <Link to={home} className="font-display text-xl font-semibold tracking-tight text-primary">
               Astro
             </Link>
@@ -80,4 +89,10 @@ export function AppShell({
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
     </div>
   )
+}
+
+function parentRoute(pathname: string) {
+  const segments = pathname.replace(/\/+$/, "").split("/").filter(Boolean)
+  if (segments.length <= 1) return null
+  return `/${segments.slice(0, -1).join("/")}`
 }

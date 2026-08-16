@@ -30,11 +30,11 @@ export function ProfessorDashboardPage() {
             </Link>
           </Button>
           <Button asChild variant="secondary" className="h-auto flex-col items-start gap-2 p-5">
-            <Link to="/professor/turmas">
+            <Link to="/professor/atividades">
               <Plus className="h-5 w-5" />
-              <span className="text-base font-semibold">Nova atividade</span>
+              <span className="text-base font-semibold">Atividades</span>
               <span className="text-xs font-normal text-secondary-foreground/70">
-                Quiz, prova ou flashcards (em breve)
+                Quizzes e flashcards reutilizáveis
               </span>
             </Link>
           </Button>
