@@ -31,7 +31,8 @@ export function AlunoStudyPage() {
       <div className="mb-8 space-y-2">
         <h1 className="font-display text-3xl font-semibold">Estudo off-line</h1>
         <p className="max-w-2xl text-muted-foreground">
-          Quizzes com feedback imediato e flashcards com repetição espaçada (Leitner, caixas 1 a 5).
+          Quizzes com preparação, vários tipos de questão e feedback ao terminar. Flashcards
+          continuam com repetição espaçada (Leitner, caixas 1 a 5).
         </p>
       </div>
 

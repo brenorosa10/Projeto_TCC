@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Plus, Trash2 } from "lucide-react"
 import { ItemImageField } from "@/components/activity/item-image-field"
+import { PrepFeedbackFields } from "@/components/activity/prep-feedback-fields"
 import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
+import { findSection } from "@/lib/item-kinds"
 import type { CreateActivityRequest } from "@/lib/types"
 
 type DraftCard = { key: string; id?: string; front: string; back: string; imageDataUrl?: string }
@@ -25,6 +27,13 @@ export function ProfessorCreateFlashcardsPage() {
   const navigate = useNavigate()
   const [title, setTitle] = useState("")
   const [isPublic, setIsPublic] = useState(false)
+  const [prepId, setPrepId] = useState<string>()
+  const [practiceId, setPracticeId] = useState<string>()
+  const [feedbackId, setFeedbackId] = useState<string>()
+  const [prepTitle, setPrepTitle] = useState("")
+  const [prepBody, setPrepBody] = useState("")
+  const [feedbackTitle, setFeedbackTitle] = useState("Resultados")
+  const [feedbackBody, setFeedbackBody] = useState("")
   const [cards, setCards] = useState<DraftCard[]>([newCard()])
   const [loading, setLoading] = useState(isEditing)
   const [saving, setSaving] = useState(false)
@@ -41,6 +50,16 @@ export function ProfessorCreateFlashcardsPage() {
         }
         setTitle(activity.title)
         setIsPublic(Boolean(activity.isPublic))
+        const prep = findSection(activity.sections, "prep")
+        const practice = findSection(activity.sections, "practice")
+        const feedback = findSection(activity.sections, "feedback")
+        setPrepId(prep?.id)
+        setPracticeId(practice?.id)
+        setFeedbackId(feedback?.id)
+        setPrepTitle(prep?.title ?? "")
+        setPrepBody(prep?.body ?? "")
+        setFeedbackTitle(feedback?.title ?? "Resultados")
+        setFeedbackBody(feedback?.body ?? "")
         setCards(
           activity.items.map((item) => ({
             key: item.id,
@@ -88,12 +107,32 @@ export function ProfessorCreateFlashcardsPage() {
       title: title.trim(),
       type: "flashcards",
       isPublic,
-      items: cards.map((card) => ({
-        id: card.id,
-        front: card.front.trim(),
-        back: card.back.trim(),
-        imageDataUrl: card.imageDataUrl,
-      })),
+      sections: [
+        {
+          id: prepId,
+          role: "prep",
+          title: prepTitle.trim() || undefined,
+          body: prepBody.trim() || undefined,
+        },
+        {
+          id: practiceId,
+          role: "practice",
+          items: cards.map((card) => ({
+            id: card.id,
+            kind: "flashcard",
+            front: card.front.trim(),
+            back: card.back.trim(),
+            imageDataUrl: card.imageDataUrl,
+          })),
+        },
+        {
+          id: feedbackId,
+          role: "feedback",
+          title: feedbackTitle.trim() || "Resultados",
+          body: feedbackBody.trim() || undefined,
+          feedbackTemplate: "score_summary",
+        },
+      ],
     }
 
     setSaving(true)
@@ -140,8 +179,8 @@ export function ProfessorCreateFlashcardsPage() {
             {isEditing ? "Editar flashcards" : "Criar flashcards"}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Frente com o conceito ou pergunta; verso com a resposta. A imagem opcional aparece na
-            frente do cartão.
+            Frente com o conceito ou pergunta; verso com a resposta. A preparação e o feedback
+            aparecem no estudo do aluno.
           </p>
         </div>
 
@@ -157,6 +196,17 @@ export function ProfessorCreateFlashcardsPage() {
         </div>
 
         <VisibilityCheckbox id="deck-public" checked={isPublic} onChange={setIsPublic} />
+
+        <PrepFeedbackFields
+          prepTitle={prepTitle}
+          prepBody={prepBody}
+          feedbackTitle={feedbackTitle}
+          feedbackBody={feedbackBody}
+          onPrepTitle={setPrepTitle}
+          onPrepBody={setPrepBody}
+          onFeedbackTitle={setFeedbackTitle}
+          onFeedbackBody={setFeedbackBody}
+        />
 
         <div className="space-y-6">
           {cards.map((card, index) => (

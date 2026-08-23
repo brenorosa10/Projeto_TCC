@@ -12,6 +12,7 @@ public class MongoDbContext
     public IMongoCollection<LiveSession> LiveSessions { get; }
     public IMongoCollection<AnswerAttempt> AnswerAttempts { get; }
     public IMongoCollection<ReviewProgress> ReviewProgress { get; }
+    public IMongoCollection<StudySession> StudySessions { get; }
 
     public MongoDbContext(IMongoDatabase database)
     {
@@ -22,5 +23,6 @@ public class MongoDbContext
         LiveSessions = database.GetCollection<LiveSession>("liveSessions");
         AnswerAttempts = database.GetCollection<AnswerAttempt>("answerAttempts");
         ReviewProgress = database.GetCollection<ReviewProgress>("reviewProgress");
+        StudySessions = database.GetCollection<StudySession>("studySessions");
     }
 }

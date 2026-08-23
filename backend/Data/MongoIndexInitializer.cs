@@ -78,6 +78,19 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
             ],
             cancellationToken);
 
+        await db.StudySessions.Indexes.CreateManyAsync(
+            [
+                new CreateIndexModel<StudySession>(
+                    Builders<StudySession>.IndexKeys
+                        .Ascending(x => x.StudentId)
+                        .Ascending(x => x.ActivityId)
+                        .Ascending(x => x.Status)
+                        .Descending(x => x.StartedAt)),
+                new CreateIndexModel<StudySession>(
+                    Builders<StudySession>.IndexKeys.Ascending(x => x.ActivityId))
+            ],
+            cancellationToken);
+
         logger.LogInformation("Índices MongoDB verificados.");
     }
 
@@ -213,6 +226,11 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
                     cancellationToken: cancellationToken);
             }
         }
+
+        await db.StudySessions.UpdateManyAsync(
+            session => session.StudentId == fromId,
+            Builders<StudySession>.Update.Set(session => session.StudentId, toId),
+            cancellationToken: cancellationToken);
     }
 
     private async Task EnsureProfileIndexesAsync(CancellationToken cancellationToken)

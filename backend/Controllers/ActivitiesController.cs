@@ -44,7 +44,7 @@ public class ActivitiesController(
             .SortByDescending(a => a.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        return Ok(activities.Select(ToSummary));
+        return Ok(activities.Select(ActivityMapper.ToSummary));
     }
 
     [HttpPost("api/activities")]
@@ -65,7 +65,7 @@ public class ActivitiesController(
         }
 
         var type = request.Type.Trim().ToLowerInvariant();
-        var built = BuildItems(type, request.Items);
+        var built = ActivityContentBuilder.Build(type, request);
         if (built.Error is not null)
         {
             return BadRequest(new { detail = built.Error });
@@ -79,6 +79,7 @@ public class ActivitiesController(
             Type = type,
             IsPublic = request.IsPublic,
             CreatedAt = DateTimeOffset.UtcNow,
+            Sections = built.Sections!,
             Items = built.Items!
         };
 
@@ -89,7 +90,7 @@ public class ActivitiesController(
         }
 
         await db.Activities.InsertOneAsync(activity, cancellationToken: cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id = activity.Id }, ToResponse(activity, includeAnswers: true));
+        return CreatedAtAction(nameof(GetById), new { id = activity.Id }, ActivityMapper.ToResponse(activity, includeAnswers: true));
     }
 
     [HttpPut("api/activities/{id:guid}")]
@@ -125,8 +126,7 @@ public class ActivitiesController(
             return BadRequest(new { detail = "Não é possível alterar o tipo da atividade." });
         }
 
-        var existingById = activity.Items.ToDictionary(item => item.Id);
-        var built = BuildItems(type, request.Items, existingById);
+        var built = ActivityContentBuilder.Build(type, request, activity);
         if (built.Error is not null)
         {
             return BadRequest(new { detail = built.Error });
@@ -134,6 +134,7 @@ public class ActivitiesController(
 
         activity.Title = request.Title.Trim();
         activity.IsPublic = request.IsPublic;
+        activity.Sections = built.Sections!;
         activity.Items = built.Items!;
 
         var sizeError = ActivityImage.ValidateDocumentSize(activity);
@@ -143,7 +144,7 @@ public class ActivitiesController(
         }
 
         await db.Activities.ReplaceOneAsync(a => a.Id == activity.Id, activity, cancellationToken: cancellationToken);
-        return Ok(ToResponse(activity, includeAnswers: true));
+        return Ok(ActivityMapper.ToResponse(activity, includeAnswers: true));
     }
 
     [HttpDelete("api/activities/{id:guid}")]
@@ -172,6 +173,7 @@ public class ActivitiesController(
         await db.AnswerAttempts.DeleteManyAsync(a => a.ActivityId == id, cancellationToken);
         await db.ReviewProgress.DeleteManyAsync(p => p.ActivityId == id, cancellationToken);
         await db.LiveSessions.DeleteManyAsync(s => s.ActivityId == id, cancellationToken);
+        await db.StudySessions.DeleteManyAsync(s => s.ActivityId == id, cancellationToken);
         await db.Activities.DeleteOneAsync(a => a.Id == id, cancellationToken);
         return NoContent();
     }
@@ -196,7 +198,7 @@ public class ActivitiesController(
             .SortByDescending(a => a.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        return Ok(activities.Select(ToSummary));
+        return Ok(activities.Select(ActivityMapper.ToSummary));
     }
 
     [HttpPost("api/classes/{classId:guid}/activities/{activityId:guid}")]
@@ -259,7 +261,7 @@ public class ActivitiesController(
         activity.ClassIds = requested;
         activity.ClassId = Guid.Empty;
         await db.Activities.ReplaceOneAsync(a => a.Id == activity.Id, activity, cancellationToken: cancellationToken);
-        return Ok(ToResponse(activity, includeAnswers: true));
+        return Ok(ActivityMapper.ToResponse(activity, includeAnswers: true));
     }
 
     [HttpGet("api/activities/{id:guid}")]
@@ -283,7 +285,7 @@ public class ActivitiesController(
         var owns = await OwnsActivityAsync(profile, activity, cancellationToken);
         if (owns)
         {
-            return Ok(ToResponse(activity, includeAnswers: true));
+            return Ok(ActivityMapper.ToResponse(activity, includeAnswers: true));
         }
 
         if (profile.Role != UserRoles.Aluno)
@@ -293,7 +295,7 @@ public class ActivitiesController(
 
         if (activity.IsPublic)
         {
-            return Ok(ToResponse(activity, includeAnswers: false));
+            return Ok(ActivityMapper.ToResponse(activity, includeAnswers: false));
         }
 
         var linked = activity.LinkedClassIds();
@@ -311,7 +313,7 @@ public class ActivitiesController(
             return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você não tem acesso a esta atividade." });
         }
 
-        return Ok(ToResponse(activity, includeAnswers: false));
+        return Ok(ActivityMapper.ToResponse(activity, includeAnswers: false));
     }
 
     [HttpPost("api/activities/{id:guid}/import-flashcards")]
@@ -393,12 +395,13 @@ public class ActivitiesController(
         {
             existing.Title = title;
             existing.Items = cards;
+            existing.Sections = ActivityContentBuilder.DefaultSections(cards, existing.Sections);
             existing.ProfessorId = quiz.ProfessorId != Guid.Empty ? quiz.ProfessorId : profile.Id;
             existing.ClassIds = linked;
             existing.ClassId = Guid.Empty;
             existing.IsPublic = quiz.IsPublic;
             await db.Activities.ReplaceOneAsync(a => a.Id == existing.Id, existing, cancellationToken: cancellationToken);
-            return Ok(ToResponse(existing, includeAnswers: true));
+            return Ok(ActivityMapper.ToResponse(existing, includeAnswers: true));
         }
 
         var deck = new Activity
@@ -411,11 +414,12 @@ public class ActivitiesController(
             SourceActivityId = quiz.Id,
             IsPublic = quiz.IsPublic,
             CreatedAt = DateTimeOffset.UtcNow,
-            Items = cards
+            Items = cards,
+            Sections = ActivityContentBuilder.DefaultSections(cards)
         };
 
         await db.Activities.InsertOneAsync(deck, cancellationToken: cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id = deck.Id }, ToResponse(deck, includeAnswers: true));
+        return CreatedAtAction(nameof(GetById), new { id = deck.Id }, ActivityMapper.ToResponse(deck, includeAnswers: true));
     }
 
     private async Task<(ActivityResponse? Activity, ActionResult? Error)> MutateClassLinkAsync(
@@ -479,7 +483,7 @@ public class ActivitiesController(
         }
 
         await db.Activities.ReplaceOneAsync(a => a.Id == activity.Id, activity, cancellationToken: cancellationToken);
-        return (ToResponse(activity, includeAnswers: true), null);
+        return (ActivityMapper.ToResponse(activity, includeAnswers: true), null);
     }
 
     private async Task<bool> OwnsActivityAsync(Profile profile, Activity activity, CancellationToken cancellationToken)
@@ -547,204 +551,4 @@ public class ActivitiesController(
             .Find(p => p.Id == userId)
             .FirstOrDefaultAsync(cancellationToken);
     }
-
-    private static string? ValidateQuizItems(List<CreateActivityItemRequest> items)
-    {
-        if (items.Count == 0)
-        {
-            return "O quiz precisa de pelo menos uma questão.";
-        }
-
-        foreach (var item in items)
-        {
-            if (string.IsNullOrWhiteSpace(item.Prompt))
-            {
-                return "Cada questão precisa de um enunciado.";
-            }
-
-            var options = item.Options ?? [];
-            if (options.Count is < 2 or > 5)
-            {
-                return "Cada questão deve ter de 2 a 5 alternativas.";
-            }
-
-            if (options.Any(option => string.IsNullOrWhiteSpace(option.Text)))
-            {
-                return "Todas as alternativas precisam de texto.";
-            }
-
-            if (options.Count(option => option.IsCorrect) != 1)
-            {
-                return "Cada questão deve ter exatamente uma alternativa correta.";
-            }
-
-            if (item.TimeLimitSeconds is < 5 or > 300)
-            {
-                return "O tempo por questão deve ficar entre 5 e 300 segundos.";
-            }
-        }
-
-        return null;
-    }
-
-    private static string? ValidateFlashcardItems(List<CreateActivityItemRequest> items)
-    {
-        if (items.Count == 0)
-        {
-            return "O deck precisa de pelo menos um cartão.";
-        }
-
-        if (items.Any(item => string.IsNullOrWhiteSpace(item.Front) || string.IsNullOrWhiteSpace(item.Back)))
-        {
-            return "Cada cartão precisa de frente e verso.";
-        }
-
-        return null;
-    }
-
-    private static (List<ActivityItem>? Items, string? Error) BuildItems(
-        string type,
-        List<CreateActivityItemRequest> items,
-        IReadOnlyDictionary<Guid, ActivityItem>? existingById = null)
-    {
-        var validationError = type == ActivityTypes.Quiz
-            ? ValidateQuizItems(items)
-            : ValidateFlashcardItems(items);
-
-        if (validationError is not null)
-        {
-            return (null, validationError);
-        }
-
-        return type == ActivityTypes.Quiz
-            ? MapQuizItems(items, existingById)
-            : MapFlashcardItems(items, existingById);
-    }
-
-    private static (List<ActivityItem>? Items, string? Error) MapQuizItems(
-        List<CreateActivityItemRequest> items,
-        IReadOnlyDictionary<Guid, ActivityItem>? existingById)
-    {
-        var mapped = new List<ActivityItem>(items.Count);
-        foreach (var (item, index) in items.Select((value, i) => (value, i)))
-        {
-            var existing = ResolveExisting(item.Id, existingById);
-            var mappedItem = new ActivityItem
-            {
-                Id = existing?.Id ?? Guid.NewGuid(),
-                Kind = ItemKinds.MultipleChoice,
-                Prompt = item.Prompt!.Trim(),
-                Explanation = string.IsNullOrWhiteSpace(item.Explanation) ? null : item.Explanation.Trim(),
-                TimeLimitSeconds = item.TimeLimitSeconds ?? 30,
-                Position = index,
-                Options = item.Options!
-                    .Select((option, optionIndex) => new QuestionOption
-                    {
-                        Id = ResolveOptionId(option.Id, existing?.Options),
-                        Text = option.Text.Trim(),
-                        IsCorrect = option.IsCorrect,
-                        Position = optionIndex
-                    })
-                    .ToList()
-            };
-
-            var imageError = ActivityImage.Apply(mappedItem, item.ImageDataUrl);
-            if (imageError is not null)
-            {
-                return (null, imageError);
-            }
-
-            mapped.Add(mappedItem);
-        }
-
-        return (mapped, null);
-    }
-
-    private static (List<ActivityItem>? Items, string? Error) MapFlashcardItems(
-        List<CreateActivityItemRequest> items,
-        IReadOnlyDictionary<Guid, ActivityItem>? existingById)
-    {
-        var mapped = new List<ActivityItem>(items.Count);
-        foreach (var (item, index) in items.Select((value, i) => (value, i)))
-        {
-            var existing = ResolveExisting(item.Id, existingById);
-            var mappedItem = new ActivityItem
-            {
-                Id = existing?.Id ?? Guid.NewGuid(),
-                Kind = ItemKinds.Flashcard,
-                Front = item.Front!.Trim(),
-                Back = item.Back!.Trim(),
-                Position = index
-            };
-
-            var imageError = ActivityImage.Apply(mappedItem, item.ImageDataUrl);
-            if (imageError is not null)
-            {
-                return (null, imageError);
-            }
-
-            mapped.Add(mappedItem);
-        }
-
-        return (mapped, null);
-    }
-
-    private static ActivityItem? ResolveExisting(
-        Guid? id,
-        IReadOnlyDictionary<Guid, ActivityItem>? existingById) =>
-        id is Guid itemId && existingById is not null && existingById.TryGetValue(itemId, out var found)
-            ? found
-            : null;
-
-    private static Guid ResolveOptionId(Guid? id, List<QuestionOption>? existingOptions) =>
-        id is Guid optionId && existingOptions is not null && existingOptions.Any(option => option.Id == optionId)
-            ? optionId
-            : Guid.NewGuid();
-
-    private static ActivitySummaryResponse ToSummary(Activity activity) =>
-        new(
-            activity.Id,
-            activity.ProfessorId,
-            activity.Title,
-            activity.Type,
-            activity.CreatedAt,
-            activity.Items.Count,
-            activity.SourceActivityId,
-            activity.LinkedClassIds(),
-            activity.IsPublic);
-
-    private static ActivityResponse ToResponse(Activity activity, bool includeAnswers) =>
-        new(
-            activity.Id,
-            activity.ProfessorId,
-            activity.Title,
-            activity.Type,
-            activity.CreatedAt,
-            activity.SourceActivityId,
-            activity.LinkedClassIds(),
-            activity.IsPublic,
-            activity.Items
-                .OrderBy(item => item.Position)
-                .Select(item => ToItemResponse(item, includeAnswers))
-                .ToList());
-
-    private static ActivityItemResponse ToItemResponse(ActivityItem item, bool includeAnswers) =>
-        new(
-            item.Id,
-            item.Kind,
-            item.Prompt,
-            includeAnswers ? item.Explanation : null,
-            item.TimeLimitSeconds,
-            item.Position,
-            item.Options?
-                .OrderBy(option => option.Position)
-                .Select(option => new QuestionOptionResponse(
-                    option.Id,
-                    option.Text,
-                    includeAnswers ? option.IsCorrect : null,
-                    option.Position))
-                .ToList(),
-            item.Front,
-            item.Back,
-            ActivityImage.ToDataUrl(item));
 }

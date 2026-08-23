@@ -53,7 +53,7 @@ public class PublicController(MongoDbContext db) : ControllerBase
             return NotFound(new { detail = "Conteúdo público não encontrado." });
         }
 
-        return Ok(ToPublicResponse(activity));
+        return Ok(ActivityMapper.ToResponse(activity, includeAnswers: false));
     }
 
     [HttpPost("quizzes/{id:guid}/answers")]
@@ -74,23 +74,13 @@ public class PublicController(MongoDbContext db) : ControllerBase
             return BadRequest(new { detail = "Questão não encontrada neste quiz." });
         }
 
-        var options = item.Options ?? [];
-        if (request.SelectedOptionId is Guid selectedId && options.All(option => option.Id != selectedId))
+        var grade = ItemGrader.Grade(item, request);
+        if (!grade.Success)
         {
-            return BadRequest(new { detail = "Alternativa inválida para esta questão." });
+            return BadRequest(new { detail = grade.Error });
         }
 
-        var correct = options.FirstOrDefault(option => option.IsCorrect);
-        var isCorrect = request.SelectedOptionId is Guid chosen
-            && correct is not null
-            && chosen == correct.Id;
-
-        return Ok(new StudyAnswerResponse(
-            item.Id,
-            request.SelectedOptionId,
-            correct?.Id,
-            isCorrect,
-            item.Explanation));
+        return Ok(ItemGrader.ToResponse(grade, item.Id));
     }
 
     [HttpGet("flashcards/{id:guid}")]
@@ -130,36 +120,4 @@ public class PublicController(MongoDbContext db) : ControllerBase
 
         return activity;
     }
-
-    private static ActivityResponse ToPublicResponse(Activity activity) =>
-        new(
-            activity.Id,
-            activity.ProfessorId,
-            activity.Title,
-            activity.Type,
-            activity.CreatedAt,
-            activity.SourceActivityId,
-            activity.LinkedClassIds(),
-            activity.IsPublic,
-            activity.Items
-                .OrderBy(item => item.Position)
-                .Select(item => new ActivityItemResponse(
-                    item.Id,
-                    item.Kind,
-                    item.Prompt,
-                    null,
-                    item.TimeLimitSeconds,
-                    item.Position,
-                    item.Options?
-                        .OrderBy(option => option.Position)
-                        .Select(option => new QuestionOptionResponse(
-                            option.Id,
-                            option.Text,
-                            null,
-                            option.Position))
-                        .ToList(),
-                    item.Front,
-                    item.Back,
-                    ActivityImage.ToDataUrl(item)))
-                .ToList());
 }

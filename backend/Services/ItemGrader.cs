@@ -1,0 +1,189 @@
+using Astro.Api.Contracts;
+using Astro.Api.Domain;
+
+namespace Astro.Api.Services;
+
+public sealed class GradeResult
+{
+    public bool Success { get; init; }
+    public string? Error { get; init; }
+    public string Kind { get; init; } = string.Empty;
+    public bool IsCorrect { get; init; }
+    public int Score { get; init; }
+    public Guid? SelectedOptionId { get; init; }
+    public IReadOnlyList<Guid>? SelectedOptionIds { get; init; }
+    public Guid? CorrectOptionId { get; init; }
+    public IReadOnlyList<Guid>? CorrectOptionIds { get; init; }
+    public string? TextAnswer { get; init; }
+    public bool? Remembered { get; init; }
+    public string? Explanation { get; init; }
+    public string? Back { get; init; }
+
+    public static GradeResult Fail(string error) => new() { Success = false, Error = error };
+}
+
+public static class ItemGrader
+{
+    public static GradeResult Grade(ActivityItem item, SubmitStudyAnswerRequest request)
+    {
+        return item.Kind switch
+        {
+            ItemKinds.MultipleChoice => GradeOptions(item, request, allowMultiple: item.AllowMultiple),
+            ItemKinds.TrueFalse => GradeOptions(item, request, allowMultiple: false),
+            ItemKinds.ShortAnswer => GradeShortAnswer(item, request),
+            ItemKinds.Matching => GradeMatching(item, request),
+            ItemKinds.Flashcard => GradeFlashcard(item, request),
+            _ => GradeResult.Fail("Este tipo de questão ainda não pode ser corrigido.")
+        };
+    }
+
+    public static StudyAnswerResponse ToResponse(GradeResult grade, Guid itemId) =>
+        new(
+            itemId,
+            grade.SelectedOptionId,
+            grade.CorrectOptionId,
+            grade.IsCorrect,
+            grade.Explanation,
+            grade.Kind,
+            grade.SelectedOptionIds,
+            grade.CorrectOptionIds,
+            grade.TextAnswer,
+            grade.Remembered,
+            grade.Back,
+            grade.Score);
+
+    private static GradeResult GradeOptions(ActivityItem item, SubmitStudyAnswerRequest request, bool allowMultiple)
+    {
+        var options = item.Options ?? [];
+        var selected = NormalizeSelected(request);
+        if (selected.Count == 0)
+        {
+            return GradeResult.Fail("Selecione ao menos uma alternativa.");
+        }
+
+        if (selected.Any(id => options.All(option => option.Id != id)))
+        {
+            return GradeResult.Fail("Alternativa inválida para esta questão.");
+        }
+
+        if (!allowMultiple && selected.Count != 1)
+        {
+            return GradeResult.Fail("Esta questão aceita apenas uma alternativa.");
+        }
+
+        var correctIds = options.Where(option => option.IsCorrect).Select(option => option.Id).OrderBy(id => id).ToList();
+        var selectedOrdered = selected.OrderBy(id => id).ToList();
+        var isCorrect = correctIds.SequenceEqual(selectedOrdered);
+
+        return new GradeResult
+        {
+            Success = true,
+            Kind = item.Kind,
+            IsCorrect = isCorrect,
+            Score = isCorrect ? 1 : 0,
+            SelectedOptionId = selectedOrdered.Count == 1 ? selectedOrdered[0] : null,
+            SelectedOptionIds = selectedOrdered,
+            CorrectOptionId = correctIds.Count == 1 ? correctIds[0] : null,
+            CorrectOptionIds = correctIds,
+            Explanation = item.Explanation
+        };
+    }
+
+    private static GradeResult GradeShortAnswer(ActivityItem item, SubmitStudyAnswerRequest request)
+    {
+        var text = request.TextAnswer?.Trim() ?? string.Empty;
+        if (text.Length == 0)
+        {
+            return GradeResult.Fail("Informe uma resposta.");
+        }
+
+        var comparer = item.CaseSensitive ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
+        var accepted = item.AcceptedAnswers ?? [];
+        var isCorrect = accepted.Any(answer => comparer.Equals(answer.Trim(), text));
+
+        return new GradeResult
+        {
+            Success = true,
+            Kind = item.Kind,
+            IsCorrect = isCorrect,
+            Score = isCorrect ? 1 : 0,
+            TextAnswer = text,
+            Explanation = item.Explanation
+        };
+    }
+
+    private static GradeResult GradeMatching(ActivityItem item, SubmitStudyAnswerRequest request)
+    {
+        var pairs = item.Pairs ?? [];
+        var submitted = request.Pairs ?? [];
+        if (submitted.Count != pairs.Count)
+        {
+            return GradeResult.Fail("Associe todos os pares antes de enviar.");
+        }
+
+        var expected = pairs.ToDictionary(pair => pair.LeftId, pair => pair.RightId);
+        var seenLeft = new HashSet<Guid>();
+        foreach (var answer in submitted)
+        {
+            if (!seenLeft.Add(answer.LeftId) || !expected.TryGetValue(answer.LeftId, out var rightId))
+            {
+                return GradeResult.Fail("Associação inválida para esta questão.");
+            }
+
+            if (pairs.All(pair => pair.RightId != answer.RightId))
+            {
+                return GradeResult.Fail("Associação inválida para esta questão.");
+            }
+
+            if (rightId != answer.RightId)
+            {
+                return new GradeResult
+                {
+                    Success = true,
+                    Kind = item.Kind,
+                    IsCorrect = false,
+                    Score = 0,
+                    Explanation = item.Explanation
+                };
+            }
+        }
+
+        return new GradeResult
+        {
+            Success = true,
+            Kind = item.Kind,
+            IsCorrect = true,
+            Score = 1,
+            Explanation = item.Explanation
+        };
+    }
+
+    private static GradeResult GradeFlashcard(ActivityItem item, SubmitStudyAnswerRequest request)
+    {
+        if (request.Remembered is not bool remembered)
+        {
+            return GradeResult.Fail("Informe se o cartão foi lembrado.");
+        }
+
+        return new GradeResult
+        {
+            Success = true,
+            Kind = item.Kind,
+            IsCorrect = remembered,
+            Score = remembered ? 1 : 0,
+            Remembered = remembered,
+            Back = item.Back,
+            Explanation = item.Explanation
+        };
+    }
+
+    private static List<Guid> NormalizeSelected(SubmitStudyAnswerRequest request)
+    {
+        if (request.SelectedOptionIds is { Count: > 0 })
+        {
+            return request.SelectedOptionIds.Distinct().ToList();
+        }
+
+        return request.SelectedOptionId is Guid id ? [id] : [];
+    }
+}

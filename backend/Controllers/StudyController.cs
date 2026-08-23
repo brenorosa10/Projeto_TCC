@@ -292,16 +292,11 @@ public class StudyController(
             return BadRequest(new { detail = "Questão não encontrada neste quiz." });
         }
 
-        var options = item.Options ?? [];
-        if (request.SelectedOptionId is Guid selectedId && options.All(option => option.Id != selectedId))
+        var grade = ItemGrader.Grade(item, request);
+        if (!grade.Success)
         {
-            return BadRequest(new { detail = "Alternativa inválida para esta questão." });
+            return BadRequest(new { detail = grade.Error });
         }
-
-        var correct = options.FirstOrDefault(option => option.IsCorrect);
-        var isCorrect = request.SelectedOptionId is Guid chosen
-            && correct is not null
-            && chosen == correct.Id;
 
         var attempt = new AnswerAttempt
         {
@@ -309,20 +304,19 @@ public class StudyController(
             StudentId = profile.Id,
             ActivityId = quiz.Id,
             ItemId = item.Id,
-            SelectedOptionId = request.SelectedOptionId,
-            IsCorrect = isCorrect,
+            SelectedOptionId = grade.SelectedOptionId,
+            SelectedOptionIds = grade.SelectedOptionIds?.ToList(),
+            TextAnswer = grade.TextAnswer,
+            Remembered = grade.Remembered,
+            IsCorrect = grade.IsCorrect,
+            Score = grade.Score,
             ResponseTimeMs = request.ResponseTimeMs,
             AnsweredAt = DateTimeOffset.UtcNow
         };
 
         await db.AnswerAttempts.InsertOneAsync(attempt, cancellationToken: cancellationToken);
 
-        return Ok(new StudyAnswerResponse(
-            item.Id,
-            request.SelectedOptionId,
-            correct?.Id,
-            isCorrect,
-            item.Explanation));
+        return Ok(ItemGrader.ToResponse(grade, item.Id));
     }
 
     private async Task<bool> StudentCanAccessAsync(Guid studentId, Activity activity, CancellationToken cancellationToken)

@@ -2,34 +2,53 @@ import { useEffect, useState } from "react"
 import { Link, useLocation, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
-import type { StudyFlashcardCard, StudyFlashcardSession } from "@/lib/types"
+import { findSection, hasSectionCopy } from "@/lib/item-kinds"
+import type { ActivitySection, StudyFlashcardCard, StudyFlashcardSession } from "@/lib/types"
+
+type Phase = "prep" | "cards" | "done"
 
 export function AlunoFlashcardStudyPage() {
   const { activityId } = useParams()
   const location = useLocation()
   const { session: authSession } = useAuth()
   const isGuest = location.pathname.startsWith("/explorar") || !authSession
+  const backHref = isGuest ? "/" : "/aluno/estudar"
   const [session, setSession] = useState<StudyFlashcardSession | null>(null)
+  const [prep, setPrep] = useState<ActivitySection | null>(null)
+  const [feedback, setFeedback] = useState<ActivitySection | null>(null)
   const [queue, setQueue] = useState<StudyFlashcardCard[]>([])
   const [loading, setLoading] = useState(true)
   const [flipped, setFlipped] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [reviewed, setReviewed] = useState(0)
-  const [finished, setFinished] = useState(false)
+  const [phase, setPhase] = useState<Phase>("cards")
 
   useEffect(() => {
     if (!activityId) return
-    const load = isGuest
+    const activityLoader = isGuest ? api.getPublicActivity(activityId) : api.getActivity(activityId)
+    const deckLoader = isGuest
       ? api.getPublicFlashcardSession(activityId)
       : api.getFlashcardSession(activityId)
-    load
-      .then((data) => {
+
+    Promise.all([activityLoader, deckLoader])
+      .then(([activity, data]) => {
+        const prepSection = findSection(activity.sections, "prep")
+        const feedbackSection = findSection(activity.sections, "feedback")
+        setPrep(prepSection ?? null)
+        setFeedback(feedbackSection ?? null)
         setSession(data)
         setQueue(data.cards)
-        setFinished(data.cards.length === 0)
+        if (hasSectionCopy(prepSection) && data.cards.length > 0) {
+          setPhase("prep")
+        } else if (data.cards.length === 0) {
+          setPhase("done")
+        } else {
+          setPhase("cards")
+        }
       })
       .catch((error: unknown) =>
         toast.error(error instanceof Error ? error.message : "Erro ao carregar flashcards")
@@ -43,28 +62,20 @@ export function AlunoFlashcardStudyPage() {
     if (!activityId || !card || submitting) return
     setSubmitting(true)
     try {
-      if (isGuest) {
-        setReviewed((prev) => prev + 1)
-        setFlipped(false)
+      if (!isGuest) {
+        const result = await api.submitFlashcardReview(activityId, card.id, remembered)
         setQueue((prev) => {
           const rest = prev.slice(1)
-          if (!remembered) {
-            return [...rest, card]
-          }
-          return rest
+          return remembered ? rest : [...rest, { ...card, boxLevel: result.boxLevel }]
         })
-        return
+      } else {
+        setQueue((prev) => {
+          const rest = prev.slice(1)
+          return remembered ? rest : [...rest, card]
+        })
       }
-      const result = await api.submitFlashcardReview(activityId, card.id, remembered)
       setReviewed((prev) => prev + 1)
       setFlipped(false)
-      setQueue((prev) => {
-        const rest = prev.slice(1)
-        if (!remembered) {
-          return [...rest, { ...card, boxLevel: result.boxLevel }]
-        }
-        return rest
-      })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao registrar revisão")
     } finally {
@@ -73,10 +84,10 @@ export function AlunoFlashcardStudyPage() {
   }
 
   useEffect(() => {
-    if (!loading && session && queue.length === 0 && reviewed > 0) {
-      setFinished(true)
+    if (!loading && session && phase === "cards" && queue.length === 0) {
+      setPhase("done")
     }
-  }, [loading, session, queue.length, reviewed])
+  }, [loading, session, phase, queue.length])
 
   return (
     <AppShell title="Estudar flashcards">
@@ -88,7 +99,7 @@ export function AlunoFlashcardStudyPage() {
         <div className="space-y-8">
           <div>
             <p className="text-sm text-muted-foreground">
-              <Link to={isGuest ? "/" : "/aluno/estudar"} className="hover:text-primary">
+              <Link to={backHref} className="hover:text-primary">
                 {isGuest ? "Início" : "Estudar"}
               </Link>{" "}
               / {session.title}
@@ -99,21 +110,42 @@ export function AlunoFlashcardStudyPage() {
             </p>
           </div>
 
-          {finished || !card ? (
+          {phase === "prep" ? (
             <div className="space-y-4 rounded-lg border border-border p-6">
+              <Badge variant="secondary">Preparação</Badge>
               <h2 className="font-display text-xl font-semibold">
-                {reviewed > 0 ? "Sessão concluída" : "Nada para revisar agora"}
+                {prep?.title?.trim() || "Antes de começar"}
               </h2>
+              {prep?.body?.trim() ? (
+                <p className="whitespace-pre-wrap text-muted-foreground">{prep.body}</p>
+              ) : null}
+              <Button type="button" onClick={() => setPhase("cards")}>
+                Começar revisão
+              </Button>
+            </div>
+          ) : null}
+
+          {phase === "done" || (phase === "cards" && !card) ? (
+            <div className="space-y-4 rounded-lg border border-border p-6">
+              <Badge variant="secondary">Resultados</Badge>
+              <h2 className="font-display text-xl font-semibold">
+                {feedback?.title?.trim() || (reviewed > 0 ? "Sessão concluída" : "Nada para revisar agora")}
+              </h2>
+              {feedback?.body?.trim() ? (
+                <p className="whitespace-pre-wrap text-muted-foreground">{feedback.body}</p>
+              ) : null}
               <p className="text-muted-foreground">
                 {reviewed > 0
                   ? `Você revisou ${reviewed} cartão(ões). Os demais voltam quando chegar a hora da caixa.`
                   : "Nenhum cartão está devido. Volte mais tarde para a repetição espaçada."}
               </p>
               <Button asChild variant="outline">
-                <Link to={isGuest ? "/" : "/aluno/estudar"}>Voltar à lista</Link>
+                <Link to={backHref}>Voltar à lista</Link>
               </Button>
             </div>
-          ) : (
+          ) : null}
+
+          {phase === "cards" && card ? (
             <div className="space-y-6">
               <p className="text-sm text-muted-foreground">
                 Cartão {reviewed + 1} · {queue.length} restante(s) nesta sessão · caixa {card.boxLevel}
@@ -144,11 +176,7 @@ export function AlunoFlashcardStudyPage() {
 
               {flipped ? (
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => void review(true)}
-                  >
+                  <Button type="button" disabled={submitting} onClick={() => void review(true)}>
                     Lembrei
                   </Button>
                   <Button
@@ -166,7 +194,7 @@ export function AlunoFlashcardStudyPage() {
                 </Button>
               )}
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </AppShell>

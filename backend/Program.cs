@@ -60,6 +60,8 @@ builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddSingleton<PasswordHashingService>();
 builder.Services.AddScoped<ClassCodeGenerator>();
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddScoped<StudyAccessService>();
+builder.Services.AddScoped<StudySessionService>();
 builder.Services.AddSignalR();
 
 ConfigureMongo(builder);

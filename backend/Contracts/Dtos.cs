@@ -83,6 +83,19 @@ public record CreateQuestionOptionRequest(
     bool IsCorrect
 );
 
+public record CreateMatchingPairRequest(
+    Guid? LeftId,
+    Guid? RightId,
+    [Required]
+    [MinLength(1)]
+    [MaxLength(500)]
+    string Left,
+    [Required]
+    [MinLength(1)]
+    [MaxLength(500)]
+    string Right
+);
+
 public record CreateActivityItemRequest(
     Guid? Id,
     string? Kind,
@@ -90,9 +103,28 @@ public record CreateActivityItemRequest(
     string? Explanation,
     int? TimeLimitSeconds,
     List<CreateQuestionOptionRequest>? Options,
+    bool? AllowMultiple,
+    List<string>? AcceptedAnswers,
+    bool? CaseSensitive,
+    bool? CorrectTrue,
+    List<CreateMatchingPairRequest>? Pairs,
     string? Front,
     string? Back,
     string? ImageDataUrl
+);
+
+public record CreateActivitySectionRequest(
+    Guid? Id,
+    [Required]
+    [RegularExpression("^(prep|practice|feedback)$")]
+    string Role,
+    [MaxLength(200)]
+    string? Title,
+    [MaxLength(8000)]
+    string? Body,
+    [MaxLength(50)]
+    string? FeedbackTemplate,
+    List<CreateActivityItemRequest>? Items
 );
 
 public record CreateActivityRequest(
@@ -103,10 +135,9 @@ public record CreateActivityRequest(
     [Required]
     [RegularExpression("^(quiz|flashcards)$")]
     string Type,
-    [Required]
-    [MinLength(1)]
-    List<CreateActivityItemRequest> Items,
-    bool IsPublic = false
+    List<CreateActivityItemRequest>? Items,
+    bool IsPublic = false,
+    List<CreateActivitySectionRequest>? Sections = null
 );
 
 public record AssignActivityClassesRequest(
@@ -121,6 +152,18 @@ public record QuestionOptionResponse(
     int Position
 );
 
+public record MatchingPairResponse(
+    Guid LeftId,
+    Guid RightId,
+    string Left,
+    string Right
+);
+
+public record MatchingEntryResponse(
+    Guid Id,
+    string Text
+);
+
 public record ActivityItemResponse(
     Guid Id,
     string Kind,
@@ -131,7 +174,22 @@ public record ActivityItemResponse(
     IReadOnlyList<QuestionOptionResponse>? Options,
     string? Front,
     string? Back,
-    string? ImageDataUrl
+    string? ImageDataUrl,
+    Guid? SectionId = null,
+    bool? AllowMultiple = null,
+    IReadOnlyList<string>? AcceptedAnswers = null,
+    bool? CaseSensitive = null,
+    IReadOnlyList<MatchingPairResponse>? Pairs = null
+);
+
+public record ActivitySectionResponse(
+    Guid Id,
+    string Role,
+    string? Title,
+    string? Body,
+    string? FeedbackTemplate,
+    int Position,
+    IReadOnlyList<Guid> ItemIds
 );
 
 public record ActivitySummaryResponse(
@@ -155,7 +213,8 @@ public record ActivityResponse(
     Guid? SourceActivityId,
     IReadOnlyList<Guid> ClassIds,
     bool IsPublic,
-    IReadOnlyList<ActivityItemResponse> Items
+    IReadOnlyList<ActivityItemResponse> Items,
+    IReadOnlyList<ActivitySectionResponse>? Sections = null
 );
 
 public record PublicActivitySummaryResponse(
@@ -175,11 +234,20 @@ public record StudyQuizSummaryResponse(
     bool IsPublic
 );
 
+public record MatchingAnswerRequest(
+    Guid LeftId,
+    Guid RightId
+);
+
 public record SubmitStudyAnswerRequest(
     [Required]
     Guid ItemId,
     Guid? SelectedOptionId,
-    int? ResponseTimeMs
+    int? ResponseTimeMs,
+    List<Guid>? SelectedOptionIds = null,
+    string? TextAnswer = null,
+    bool? Remembered = null,
+    List<MatchingAnswerRequest>? Pairs = null
 );
 
 public record StudyAnswerResponse(
@@ -187,7 +255,16 @@ public record StudyAnswerResponse(
     Guid? SelectedOptionId,
     Guid? CorrectOptionId,
     bool IsCorrect,
-    string? Explanation
+    string? Explanation,
+    string? Kind = null,
+    IReadOnlyList<Guid>? SelectedOptionIds = null,
+    IReadOnlyList<Guid>? CorrectOptionIds = null,
+    string? TextAnswer = null,
+    bool? Remembered = null,
+    string? Back = null,
+    int? Score = null,
+    int? BoxLevel = null,
+    DateTimeOffset? NextReviewAt = null
 );
 
 public record StudyFlashcardSummaryResponse(
@@ -226,4 +303,76 @@ public record FlashcardReviewResponse(
     bool Remembered,
     int BoxLevel,
     DateTimeOffset NextReviewAt
+);
+
+public record CreateStudySessionRequest(
+    [Required]
+    Guid ActivityId,
+    bool ForceNew = false
+);
+
+public record StudySessionProgressResponse(
+    int AnsweredCount,
+    int PracticeTotal,
+    int CorrectCount
+);
+
+public record StudySessionSectionViewResponse(
+    Guid Id,
+    string Role,
+    string? Title,
+    string? Body,
+    string? FeedbackTemplate
+);
+
+public record StudySessionItemResponse(
+    Guid Id,
+    string Kind,
+    string? Prompt,
+    int? TimeLimitSeconds,
+    IReadOnlyList<QuestionOptionResponse>? Options,
+    string? Front,
+    string? Back,
+    string? ImageDataUrl,
+    bool? AllowMultiple,
+    IReadOnlyList<MatchingEntryResponse>? Left,
+    IReadOnlyList<MatchingEntryResponse>? Right
+);
+
+public record StudySessionFeedbackItemResponse(
+    Guid ItemId,
+    string Kind,
+    string? Prompt,
+    bool? IsCorrect,
+    string? Explanation,
+    Guid? SelectedOptionId,
+    Guid? CorrectOptionId,
+    string? TextAnswer,
+    bool? Remembered,
+    int? Score
+);
+
+public record StudySessionFeedbackResponse(
+    string Template,
+    string? Title,
+    string? Body,
+    int Total,
+    int CorrectCount,
+    int IncorrectCount,
+    IReadOnlyList<StudySessionFeedbackItemResponse> Items
+);
+
+public record StudySessionResponse(
+    Guid Id,
+    Guid ActivityId,
+    string ActivityTitle,
+    string ActivityType,
+    string Status,
+    int SectionIndex,
+    int SectionCount,
+    StudySessionSectionViewResponse? CurrentSection,
+    StudySessionItemResponse? CurrentItem,
+    StudyAnswerResponse? CurrentItemFeedback,
+    StudySessionProgressResponse Progress,
+    StudySessionFeedbackResponse? Feedback
 );

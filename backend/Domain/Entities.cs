@@ -63,6 +63,7 @@ public class Activity
     public Guid? SourceActivityId { get; set; }
     public bool IsPublic { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public List<ActivitySection> Sections { get; set; } = [];
     public List<ActivityItem> Items { get; set; } = [];
 
     [BsonExtraElements]
@@ -82,15 +83,31 @@ public class Activity
 /// <summary>
 /// Item polimórfico de uma atividade (múltipla escolha, V/F, flashcard, resposta curta, etc.).
 /// </summary>
+public class ActivitySection
+{
+    public Guid Id { get; set; }
+    public string Role { get; set; } = SectionRoles.Practice;
+    public string? Title { get; set; }
+    public string? Body { get; set; }
+    public string? FeedbackTemplate { get; set; }
+    public int Position { get; set; }
+    public List<Guid> ItemIds { get; set; } = [];
+}
+
 public class ActivityItem
 {
     public Guid Id { get; set; }
+    public Guid? SectionId { get; set; }
     public string Kind { get; set; } = string.Empty;
     public string? Prompt { get; set; }
     public string? Explanation { get; set; }
     public int? TimeLimitSeconds { get; set; }
     public int Position { get; set; }
     public List<QuestionOption>? Options { get; set; }
+    public bool AllowMultiple { get; set; }
+    public List<string>? AcceptedAnswers { get; set; }
+    public bool CaseSensitive { get; set; }
+    public List<MatchingPair>? Pairs { get; set; }
     public string? Front { get; set; }
     public string? Back { get; set; }
 
@@ -110,6 +127,14 @@ public class QuestionOption
     public string Text { get; set; } = string.Empty;
     public bool IsCorrect { get; set; }
     public int Position { get; set; }
+}
+
+public class MatchingPair
+{
+    public Guid LeftId { get; set; }
+    public Guid RightId { get; set; }
+    public string Left { get; set; } = string.Empty;
+    public string Right { get; set; } = string.Empty;
 }
 
 public class LiveSession
@@ -134,8 +159,11 @@ public class AnswerAttempt
     public Guid ActivityId { get; set; }
     public Guid ItemId { get; set; }
     public Guid? LiveSessionId { get; set; }
+    public Guid? StudySessionId { get; set; }
     public Guid? SelectedOptionId { get; set; }
+    public List<Guid>? SelectedOptionIds { get; set; }
     public string? TextAnswer { get; set; }
+    public bool? Remembered { get; set; }
     public bool? IsCorrect { get; set; }
     public int? ResponseTimeMs { get; set; }
     public int? Score { get; set; }
@@ -177,4 +205,81 @@ public static class ItemKinds
     public const string TrueFalse = "true_false";
     public const string Flashcard = "flashcard";
     public const string ShortAnswer = "short_answer";
+    public const string Matching = "matching";
+
+    public static readonly string[] All =
+    [
+        MultipleChoice,
+        TrueFalse,
+        Flashcard,
+        ShortAnswer,
+        Matching
+    ];
+}
+
+public static class SectionRoles
+{
+    public const string Prep = "prep";
+    public const string Practice = "practice";
+    public const string Feedback = "feedback";
+
+    public static readonly string[] All = [Prep, Practice, Feedback];
+}
+
+public static class FeedbackTemplates
+{
+    public const string ScoreSummary = "score_summary";
+    public const string Explanations = "explanations";
+    public const string DueCards = "due_cards";
+}
+
+public static class StudySessionStatuses
+{
+    public const string Prep = "prep";
+    public const string Practice = "practice";
+    public const string Feedback = "feedback";
+    public const string Completed = "completed";
+}
+
+public class StudySessionPlanSection
+{
+    public Guid Id { get; set; }
+    public string Role { get; set; } = SectionRoles.Practice;
+    public string? Title { get; set; }
+    public string? Body { get; set; }
+    public string? FeedbackTemplate { get; set; }
+    public List<Guid> ItemIds { get; set; } = [];
+}
+
+public class StudySessionAnswer
+{
+    public Guid ItemId { get; set; }
+    public string Kind { get; set; } = string.Empty;
+    public Guid? SelectedOptionId { get; set; }
+    public List<Guid>? SelectedOptionIds { get; set; }
+    public string? TextAnswer { get; set; }
+    public bool? Remembered { get; set; }
+    public bool? IsCorrect { get; set; }
+    public int? Score { get; set; }
+    public int? ResponseTimeMs { get; set; }
+    public int? BoxLevel { get; set; }
+    public DateTimeOffset? NextReviewAt { get; set; }
+    public DateTimeOffset AnsweredAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+public class StudySession
+{
+    [BsonId]
+    public Guid Id { get; set; }
+
+    public Guid ActivityId { get; set; }
+    public Guid? StudentId { get; set; }
+    public string Status { get; set; } = StudySessionStatuses.Prep;
+    public int SectionIndex { get; set; }
+    public int ItemIndex { get; set; }
+    public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? CompletedAt { get; set; }
+    public List<StudySessionPlanSection> Plan { get; set; } = [];
+    public List<StudySessionAnswer> Answers { get; set; } = [];
 }

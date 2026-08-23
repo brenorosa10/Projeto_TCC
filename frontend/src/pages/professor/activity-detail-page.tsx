@@ -6,7 +6,8 @@ import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
-import type { Activity, ClassRoom } from "@/lib/types"
+import { findSection, hasSectionCopy, itemKindLabel } from "@/lib/item-kinds"
+import type { Activity, ActivityItem, ClassRoom } from "@/lib/types"
 
 function typeLabel(type: string) {
   if (type === "quiz") return "Quiz"
@@ -162,56 +163,101 @@ export function ProfessorActivityDetailPage() {
             </Button>
           ) : null}
 
+          <SectionCopy
+            heading="Preparação"
+            section={findSection(activity.sections, "prep")}
+          />
+
           <ul className="space-y-4">
             {activity.items.map((item, index) => (
               <li key={item.id} className="rounded-lg border border-border p-4">
-                {activity.type === "flashcards" ? (
-                  <>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Cartão {index + 1}
-                    </p>
-                    <p className="mt-2 font-medium">{item.front}</p>
-                    {item.imageDataUrl ? (
-                      <img
-                        src={item.imageDataUrl}
-                        alt=""
-                        className="mt-3 max-h-56 w-full rounded-md border border-border object-contain bg-muted/30"
-                      />
-                    ) : null}
-                    <p className="mt-1 text-muted-foreground">{item.back}</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Questão {index + 1}
-                      {item.timeLimitSeconds ? ` · ${item.timeLimitSeconds}s` : null}
-                    </p>
-                    <p className="mt-2 font-medium">{item.prompt}</p>
-                    {item.imageDataUrl ? (
-                      <img
-                        src={item.imageDataUrl}
-                        alt=""
-                        className="mt-3 max-h-56 w-full rounded-md border border-border object-contain bg-muted/30"
-                      />
-                    ) : null}
-                    <ul className="mt-3 space-y-1 text-sm">
-                      {item.options?.map((option) => (
-                        <li key={option.id} className={option.isCorrect ? "font-medium text-primary" : ""}>
-                          {option.text}
-                          {option.isCorrect ? " (correta)" : null}
-                        </li>
-                      ))}
-                    </ul>
-                    {item.explanation ? (
-                      <p className="mt-3 text-sm text-muted-foreground">{item.explanation}</p>
-                    ) : null}
-                  </>
-                )}
+                <ActivityItemPreview item={item} index={index} activityType={activity.type} />
               </li>
             ))}
           </ul>
+
+          <SectionCopy
+            heading="Feedback"
+            section={findSection(activity.sections, "feedback")}
+          />
         </div>
       )}
     </AppShell>
+  )
+}
+
+function SectionCopy({
+  heading,
+  section,
+}: {
+  heading: string
+  section: { title?: string | null; body?: string | null } | undefined
+}) {
+  if (!hasSectionCopy(section)) return null
+  return (
+    <section className="space-y-2 rounded-lg border border-border p-4">
+      <h2 className="font-display text-lg font-semibold">{heading}</h2>
+      {section?.title?.trim() ? <p className="font-medium">{section.title}</p> : null}
+      {section?.body?.trim() ? (
+        <p className="whitespace-pre-wrap text-sm text-muted-foreground">{section.body}</p>
+      ) : null}
+    </section>
+  )
+}
+
+function ActivityItemPreview({
+  item,
+  index,
+  activityType,
+}: {
+  item: ActivityItem
+  index: number
+  activityType: string
+}) {
+  const isCard = activityType === "flashcards" || item.kind === "flashcard"
+  return (
+    <>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {isCard ? `Cartão ${index + 1}` : `Questão ${index + 1}`}
+        {item.kind ? ` · ${itemKindLabel(item.kind)}` : null}
+        {item.timeLimitSeconds && !isCard ? ` · ${item.timeLimitSeconds}s` : null}
+      </p>
+      <p className="mt-2 font-medium">{isCard ? item.front : item.prompt}</p>
+      {item.imageDataUrl ? (
+        <img
+          src={item.imageDataUrl}
+          alt=""
+          className="mt-3 max-h-56 w-full rounded-md border border-border object-contain bg-muted/30"
+        />
+      ) : null}
+      {isCard ? <p className="mt-1 text-muted-foreground">{item.back}</p> : null}
+      {item.kind === "short_answer" && item.acceptedAnswers?.length ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Aceitas: {item.acceptedAnswers.join(" · ")}
+        </p>
+      ) : null}
+      {item.kind === "matching" && item.pairs?.length ? (
+        <ul className="mt-3 space-y-1 text-sm">
+          {item.pairs.map((pair) => (
+            <li key={`${pair.leftId}-${pair.rightId}`}>
+              {pair.left} → {pair.right}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {item.options && item.options.length > 0 ? (
+        <ul className="mt-3 space-y-1 text-sm">
+          {item.options.map((option) => (
+            <li key={option.id} className={option.isCorrect ? "font-medium text-primary" : ""}>
+              {option.text}
+              {option.isCorrect ? " (correta)" : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {item.explanation ? (
+        <p className="mt-3 text-sm text-muted-foreground">{item.explanation}</p>
+      ) : null}
+    </>
   )
 }

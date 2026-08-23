@@ -6,6 +6,7 @@ import type {
   ClassRoom,
   CreateActivityRequest,
   CreateClassRequest,
+  CreateStudySessionRequest,
   EnsureProfileRequest,
   JoinClassRequest,
   LoginRequest,
@@ -17,6 +18,7 @@ import type {
   StudyFlashcardSession,
   StudyFlashcardSummary,
   StudyQuizSummary,
+  StudySession,
   SubmitStudyAnswerRequest,
   FlashcardReviewFeedback,
 } from "@/lib/types"
@@ -159,6 +161,26 @@ export const api = {
     request<FlashcardReviewFeedback>(`/api/study/flashcards/${activityId}/reviews`, {
       method: "POST",
       body: JSON.stringify({ itemId, remembered }),
+    }),
+  createStudySession: (body: CreateStudySessionRequest) =>
+    request<StudySession>("/api/study/sessions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getStudySession: (sessionId: string) =>
+    request<StudySession>(`/api/study/sessions/${sessionId}`),
+  advanceStudySession: (sessionId: string) =>
+    request<StudySession>(`/api/study/sessions/${sessionId}/advance`, {
+      method: "POST",
+    }),
+  submitStudySessionAnswer: (sessionId: string, body: SubmitStudyAnswerRequest) =>
+    request<StudySession>(`/api/study/sessions/${sessionId}/answers`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  completeStudySession: (sessionId: string) =>
+    request<StudySession>(`/api/study/sessions/${sessionId}/complete`, {
+      method: "POST",
     }),
 }
 
