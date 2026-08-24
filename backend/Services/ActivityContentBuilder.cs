@@ -107,8 +107,20 @@ public static class ActivityContentBuilder
                 FeedbackTemplate = role == SectionRoles.Feedback
                     ? (TrimToNull(request.FeedbackTemplate) ?? FeedbackTemplates.ScoreSummary)
                     : TrimToNull(request.FeedbackTemplate),
-                Position = index
+                Position = index,
+                Objectives = role == SectionRoles.Prep ? CleanList(request.Objectives) : null,
+                EstimatedMinutes = role == SectionRoles.Prep ? NormalizeMinutes(request.EstimatedMinutes) : null,
+                Tips = role == SectionRoles.Prep ? CleanList(request.Tips) : null
             };
+
+            if (role == SectionRoles.Prep)
+            {
+                var imageError = ActivityImage.Apply(section, request.ImageDataUrl);
+                if (imageError is not null)
+                {
+                    return (null, null, imageError);
+                }
+            }
 
             if (role == SectionRoles.Practice)
             {
@@ -202,7 +214,7 @@ public static class ActivityContentBuilder
                 TimeLimitSeconds = kind == ItemKinds.Flashcard ? null : item.TimeLimitSeconds ?? 30,
                 Position = positionOffset + index,
                 AllowMultiple = kind == ItemKinds.MultipleChoice && item.AllowMultiple == true,
-                CaseSensitive = kind == ItemKinds.ShortAnswer && item.CaseSensitive == true,
+                CaseSensitive = kind is ItemKinds.ShortAnswer or ItemKinds.Cloze && item.CaseSensitive == true,
                 Front = TrimToNull(item.Front),
                 Back = TrimToNull(item.Back)
             };
@@ -253,6 +265,22 @@ public static class ActivityContentBuilder
                         Right = pair.Right.Trim()
                     })
                     .ToList();
+                break;
+            case ItemKinds.Ordering:
+                mappedItem.OrderEntries = MapOrderEntries(item.OrderEntries, existing?.OrderEntries);
+                break;
+            case ItemKinds.Cloze:
+                mappedItem.ClozeBlanks = ClozeMarkup.ParseBlanks(
+                    item.Prompt,
+                    existing?.ClozeBlanks,
+                    item.ClozeBlanks);
+                break;
+            case ItemKinds.Categorize:
+                mappedItem.Categories = MapCategories(item.Categories, existing?.Categories);
+                mappedItem.CategoryItems = MapCategoryItems(
+                    item.CategoryItems,
+                    mappedItem.Categories,
+                    existing?.CategoryItems);
                 break;
         }
 
@@ -310,7 +338,7 @@ public static class ActivityContentBuilder
     {
         if (!ItemKinds.All.Contains(kind))
         {
-            return "Tipo de questão não suportado. Use multiple_choice, true_false, short_answer, matching ou flashcard.";
+            return "Tipo de questão não suportado. Use multiple_choice, true_false, short_answer, matching, ordering, cloze, categorize ou flashcard.";
         }
 
         if (kind != ItemKinds.Flashcard && item.TimeLimitSeconds is < 5 or > 300)
@@ -324,6 +352,9 @@ public static class ActivityContentBuilder
             ItemKinds.TrueFalse => ValidateTrueFalse(item),
             ItemKinds.ShortAnswer => ValidateShortAnswer(item),
             ItemKinds.Matching => ValidateMatching(item),
+            ItemKinds.Ordering => ValidateOrdering(item),
+            ItemKinds.Cloze => ValidateCloze(item),
+            ItemKinds.Categorize => ValidateCategorize(item),
             ItemKinds.Flashcard => ValidateFlashcard(item),
             _ => "Tipo de questão não suportado."
         };
@@ -419,6 +450,76 @@ public static class ActivityContentBuilder
             : null;
     }
 
+    private static string? ValidateOrdering(CreateActivityItemRequest item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Prompt))
+        {
+            return "Cada questão precisa de um enunciado.";
+        }
+
+        var entries = item.OrderEntries ?? [];
+        if (entries.Count < 3)
+        {
+            return "Questões de ordenação precisam de pelo menos três itens.";
+        }
+
+        return entries.Any(entry => string.IsNullOrWhiteSpace(entry.Text))
+            ? "Todos os itens da ordenação precisam de texto."
+            : null;
+    }
+
+    private static string? ValidateCloze(CreateActivityItemRequest item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Prompt))
+        {
+            return "Cada questão precisa de um enunciado.";
+        }
+
+        var blanks = ClozeMarkup.ParseBlanks(item.Prompt, null, item.ClozeBlanks);
+        if (blanks.Count == 0)
+        {
+            return "Use {{resposta}} no enunciado para marcar cada lacuna.";
+        }
+
+        return blanks.Any(blank => blank.AcceptedAnswers.Count == 0)
+            ? "Cada lacuna precisa de pelo menos uma resposta aceita."
+            : null;
+    }
+
+    private static string? ValidateCategorize(CreateActivityItemRequest item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Prompt))
+        {
+            return "Cada questão precisa de um enunciado.";
+        }
+
+        var categories = item.Categories ?? [];
+        var members = item.CategoryItems ?? [];
+        if (categories.Count < 2)
+        {
+            return "Questões de categorias precisam de pelo menos duas categorias.";
+        }
+
+        if (members.Count < 3)
+        {
+            return "Questões de categorias precisam de pelo menos três itens.";
+        }
+
+        if (categories.Any(category => string.IsNullOrWhiteSpace(category.Label)))
+        {
+            return "Todas as categorias precisam de um nome.";
+        }
+
+        if (members.Any(member => string.IsNullOrWhiteSpace(member.Text)))
+        {
+            return "Todos os itens precisam de texto.";
+        }
+
+        return members.Any(member => member.CategoryId is null)
+            ? "Cada item precisa pertencer a uma categoria."
+            : null;
+    }
+
     private static string? ValidateFlashcard(CreateActivityItemRequest item) =>
         string.IsNullOrWhiteSpace(item.Front) || string.IsNullOrWhiteSpace(item.Back)
             ? "Cada cartão precisa de frente e verso."
@@ -429,6 +530,21 @@ public static class ActivityContentBuilder
         if (!string.IsNullOrWhiteSpace(item.Kind))
         {
             return item.Kind.Trim().ToLowerInvariant();
+        }
+
+        if (item.OrderEntries is { Count: > 0 })
+        {
+            return ItemKinds.Ordering;
+        }
+
+        if (item.Categories is { Count: > 0 } || item.CategoryItems is { Count: > 0 })
+        {
+            return ItemKinds.Categorize;
+        }
+
+        if (item.ClozeBlanks is { Count: > 0 } || item.Prompt?.Contains("{{") == true)
+        {
+            return ItemKinds.Cloze;
         }
 
         if (item.Pairs is { Count: > 0 })
@@ -471,7 +587,12 @@ public static class ActivityContentBuilder
             Body = existing?.Body,
             FeedbackTemplate = existing?.FeedbackTemplate ?? defaultTemplate,
             Position = position,
-            ItemIds = []
+            ItemIds = [],
+            Objectives = existing?.Objectives,
+            EstimatedMinutes = existing?.EstimatedMinutes,
+            Tips = existing?.Tips,
+            ImageBytes = existing?.ImageBytes,
+            ImageContentType = existing?.ImageContentType
         };
     }
 
@@ -512,6 +633,72 @@ public static class ActivityContentBuilder
 
         return Guid.NewGuid();
     }
+
+    private static List<OrderEntry> MapOrderEntries(
+        List<CreateOrderEntryRequest>? incoming,
+        List<OrderEntry>? existing)
+    {
+        return (incoming ?? [])
+            .Select((entry, index) => new OrderEntry
+            {
+                Id = ResolveListId(entry.Id, existing?.ElementAtOrDefault(index)?.Id),
+                Text = entry.Text.Trim(),
+                Position = index
+            })
+            .ToList();
+    }
+
+    private static List<CategoryBucket> MapCategories(
+        List<CreateCategoryRequest>? incoming,
+        List<CategoryBucket>? existing)
+    {
+        return (incoming ?? [])
+            .Select((category, index) => new CategoryBucket
+            {
+                Id = ResolveListId(category.Id, existing?.ElementAtOrDefault(index)?.Id),
+                Label = category.Label.Trim(),
+                Position = index
+            })
+            .ToList();
+    }
+
+    private static List<CategoryItem> MapCategoryItems(
+        List<CreateCategoryItemRequest>? incoming,
+        List<CategoryBucket> categories,
+        List<CategoryItem>? existing)
+    {
+        var categoryIds = categories.Select(category => category.Id).ToHashSet();
+        return (incoming ?? [])
+            .Select((item, index) =>
+            {
+                var categoryId = item.CategoryId is Guid id && categoryIds.Contains(id)
+                    ? id
+                    : categories.ElementAtOrDefault(0)?.Id ?? Guid.NewGuid();
+                return new CategoryItem
+                {
+                    Id = ResolveListId(item.Id, existing?.ElementAtOrDefault(index)?.Id),
+                    Text = item.Text.Trim(),
+                    CategoryId = categoryId
+                };
+            })
+            .ToList();
+    }
+
+    private static Guid ResolveListId(Guid? incoming, Guid? existing) =>
+        incoming is Guid id && existing == id ? id : existing ?? Guid.NewGuid();
+
+    private static List<string>? CleanList(List<string>? values)
+    {
+        var cleaned = (values ?? [])
+            .Select(value => value.Trim())
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return cleaned.Count == 0 ? null : cleaned;
+    }
+
+    private static int? NormalizeMinutes(int? minutes) =>
+        minutes is >= 1 and <= 180 ? minutes : null;
 
     private static string? TrimToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

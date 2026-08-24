@@ -27,7 +27,11 @@ public static class ActivityMapper
                 section.Body,
                 section.FeedbackTemplate,
                 section.Position,
-                section.ItemIds))
+                section.ItemIds,
+                section.Objectives,
+                section.EstimatedMinutes,
+                section.Tips,
+                ActivityImage.ToDataUrl(section)))
             .ToList();
 
         return new ActivityResponse(
@@ -46,11 +50,16 @@ public static class ActivityMapper
             sections);
     }
 
-    public static ActivityItemResponse ToItemResponse(ActivityItem item, bool includeAnswers) =>
-        new(
+    public static ActivityItemResponse ToItemResponse(ActivityItem item, bool includeAnswers)
+    {
+        var prompt = includeAnswers || item.Kind != ItemKinds.Cloze
+            ? item.Prompt
+            : ClozeMarkup.ToStudentPrompt(item.Prompt, item.ClozeBlanks ?? []);
+
+        return new ActivityItemResponse(
             item.Id,
             item.Kind,
-            item.Prompt,
+            prompt,
             includeAnswers ? item.Explanation : null,
             item.TimeLimitSeconds,
             item.Position,
@@ -68,10 +77,40 @@ public static class ActivityMapper
             item.SectionId,
             item.Kind == ItemKinds.MultipleChoice ? item.AllowMultiple : null,
             includeAnswers ? item.AcceptedAnswers : null,
-            includeAnswers && item.Kind == ItemKinds.ShortAnswer ? item.CaseSensitive : null,
+            includeAnswers && item.Kind is ItemKinds.ShortAnswer or ItemKinds.Cloze ? item.CaseSensitive : null,
             includeAnswers
                 ? item.Pairs?
                     .Select(pair => new MatchingPairResponse(pair.LeftId, pair.RightId, pair.Left, pair.Right))
                     .ToList()
+                : null,
+            item.Kind == ItemKinds.Ordering
+                ? item.OrderEntries?
+                    .OrderBy(entry => entry.Position)
+                    .Select(entry => new OrderEntryResponse(entry.Id, entry.Text, entry.Position))
+                    .ToList()
+                : null,
+            item.Kind == ItemKinds.Cloze
+                ? item.ClozeBlanks?
+                    .OrderBy(blank => blank.Position)
+                    .Select(blank => new ClozeBlankResponse(
+                        blank.Id,
+                        blank.Position,
+                        includeAnswers ? blank.AcceptedAnswers : null))
+                    .ToList()
+                : null,
+            item.Kind == ItemKinds.Categorize
+                ? item.Categories?
+                    .OrderBy(category => category.Position)
+                    .Select(category => new CategoryResponse(category.Id, category.Label, category.Position))
+                    .ToList()
+                : null,
+            item.Kind == ItemKinds.Categorize
+                ? item.CategoryItems?
+                    .Select(member => new CategoryItemResponse(
+                        member.Id,
+                        member.Text,
+                        includeAnswers ? member.CategoryId : null))
+                    .ToList()
                 : null);
+    }
 }

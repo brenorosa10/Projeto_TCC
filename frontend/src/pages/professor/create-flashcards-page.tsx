@@ -32,6 +32,10 @@ export function ProfessorCreateFlashcardsPage() {
   const [feedbackId, setFeedbackId] = useState<string>()
   const [prepTitle, setPrepTitle] = useState("")
   const [prepBody, setPrepBody] = useState("")
+  const [prepObjectives, setPrepObjectives] = useState("")
+  const [prepMinutes, setPrepMinutes] = useState("")
+  const [prepTips, setPrepTips] = useState("")
+  const [prepImageDataUrl, setPrepImageDataUrl] = useState<string>()
   const [feedbackTitle, setFeedbackTitle] = useState("Resultados")
   const [feedbackBody, setFeedbackBody] = useState("")
   const [cards, setCards] = useState<DraftCard[]>([newCard()])
@@ -58,6 +62,10 @@ export function ProfessorCreateFlashcardsPage() {
         setFeedbackId(feedback?.id)
         setPrepTitle(prep?.title ?? "")
         setPrepBody(prep?.body ?? "")
+        setPrepObjectives((prep?.objectives ?? []).join("\n"))
+        setPrepMinutes(prep?.estimatedMinutes ? String(prep.estimatedMinutes) : "")
+        setPrepTips((prep?.tips ?? []).join("\n"))
+        setPrepImageDataUrl(prep?.imageDataUrl ?? undefined)
         setFeedbackTitle(feedback?.title ?? "Resultados")
         setFeedbackBody(feedback?.body ?? "")
         setCards(
@@ -97,7 +105,10 @@ export function ProfessorCreateFlashcardsPage() {
     }
 
     try {
-      assertActivityPayloadFits(cards.map((card) => card.imageDataUrl))
+      assertActivityPayloadFits([
+        prepImageDataUrl,
+        ...cards.map((card) => card.imageDataUrl),
+      ])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Imagens grandes demais.")
       return
@@ -113,6 +124,10 @@ export function ProfessorCreateFlashcardsPage() {
           role: "prep",
           title: prepTitle.trim() || undefined,
           body: prepBody.trim() || undefined,
+          objectives: prepObjectives.split("\n").map((line) => line.trim()).filter(Boolean),
+          estimatedMinutes: Number(prepMinutes) || undefined,
+          tips: prepTips.split("\n").map((line) => line.trim()).filter(Boolean),
+          imageDataUrl: prepImageDataUrl,
         },
         {
           id: practiceId,
@@ -200,10 +215,18 @@ export function ProfessorCreateFlashcardsPage() {
         <PrepFeedbackFields
           prepTitle={prepTitle}
           prepBody={prepBody}
+          prepObjectives={prepObjectives}
+          prepMinutes={prepMinutes}
+          prepTips={prepTips}
+          prepImageDataUrl={prepImageDataUrl}
           feedbackTitle={feedbackTitle}
           feedbackBody={feedbackBody}
           onPrepTitle={setPrepTitle}
           onPrepBody={setPrepBody}
+          onPrepObjectives={setPrepObjectives}
+          onPrepMinutes={setPrepMinutes}
+          onPrepTips={setPrepTips}
+          onPrepImageDataUrl={setPrepImageDataUrl}
           onFeedbackTitle={setFeedbackTitle}
           onFeedbackBody={setFeedbackBody}
         />

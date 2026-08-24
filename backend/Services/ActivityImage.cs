@@ -15,17 +15,57 @@ public static class ActivityImage
 
     public static string? Apply(ActivityItem item, string? imageDataUrl)
     {
+        var decoded = Decode(imageDataUrl);
+        if (decoded.Error is not null)
+        {
+            return decoded.Error;
+        }
+
+        item.ImageBytes = decoded.Bytes;
+        item.ImageContentType = decoded.ContentType;
+        return null;
+    }
+
+    public static string? Apply(ActivitySection section, string? imageDataUrl)
+    {
+        var decoded = Decode(imageDataUrl);
+        if (decoded.Error is not null)
+        {
+            return decoded.Error;
+        }
+
+        section.ImageBytes = decoded.Bytes;
+        section.ImageContentType = decoded.ContentType;
+        return null;
+    }
+
+    public static string? ToDataUrl(ActivityItem item) =>
+        ToDataUrl(item.ImageBytes, item.ImageContentType);
+
+    public static string? ToDataUrl(ActivitySection? section) =>
+        section is null ? null : ToDataUrl(section.ImageBytes, section.ImageContentType);
+
+    private static string? ToDataUrl(byte[]? bytes, string? contentType)
+    {
+        if (bytes is null || bytes.Length == 0 || string.IsNullOrWhiteSpace(contentType))
+        {
+            return null;
+        }
+
+        return $"data:{contentType};base64,{Convert.ToBase64String(bytes)}";
+    }
+
+    private static (byte[]? Bytes, string? ContentType, string? Error) Decode(string? imageDataUrl)
+    {
         if (string.IsNullOrWhiteSpace(imageDataUrl))
         {
-            item.ImageBytes = null;
-            item.ImageContentType = null;
-            return null;
+            return (null, null, null);
         }
 
         var match = DataUrlPattern.Match(imageDataUrl.Trim());
         if (!match.Success)
         {
-            return "A imagem deve ser JPEG, PNG ou WebP em data URL base64.";
+            return (null, null, "A imagem deve ser JPEG, PNG ou WebP em data URL base64.");
         }
 
         byte[] bytes;
@@ -35,38 +75,26 @@ public static class ActivityImage
         }
         catch (FormatException)
         {
-            return "A imagem enviada não é um base64 válido.";
+            return (null, null, "A imagem enviada não é um base64 válido.");
         }
 
         if (bytes.Length == 0)
         {
-            return "A imagem enviada está vazia.";
+            return (null, null, "A imagem enviada está vazia.");
         }
 
         if (bytes.Length > MaxBytesPerImage)
         {
-            return $"Cada imagem deve ter no máximo {MaxBytesPerImage / 1024} KB após a compressão.";
+            return (null, null, $"Cada imagem deve ter no máximo {MaxBytesPerImage / 1024} KB após a compressão.");
         }
 
         var contentType = NormalizeContentType(match.Groups[1].Value, bytes);
         if (contentType is null)
         {
-            return "O arquivo enviado não é uma imagem JPEG, PNG ou WebP válida.";
+            return (null, null, "O arquivo enviado não é uma imagem JPEG, PNG ou WebP válida.");
         }
 
-        item.ImageBytes = bytes;
-        item.ImageContentType = contentType;
-        return null;
-    }
-
-    public static string? ToDataUrl(ActivityItem item)
-    {
-        if (item.ImageBytes is null || item.ImageBytes.Length == 0 || string.IsNullOrWhiteSpace(item.ImageContentType))
-        {
-            return null;
-        }
-
-        return $"data:{item.ImageContentType};base64,{Convert.ToBase64String(item.ImageBytes)}";
+        return (bytes, contentType, null);
     }
 
     public static string? ValidateDocumentSize(Activity activity)

@@ -110,7 +110,41 @@ public record CreateActivityItemRequest(
     List<CreateMatchingPairRequest>? Pairs,
     string? Front,
     string? Back,
-    string? ImageDataUrl
+    string? ImageDataUrl,
+    List<CreateOrderEntryRequest>? OrderEntries = null,
+    List<CreateClozeBlankRequest>? ClozeBlanks = null,
+    List<CreateCategoryRequest>? Categories = null,
+    List<CreateCategoryItemRequest>? CategoryItems = null
+);
+
+public record CreateOrderEntryRequest(
+    Guid? Id,
+    [Required]
+    [MinLength(1)]
+    [MaxLength(500)]
+    string Text
+);
+
+public record CreateClozeBlankRequest(
+    Guid? Id,
+    List<string>? AcceptedAnswers
+);
+
+public record CreateCategoryRequest(
+    Guid? Id,
+    [Required]
+    [MinLength(1)]
+    [MaxLength(200)]
+    string Label
+);
+
+public record CreateCategoryItemRequest(
+    Guid? Id,
+    [Required]
+    [MinLength(1)]
+    [MaxLength(500)]
+    string Text,
+    Guid? CategoryId
 );
 
 public record CreateActivitySectionRequest(
@@ -124,7 +158,11 @@ public record CreateActivitySectionRequest(
     string? Body,
     [MaxLength(50)]
     string? FeedbackTemplate,
-    List<CreateActivityItemRequest>? Items
+    List<CreateActivityItemRequest>? Items,
+    List<string>? Objectives = null,
+    int? EstimatedMinutes = null,
+    List<string>? Tips = null,
+    string? ImageDataUrl = null
 );
 
 public record CreateActivityRequest(
@@ -179,7 +217,35 @@ public record ActivityItemResponse(
     bool? AllowMultiple = null,
     IReadOnlyList<string>? AcceptedAnswers = null,
     bool? CaseSensitive = null,
-    IReadOnlyList<MatchingPairResponse>? Pairs = null
+    IReadOnlyList<MatchingPairResponse>? Pairs = null,
+    IReadOnlyList<OrderEntryResponse>? OrderEntries = null,
+    IReadOnlyList<ClozeBlankResponse>? ClozeBlanks = null,
+    IReadOnlyList<CategoryResponse>? Categories = null,
+    IReadOnlyList<CategoryItemResponse>? CategoryItems = null
+);
+
+public record OrderEntryResponse(
+    Guid Id,
+    string Text,
+    int Position
+);
+
+public record ClozeBlankResponse(
+    Guid Id,
+    int Position,
+    IReadOnlyList<string>? AcceptedAnswers
+);
+
+public record CategoryResponse(
+    Guid Id,
+    string Label,
+    int Position
+);
+
+public record CategoryItemResponse(
+    Guid Id,
+    string Text,
+    Guid? CategoryId
 );
 
 public record ActivitySectionResponse(
@@ -189,7 +255,11 @@ public record ActivitySectionResponse(
     string? Body,
     string? FeedbackTemplate,
     int Position,
-    IReadOnlyList<Guid> ItemIds
+    IReadOnlyList<Guid> ItemIds,
+    IReadOnlyList<string>? Objectives = null,
+    int? EstimatedMinutes = null,
+    IReadOnlyList<string>? Tips = null,
+    string? ImageDataUrl = null
 );
 
 public record ActivitySummaryResponse(
@@ -247,7 +317,23 @@ public record SubmitStudyAnswerRequest(
     List<Guid>? SelectedOptionIds = null,
     string? TextAnswer = null,
     bool? Remembered = null,
-    List<MatchingAnswerRequest>? Pairs = null
+    List<MatchingAnswerRequest>? Pairs = null,
+    List<Guid>? OrderedIds = null,
+    List<ClozeAnswerRequest>? ClozeAnswers = null,
+    List<CategoryPlacementRequest>? CategoryPlacements = null
+);
+
+public record ClozeAnswerRequest(
+    Guid BlankId,
+    [Required]
+    [MinLength(1)]
+    [MaxLength(500)]
+    string Text
+);
+
+public record CategoryPlacementRequest(
+    Guid ItemId,
+    Guid CategoryId
 );
 
 public record StudyAnswerResponse(
@@ -322,7 +408,11 @@ public record StudySessionSectionViewResponse(
     string Role,
     string? Title,
     string? Body,
-    string? FeedbackTemplate
+    string? FeedbackTemplate,
+    IReadOnlyList<string>? Objectives = null,
+    int? EstimatedMinutes = null,
+    IReadOnlyList<string>? Tips = null,
+    string? ImageDataUrl = null
 );
 
 public record StudySessionItemResponse(
@@ -336,7 +426,11 @@ public record StudySessionItemResponse(
     string? ImageDataUrl,
     bool? AllowMultiple,
     IReadOnlyList<MatchingEntryResponse>? Left,
-    IReadOnlyList<MatchingEntryResponse>? Right
+    IReadOnlyList<MatchingEntryResponse>? Right,
+    IReadOnlyList<MatchingEntryResponse>? OrderItems = null,
+    IReadOnlyList<MatchingEntryResponse>? Categories = null,
+    IReadOnlyList<MatchingEntryResponse>? CategoryItems = null,
+    IReadOnlyList<MatchingEntryResponse>? ClozeBlanks = null
 );
 
 public record StudySessionFeedbackItemResponse(

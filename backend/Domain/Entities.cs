@@ -92,6 +92,15 @@ public class ActivitySection
     public string? FeedbackTemplate { get; set; }
     public int Position { get; set; }
     public List<Guid> ItemIds { get; set; } = [];
+    public List<string>? Objectives { get; set; }
+    public int? EstimatedMinutes { get; set; }
+    public List<string>? Tips { get; set; }
+
+    [BsonIgnoreIfNull]
+    public byte[]? ImageBytes { get; set; }
+
+    [BsonIgnoreIfNull]
+    public string? ImageContentType { get; set; }
 }
 
 public class ActivityItem
@@ -108,6 +117,10 @@ public class ActivityItem
     public List<string>? AcceptedAnswers { get; set; }
     public bool CaseSensitive { get; set; }
     public List<MatchingPair>? Pairs { get; set; }
+    public List<OrderEntry>? OrderEntries { get; set; }
+    public List<ClozeBlank>? ClozeBlanks { get; set; }
+    public List<CategoryBucket>? Categories { get; set; }
+    public List<CategoryItem>? CategoryItems { get; set; }
     public string? Front { get; set; }
     public string? Back { get; set; }
 
@@ -135,6 +148,46 @@ public class MatchingPair
     public Guid RightId { get; set; }
     public string Left { get; set; } = string.Empty;
     public string Right { get; set; } = string.Empty;
+}
+
+public class OrderEntry
+{
+    public Guid Id { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public int Position { get; set; }
+}
+
+public class ClozeBlank
+{
+    public Guid Id { get; set; }
+    public int Position { get; set; }
+    public List<string> AcceptedAnswers { get; set; } = [];
+}
+
+public class CategoryBucket
+{
+    public Guid Id { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public int Position { get; set; }
+}
+
+public class CategoryItem
+{
+    public Guid Id { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public Guid CategoryId { get; set; }
+}
+
+public class ClozeAnswer
+{
+    public Guid BlankId { get; set; }
+    public string Text { get; set; } = string.Empty;
+}
+
+public class CategoryPlacement
+{
+    public Guid ItemId { get; set; }
+    public Guid CategoryId { get; set; }
 }
 
 public class LiveSession
@@ -206,6 +259,9 @@ public static class ItemKinds
     public const string Flashcard = "flashcard";
     public const string ShortAnswer = "short_answer";
     public const string Matching = "matching";
+    public const string Ordering = "ordering";
+    public const string Cloze = "cloze";
+    public const string Categorize = "categorize";
 
     public static readonly string[] All =
     [
@@ -213,7 +269,10 @@ public static class ItemKinds
         TrueFalse,
         Flashcard,
         ShortAnswer,
-        Matching
+        Matching,
+        Ordering,
+        Cloze,
+        Categorize
     ];
 }
 
@@ -249,6 +308,10 @@ public class StudySessionPlanSection
     public string? Body { get; set; }
     public string? FeedbackTemplate { get; set; }
     public List<Guid> ItemIds { get; set; } = [];
+    public List<string>? Objectives { get; set; }
+    public int? EstimatedMinutes { get; set; }
+    public List<string>? Tips { get; set; }
+    public bool HasImage { get; set; }
 }
 
 public class StudySessionAnswer
@@ -258,6 +321,9 @@ public class StudySessionAnswer
     public Guid? SelectedOptionId { get; set; }
     public List<Guid>? SelectedOptionIds { get; set; }
     public string? TextAnswer { get; set; }
+    public List<Guid>? OrderedIds { get; set; }
+    public List<ClozeAnswer>? ClozeAnswers { get; set; }
+    public List<CategoryPlacement>? CategoryPlacements { get; set; }
     public bool? Remembered { get; set; }
     public bool? IsCorrect { get; set; }
     public int? Score { get; set; }

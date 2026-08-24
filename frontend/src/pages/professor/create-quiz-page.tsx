@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
-import { Plus, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
 import { ItemImageField } from "@/components/activity/item-image-field"
 import { PrepFeedbackFields } from "@/components/activity/prep-feedback-fields"
 import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
@@ -22,6 +22,9 @@ import type {
 
 type DraftOption = { key: string; id?: string; text: string; isCorrect: boolean }
 type DraftPair = { key: string; leftId?: string; rightId?: string; left: string; right: string }
+type DraftLine = { key: string; id?: string; text: string }
+type DraftCategory = { key: string; id?: string; label: string }
+type DraftCategoryItem = { key: string; id?: string; text: string; categoryKey: string }
 type DraftQuestion = {
   key: string
   id?: string
@@ -36,6 +39,26 @@ type DraftQuestion = {
   acceptedAnswers: string
   caseSensitive: boolean
   pairs: DraftPair[]
+  orderEntries: DraftLine[]
+  categories: DraftCategory[]
+  categoryItems: DraftCategoryItem[]
+}
+
+function newLine(text = ""): DraftLine {
+  return { key: crypto.randomUUID(), text }
+}
+
+function newCategory(label = ""): DraftCategory {
+  return { key: crypto.randomUUID(), label }
+}
+
+function newCategoryItem(categoryKey: string): DraftCategoryItem {
+  return { key: crypto.randomUUID(), text: "", categoryKey }
+}
+
+function lines(value: string | string[] | null | undefined) {
+  const source = Array.isArray(value) ? value : value?.split("\n") ?? []
+  return source.map((item) => item.trim()).filter(Boolean)
 }
 
 function newOption(isCorrect = false): DraftOption {
@@ -47,6 +70,8 @@ function newPair(): DraftPair {
 }
 
 function newQuestion(kind: ItemKind = "multiple_choice"): DraftQuestion {
+  const inner = newCategory("Interno")
+  const outer = newCategory("Externo")
   return {
     key: crypto.randomUUID(),
     kind,
@@ -59,6 +84,12 @@ function newQuestion(kind: ItemKind = "multiple_choice"): DraftQuestion {
     acceptedAnswers: "",
     caseSensitive: false,
     pairs: [newPair(), newPair()],
+    orderEntries: [newLine(), newLine(), newLine()],
+    categories: kind === "categorize" ? [inner, outer] : [],
+    categoryItems:
+      kind === "categorize"
+        ? [newCategoryItem(inner.key), newCategoryItem(inner.key), newCategoryItem(outer.key)]
+        : [],
   }
 }
 
@@ -66,6 +97,9 @@ function inferKind(item: ActivityItem): ItemKind {
   if (QUIZ_ITEM_KINDS.includes(item.kind as ItemKind) || item.kind === "flashcard") {
     return item.kind as ItemKind
   }
+  if (item.orderEntries && item.orderEntries.length > 0) return "ordering"
+  if (item.categories && item.categories.length > 0) return "categorize"
+  if (item.clozeBlanks && item.clozeBlanks.length > 0) return "cloze"
   if (item.pairs && item.pairs.length > 0) return "matching"
   if (item.acceptedAnswers && item.acceptedAnswers.length > 0) return "short_answer"
   if (item.front || item.back) return "flashcard"
@@ -77,6 +111,14 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
   const trueOption = item.options?.find((option) =>
     option.text.toLowerCase().startsWith("verdade")
   )
+  const categories =
+    item.categories && item.categories.length > 0
+      ? item.categories.map((category) => ({
+          key: category.id,
+          id: category.id,
+          label: category.label,
+        }))
+      : []
   return {
     key: item.id,
     id: item.id,
@@ -108,7 +150,28 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
             right: pair.right,
           }))
         : [newPair(), newPair()],
+    orderEntries:
+      item.orderEntries && item.orderEntries.length > 0
+        ? item.orderEntries.map((entry) => ({ key: entry.id, id: entry.id, text: entry.text }))
+        : [newLine(), newLine(), newLine()],
+    categories,
+    categoryItems:
+      item.categoryItems?.map((member) => ({
+        key: member.id,
+        id: member.id,
+        text: member.text,
+        categoryKey: member.categoryId ?? categories[0]?.key ?? "",
+      })) ?? [],
   }
+}
+
+function moveItem<T>(items: T[], index: number, delta: number): T[] {
+  const next = index + delta
+  if (next < 0 || next >= items.length) return items
+  const copy = [...items]
+  const [removed] = copy.splice(index, 1)
+  copy.splice(next, 0, removed)
+  return copy
 }
 
 function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
@@ -145,6 +208,32 @@ function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
       })),
     }
   }
+  if (question.kind === "ordering") {
+    return {
+      ...base,
+      orderEntries: question.orderEntries.map((entry) => ({ id: entry.id, text: entry.text.trim() })),
+    }
+  }
+  if (question.kind === "cloze") {
+    return { ...base, caseSensitive: question.caseSensitive }
+  }
+  if (question.kind === "categorize") {
+    return {
+      ...base,
+      categories: question.categories.map((category) => ({
+        id: category.id ?? category.key,
+        label: category.label.trim(),
+      })),
+      categoryItems: question.categoryItems.map((item) => {
+        const category = question.categories.find((entry) => entry.key === item.categoryKey)
+        return {
+          id: item.id ?? item.key,
+          text: item.text.trim(),
+          categoryId: category?.id ?? category?.key,
+        }
+      }),
+    }
+  }
   return {
     ...base,
     allowMultiple: question.allowMultiple,
@@ -167,6 +256,10 @@ export function ProfessorCreateQuizPage() {
   const [feedbackId, setFeedbackId] = useState<string>()
   const [prepTitle, setPrepTitle] = useState("")
   const [prepBody, setPrepBody] = useState("")
+  const [prepObjectives, setPrepObjectives] = useState("")
+  const [prepMinutes, setPrepMinutes] = useState("")
+  const [prepTips, setPrepTips] = useState("")
+  const [prepImageDataUrl, setPrepImageDataUrl] = useState<string>()
   const [feedbackTitle, setFeedbackTitle] = useState("Resultados")
   const [feedbackBody, setFeedbackBody] = useState("")
   const [questions, setQuestions] = useState<DraftQuestion[]>([newQuestion()])
@@ -193,6 +286,10 @@ export function ProfessorCreateQuizPage() {
         setFeedbackId(feedback?.id)
         setPrepTitle(prep?.title ?? "")
         setPrepBody(prep?.body ?? "")
+        setPrepObjectives((prep?.objectives ?? []).join("\n"))
+        setPrepMinutes(prep?.estimatedMinutes ? String(prep.estimatedMinutes) : "")
+        setPrepTips((prep?.tips ?? []).join("\n"))
+        setPrepImageDataUrl(prep?.imageDataUrl ?? undefined)
         setFeedbackTitle(feedback?.title ?? "Resultados")
         setFeedbackBody(feedback?.body ?? "")
         setQuestions(
@@ -312,10 +409,33 @@ export function ProfessorCreateQuizPage() {
           return null
         }
       }
+      if (question.kind === "ordering") {
+        if (question.orderEntries.length < 3 || question.orderEntries.some((entry) => !entry.text.trim())) {
+          toast.error(`A questão ${n} precisa de pelo menos três itens preenchidos, na ordem correta.`)
+          return null
+        }
+      }
+      if (question.kind === "cloze" && !/\{\{[^}]+\}\}/.test(question.prompt)) {
+        toast.error(`A questão ${n} precisa de lacunas no formato {{resposta}}.`)
+        return null
+      }
+      if (question.kind === "categorize") {
+        if (question.categories.length < 2 || question.categories.some((category) => !category.label.trim())) {
+          toast.error(`A questão ${n} precisa de pelo menos duas categorias nomeadas.`)
+          return null
+        }
+        if (question.categoryItems.length < 3 || question.categoryItems.some((item) => !item.text.trim())) {
+          toast.error(`A questão ${n} precisa de pelo menos três itens classificados.`)
+          return null
+        }
+      }
     }
 
     try {
-      assertActivityPayloadFits(questions.map((question) => question.imageDataUrl))
+      assertActivityPayloadFits([
+        prepImageDataUrl,
+        ...questions.map((question) => question.imageDataUrl),
+      ])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Imagens grandes demais.")
       return null
@@ -331,6 +451,10 @@ export function ProfessorCreateQuizPage() {
           role: "prep",
           title: prepTitle.trim() || undefined,
           body: prepBody.trim() || undefined,
+          objectives: lines(prepObjectives),
+          estimatedMinutes: Number(prepMinutes) || undefined,
+          tips: lines(prepTips),
+          imageDataUrl: prepImageDataUrl,
         },
         {
           id: practiceId,
@@ -402,8 +526,8 @@ export function ProfessorCreateQuizPage() {
               {isEditing ? "Editar quiz" : "Criar quiz"}
             </h1>
             <p className="mt-2 text-muted-foreground">
-              Combine múltipla escolha, V/F, resposta curta e associação. A preparação e o feedback
-              aparecem no estudo do aluno.
+              Combine múltipla escolha, V/F, resposta curta, associação, ordenação, lacunas e
+              categorias. A preparação e o feedback aparecem no estudo do aluno.
             </p>
           </div>
 
@@ -423,10 +547,18 @@ export function ProfessorCreateQuizPage() {
           <PrepFeedbackFields
             prepTitle={prepTitle}
             prepBody={prepBody}
+            prepObjectives={prepObjectives}
+            prepMinutes={prepMinutes}
+            prepTips={prepTips}
+            prepImageDataUrl={prepImageDataUrl}
             feedbackTitle={feedbackTitle}
             feedbackBody={feedbackBody}
             onPrepTitle={setPrepTitle}
             onPrepBody={setPrepBody}
+            onPrepObjectives={setPrepObjectives}
+            onPrepMinutes={setPrepMinutes}
+            onPrepTips={setPrepTips}
+            onPrepImageDataUrl={setPrepImageDataUrl}
             onFeedbackTitle={setFeedbackTitle}
             onFeedbackBody={setFeedbackBody}
           />
@@ -457,9 +589,24 @@ export function ProfessorCreateQuizPage() {
                     id={`kind-${question.key}`}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={question.kind}
-                    onChange={(event) =>
-                      updateQuestion(question.key, { kind: event.target.value as ItemKind })
-                    }
+                    onChange={(event) => {
+                      const kind = event.target.value as ItemKind
+                      updateQuestion(
+                        question.key,
+                        kind === "categorize" && question.categories.length === 0
+                          ? {
+                              kind,
+                              ...(() => {
+                                const next = newQuestion("categorize")
+                                return {
+                                  categories: next.categories,
+                                  categoryItems: next.categoryItems,
+                                }
+                              })(),
+                            }
+                          : { kind }
+                      )
+                    }}
                   >
                     {QUIZ_ITEM_KINDS.map((kind) => (
                       <option key={kind} value={kind}>
@@ -475,7 +622,11 @@ export function ProfessorCreateQuizPage() {
                     id={`prompt-${question.key}`}
                     value={question.prompt}
                     onChange={(event) => updateQuestion(question.key, { prompt: event.target.value })}
-                    placeholder="Qual o maior planeta do Sistema Solar?"
+                    placeholder={
+                      question.kind === "cloze"
+                        ? "Júpiter é o {{maior}} planeta do {{Sistema Solar}}"
+                        : "Qual o maior planeta do Sistema Solar?"
+                    }
                   />
                 </div>
 
@@ -650,6 +801,230 @@ export function ProfessorCreateQuizPage() {
                       <Plus className="h-4 w-4" />
                       Par
                     </Button>
+                  </div>
+                ) : null}
+
+                {question.kind === "ordering" ? (
+                  <div className="grid gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Liste os itens na ordem correta. O aluno verá a lista embaralhada.
+                    </p>
+                    {question.orderEntries.map((entry, entryIndex) => (
+                      <div key={entry.key} className="flex items-center gap-2">
+                        <span className="w-6 text-sm text-muted-foreground">{entryIndex + 1}.</span>
+                        <Input
+                          value={entry.text}
+                          onChange={(event) =>
+                            updateQuestion(question.key, {
+                              orderEntries: question.orderEntries.map((item) =>
+                                item.key === entry.key ? { ...item, text: event.target.value } : item
+                              ),
+                            })
+                          }
+                          placeholder={`Item ${entryIndex + 1}`}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Subir"
+                          disabled={entryIndex === 0}
+                          onClick={() =>
+                            updateQuestion(question.key, {
+                              orderEntries: moveItem(question.orderEntries, entryIndex, -1),
+                            })
+                          }
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Descer"
+                          disabled={entryIndex === question.orderEntries.length - 1}
+                          onClick={() =>
+                            updateQuestion(question.key, {
+                              orderEntries: moveItem(question.orderEntries, entryIndex, 1),
+                            })
+                          }
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                        {question.orderEntries.length > 3 ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Remover item"
+                            onClick={() =>
+                              updateQuestion(question.key, {
+                                orderEntries: question.orderEntries.filter((item) => item.key !== entry.key),
+                              })
+                            }
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        updateQuestion(question.key, {
+                          orderEntries: [...question.orderEntries, newLine()],
+                        })
+                      }
+                    >
+                      <Plus className="h-4 w-4" />
+                      Item
+                    </Button>
+                  </div>
+                ) : null}
+
+                {question.kind === "cloze" ? (
+                  <div className="grid gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Marque cada lacuna com chaves duplas. Alternativas: {"{{Terra|planeta Terra}}"}.
+                    </p>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={question.caseSensitive}
+                        onChange={(event) =>
+                          updateQuestion(question.key, { caseSensitive: event.target.checked })
+                        }
+                      />
+                      Diferenciar maiúsculas e minúsculas
+                    </label>
+                  </div>
+                ) : null}
+
+                {question.kind === "categorize" ? (
+                  <div className="grid gap-4">
+                    <div className="grid gap-3">
+                      <p className="text-sm font-medium">Categorias</p>
+                      {question.categories.map((category, categoryIndex) => (
+                        <div key={category.key} className="flex items-center gap-2">
+                          <Input
+                            value={category.label}
+                            onChange={(event) =>
+                              updateQuestion(question.key, {
+                                categories: question.categories.map((item) =>
+                                  item.key === category.key ? { ...item, label: event.target.value } : item
+                                ),
+                              })
+                            }
+                            placeholder={`Categoria ${categoryIndex + 1}`}
+                          />
+                          {question.categories.length > 2 ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Remover categoria"
+                              onClick={() =>
+                                updateQuestion(question.key, {
+                                  categories: question.categories.filter((item) => item.key !== category.key),
+                                  categoryItems: question.categoryItems.map((item) =>
+                                    item.categoryKey === category.key
+                                      ? { ...item, categoryKey: question.categories.find((c) => c.key !== category.key)?.key ?? "" }
+                                      : item
+                                  ),
+                                })
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateQuestion(question.key, {
+                            categories: [...question.categories, newCategory()],
+                          })
+                        }
+                      >
+                        <Plus className="h-4 w-4" />
+                        Categoria
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      <p className="text-sm font-medium">Itens</p>
+                      {question.categoryItems.map((item, itemIndex) => (
+                        <div key={item.key} className="grid gap-2 sm:grid-cols-[1fr_12rem_auto]">
+                          <Input
+                            value={item.text}
+                            onChange={(event) =>
+                              updateQuestion(question.key, {
+                                categoryItems: question.categoryItems.map((member) =>
+                                  member.key === item.key ? { ...member, text: event.target.value } : member
+                                ),
+                              })
+                            }
+                            placeholder={`Item ${itemIndex + 1}`}
+                          />
+                          <select
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={item.categoryKey}
+                            onChange={(event) =>
+                              updateQuestion(question.key, {
+                                categoryItems: question.categoryItems.map((member) =>
+                                  member.key === item.key
+                                    ? { ...member, categoryKey: event.target.value }
+                                    : member
+                                ),
+                              })
+                            }
+                          >
+                            {question.categories.map((category) => (
+                              <option key={category.key} value={category.key}>
+                                {category.label.trim() || "Sem nome"}
+                              </option>
+                            ))}
+                          </select>
+                          {question.categoryItems.length > 3 ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Remover item"
+                              onClick={() =>
+                                updateQuestion(question.key, {
+                                  categoryItems: question.categoryItems.filter((member) => member.key !== item.key),
+                                })
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <span />
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateQuestion(question.key, {
+                            categoryItems: [
+                              ...question.categoryItems,
+                              newCategoryItem(question.categories[0]?.key ?? ""),
+                            ],
+                          })
+                        }
+                      >
+                        <Plus className="h-4 w-4" />
+                        Item
+                      </Button>
+                    </div>
                   </div>
                 ) : null}
 

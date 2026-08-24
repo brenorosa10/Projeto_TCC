@@ -60,6 +60,9 @@ export type ItemKind =
   | "true_false"
   | "short_answer"
   | "matching"
+  | "ordering"
+  | "cloze"
+  | "categorize"
   | "flashcard"
 
 export type SectionRole = "prep" | "practice" | "feedback"
@@ -97,6 +100,30 @@ export interface MatchingEntry {
   text: string
 }
 
+export interface OrderEntry {
+  id: string
+  text: string
+  position: number
+}
+
+export interface ClozeBlank {
+  id: string
+  position: number
+  acceptedAnswers?: string[] | null
+}
+
+export interface CategoryBucket {
+  id: string
+  label: string
+  position: number
+}
+
+export interface CategoryItem {
+  id: string
+  text: string
+  categoryId?: string | null
+}
+
 export interface ActivityItem {
   id: string
   kind: string
@@ -113,6 +140,10 @@ export interface ActivityItem {
   acceptedAnswers?: string[] | null
   caseSensitive?: boolean | null
   pairs?: MatchingPair[] | null
+  orderEntries?: OrderEntry[] | null
+  clozeBlanks?: ClozeBlank[] | null
+  categories?: CategoryBucket[] | null
+  categoryItems?: CategoryItem[] | null
 }
 
 export interface ActivitySection {
@@ -123,6 +154,10 @@ export interface ActivitySection {
   feedbackTemplate?: string | null
   position: number
   itemIds: string[]
+  objectives?: string[] | null
+  estimatedMinutes?: number | null
+  tips?: string[] | null
+  imageDataUrl?: string | null
 }
 
 export interface Activity extends ActivitySummary {
@@ -155,9 +190,34 @@ export interface CreateActivityItemRequest {
   caseSensitive?: boolean
   correctTrue?: boolean
   pairs?: CreateMatchingPairRequest[]
+  orderEntries?: CreateOrderEntryRequest[]
+  clozeBlanks?: CreateClozeBlankRequest[]
+  categories?: CreateCategoryRequest[]
+  categoryItems?: CreateCategoryItemRequest[]
   front?: string
   back?: string
   imageDataUrl?: string
+}
+
+export interface CreateOrderEntryRequest {
+  id?: string
+  text: string
+}
+
+export interface CreateClozeBlankRequest {
+  id?: string
+  acceptedAnswers?: string[]
+}
+
+export interface CreateCategoryRequest {
+  id?: string
+  label: string
+}
+
+export interface CreateCategoryItemRequest {
+  id?: string
+  text: string
+  categoryId?: string
 }
 
 export interface CreateActivitySectionRequest {
@@ -167,6 +227,10 @@ export interface CreateActivitySectionRequest {
   body?: string
   feedbackTemplate?: string
   items?: CreateActivityItemRequest[]
+  objectives?: string[]
+  estimatedMinutes?: number
+  tips?: string[]
+  imageDataUrl?: string
 }
 
 export interface CreateActivityRequest {
@@ -206,7 +270,20 @@ export interface SubmitStudyAnswerRequest {
   textAnswer?: string
   remembered?: boolean
   pairs?: MatchingAnswerRequest[]
+  orderedIds?: string[]
+  clozeAnswers?: ClozeAnswerRequest[]
+  categoryPlacements?: CategoryPlacementRequest[]
   responseTimeMs?: number
+}
+
+export interface ClozeAnswerRequest {
+  blankId: string
+  text: string
+}
+
+export interface CategoryPlacementRequest {
+  itemId: string
+  categoryId: string
 }
 
 export interface StudyAnswerFeedback {
@@ -270,6 +347,10 @@ export interface StudySessionSectionView {
   title?: string | null
   body?: string | null
   feedbackTemplate?: string | null
+  objectives?: string[] | null
+  estimatedMinutes?: number | null
+  tips?: string[] | null
+  imageDataUrl?: string | null
 }
 
 export interface StudySessionItem {
@@ -284,6 +365,10 @@ export interface StudySessionItem {
   allowMultiple?: boolean | null
   left?: MatchingEntry[] | null
   right?: MatchingEntry[] | null
+  orderItems?: MatchingEntry[] | null
+  categories?: MatchingEntry[] | null
+  categoryItems?: MatchingEntry[] | null
+  clozeBlanks?: MatchingEntry[] | null
 }
 
 export interface StudySessionFeedbackItem {

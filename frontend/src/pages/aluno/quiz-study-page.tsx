@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
+import { ArrowDown, ArrowUp } from "lucide-react"
+import { PrepPanel } from "@/components/activity/prep-panel"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -92,10 +94,15 @@ export function AlunoQuizStudyPage() {
           </div>
 
           {study.status === "prep" ? (
-            <PrepView
+            <PrepPanel
               title={study.currentSection?.title}
               body={study.currentSection?.body}
+              objectives={study.currentSection?.objectives}
+              estimatedMinutes={study.currentSection?.estimatedMinutes}
+              tips={study.currentSection?.tips}
+              imageDataUrl={study.currentSection?.imageDataUrl}
               disabled={busy}
+              fallbackBody="Revise o que você já sabe e, quando estiver pronto, comece as questões."
               onContinue={() => void apply(() => api.advanceStudySession(study.id))}
             />
           ) : null}
@@ -122,33 +129,6 @@ export function AlunoQuizStudyPage() {
         </div>
       )}
     </AppShell>
-  )
-}
-
-function PrepView({
-  title,
-  body,
-  disabled,
-  onContinue,
-}: {
-  title?: string | null
-  body?: string | null
-  disabled: boolean
-  onContinue: () => void
-}) {
-  return (
-    <div className="space-y-4 rounded-lg border border-border p-6">
-      <Badge variant="secondary">Preparação</Badge>
-      <h2 className="font-display text-xl font-semibold">{title?.trim() || "Antes de começar"}</h2>
-      {body?.trim() ? (
-        <p className="whitespace-pre-wrap text-muted-foreground">{body}</p>
-      ) : (
-        <p className="text-muted-foreground">Revise o que você já sabe e, quando estiver pronto, comece as questões.</p>
-      )}
-      <Button type="button" disabled={disabled} onClick={onContinue}>
-        Começar
-      </Button>
-    </div>
   )
 }
 
@@ -263,6 +243,9 @@ function ItemAnswerForm({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [textAnswer, setTextAnswer] = useState("")
   const [pairs, setPairs] = useState<Record<string, string>>({})
+  const [orderIds, setOrderIds] = useState<string[]>([])
+  const [clozeAnswers, setClozeAnswers] = useState<Record<string, string>>({})
+  const [placements, setPlacements] = useState<Record<string, string>>({})
   const [flipped, setFlipped] = useState(false)
 
   useEffect(() => {
@@ -270,8 +253,11 @@ function ItemAnswerForm({
     setSelectedIds([])
     setTextAnswer("")
     setPairs({})
+    setOrderIds((item.orderItems ?? []).map((entry) => entry.id))
+    setClozeAnswers({})
+    setPlacements({})
     setFlipped(false)
-  }, [item.id])
+  }, [item.id, item.orderItems])
 
   const elapsed = () => Date.now() - startedAtRef.current
 
@@ -383,6 +369,183 @@ function ItemAnswerForm({
           type="button"
           disabled={busy || !complete}
           onClick={() => onSubmit({ itemId: item.id, pairs: payload, responseTimeMs: elapsed() })}
+        >
+          {busy ? "Enviando..." : "Responder"}
+        </Button>
+      </div>
+    )
+  }
+
+  if (item.kind === "ordering") {
+    const entries = item.orderItems ?? []
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">Coloque os itens na ordem correta.</p>
+        <ul className="grid gap-2">
+          {orderIds.map((id, index) => {
+            const entry = entries.find((item) => item.id === id)
+            if (!entry) return null
+            return (
+              <li key={id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2">
+                <span className="w-6 text-sm text-muted-foreground">{index + 1}.</span>
+                <span className="flex-1">{entry.text}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Subir"
+                  disabled={index === 0}
+                  onClick={() => setOrderIds((prev) => moveItem(prev, index, -1))}
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Descer"
+                  disabled={index === orderIds.length - 1}
+                  onClick={() => setOrderIds((prev) => moveItem(prev, index, 1))}
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+              </li>
+            )
+          })}
+        </ul>
+        <Button
+          type="button"
+          disabled={busy || orderIds.length === 0}
+          onClick={() => onSubmit({ itemId: item.id, orderedIds: orderIds, responseTimeMs: elapsed() })}
+        >
+          {busy ? "Enviando..." : "Responder"}
+        </Button>
+      </div>
+    )
+  }
+
+  if (item.kind === "cloze") {
+    const blanks = item.clozeBlanks ?? []
+    const segments = splitCloze(item.prompt ?? "", blanks)
+    const complete = blanks.every((blank) => clozeAnswers[blank.id]?.trim())
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-baseline gap-x-1 gap-y-2 text-lg leading-loose">
+          {segments.map((segment, index) =>
+            segment.type === "text" ? (
+              <span key={index}>{segment.value}</span>
+            ) : (
+              <Input
+                key={segment.id}
+                value={clozeAnswers[segment.id] ?? ""}
+                onChange={(event) =>
+                  setClozeAnswers((prev) => ({ ...prev, [segment.id]: event.target.value }))
+                }
+                className="inline-flex h-9 w-40"
+                aria-label={`Lacuna ${index + 1}`}
+              />
+            )
+          )}
+        </div>
+        <Button
+          type="button"
+          disabled={busy || !complete}
+          onClick={() =>
+            onSubmit({
+              itemId: item.id,
+              clozeAnswers: blanks.map((blank) => ({
+                blankId: blank.id,
+                text: clozeAnswers[blank.id]?.trim() ?? "",
+              })),
+              responseTimeMs: elapsed(),
+            })
+          }
+        >
+          {busy ? "Enviando..." : "Responder"}
+        </Button>
+      </div>
+    )
+  }
+
+  if (item.kind === "categorize") {
+    const categories = item.categories ?? []
+    const members = item.categoryItems ?? []
+    const complete = members.length > 0 && members.every((member) => placements[member.id])
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Arraste cada item para uma categoria, ou escolha no menu.
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          {categories.map((category) => (
+            <div
+              key={category.id}
+              className="min-h-32 space-y-2 rounded-lg border border-dashed border-border p-3"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                const memberId = event.dataTransfer.getData("text/plain")
+                if (memberId) setPlacements((prev) => ({ ...prev, [memberId]: category.id }))
+              }}
+            >
+              <p className="font-medium">{category.text}</p>
+              <ul className="grid gap-2">
+                {members
+                  .filter((member) => placements[member.id] === category.id)
+                  .map((member) => (
+                    <li
+                      key={member.id}
+                      draggable
+                      onDragStart={(event) => event.dataTransfer.setData("text/plain", member.id)}
+                      className="cursor-grab rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      {member.text}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <ul className="grid gap-2">
+          {members
+            .filter((member) => !placements[member.id])
+            .map((member) => (
+              <li
+                key={member.id}
+                draggable
+                onDragStart={(event) => event.dataTransfer.setData("text/plain", member.id)}
+                className="flex flex-col gap-2 rounded-md border border-border px-3 py-2 sm:flex-row sm:items-center"
+              >
+                <span className="flex-1 cursor-grab">{member.text}</span>
+                <select
+                  className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value=""
+                  onChange={(event) =>
+                    setPlacements((prev) => ({ ...prev, [member.id]: event.target.value }))
+                  }
+                >
+                  <option value="">Categorizar...</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.text}
+                    </option>
+                  ))}
+                </select>
+              </li>
+            ))}
+        </ul>
+        <Button
+          type="button"
+          disabled={busy || !complete}
+          onClick={() =>
+            onSubmit({
+              itemId: item.id,
+              categoryPlacements: members.map((member) => ({
+                itemId: member.id,
+                categoryId: placements[member.id],
+              })),
+              responseTimeMs: elapsed(),
+            })
+          }
         >
           {busy ? "Enviando..." : "Responder"}
         </Button>
@@ -507,4 +670,34 @@ function feedbackLabel(kind: string, isCorrect: boolean, remembered?: boolean | 
     return remembered ? "Você marcou que lembrou." : "Você marcou que não lembrou."
   }
   return isCorrect ? "Você acertou." : "Resposta incorreta."
+}
+
+function moveItem<T>(items: T[], index: number, delta: number): T[] {
+  const next = index + delta
+  if (next < 0 || next >= items.length) return items
+  const copy = [...items]
+  const [removed] = copy.splice(index, 1)
+  copy.splice(next, 0, removed)
+  return copy
+}
+
+function splitCloze(prompt: string, blanks: { id: string }[]) {
+  const segments: Array<{ type: "text"; value: string } | { type: "blank"; id: string }> = []
+  const regex = /\{\{([^}]+)\}\}/g
+  let lastIndex = 0
+  let blankIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(prompt)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: "text", value: prompt.slice(lastIndex, match.index) })
+    }
+    const id = blanks[blankIndex]?.id ?? match[1]
+    segments.push({ type: "blank", id })
+    blankIndex += 1
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < prompt.length) {
+    segments.push({ type: "text", value: prompt.slice(lastIndex) })
+  }
+  return segments
 }

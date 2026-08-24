@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
+import { PrepPanel } from "@/components/activity/prep-panel"
 import { findSection, hasSectionCopy } from "@/lib/item-kinds"
 import type { ActivitySection, StudyFlashcardCard, StudyFlashcardSession } from "@/lib/types"
 
@@ -111,18 +112,16 @@ export function AlunoFlashcardStudyPage() {
           </div>
 
           {phase === "prep" ? (
-            <div className="space-y-4 rounded-lg border border-border p-6">
-              <Badge variant="secondary">Preparação</Badge>
-              <h2 className="font-display text-xl font-semibold">
-                {prep?.title?.trim() || "Antes de começar"}
-              </h2>
-              {prep?.body?.trim() ? (
-                <p className="whitespace-pre-wrap text-muted-foreground">{prep.body}</p>
-              ) : null}
-              <Button type="button" onClick={() => setPhase("cards")}>
-                Começar revisão
-              </Button>
-            </div>
+            <PrepPanel
+              title={prep?.title}
+              body={prep?.body}
+              objectives={prep?.objectives}
+              estimatedMinutes={prep?.estimatedMinutes}
+              tips={prep?.tips}
+              imageDataUrl={prep?.imageDataUrl}
+              actionLabel="Começar revisão"
+              onContinue={() => setPhase("cards")}
+            />
           ) : null}
 
           {phase === "done" || (phase === "cards" && !card) ? (

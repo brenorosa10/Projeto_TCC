@@ -5,6 +5,9 @@ export const ITEM_KIND_LABELS: Record<ItemKind, string> = {
   true_false: "Verdadeiro ou falso",
   short_answer: "Resposta curta",
   matching: "Associação",
+  ordering: "Ordenação",
+  cloze: "Preencher lacuna",
+  categorize: "Arrastar para categorias",
   flashcard: "Flashcard",
 }
 
@@ -13,6 +16,9 @@ export const QUIZ_ITEM_KINDS: ItemKind[] = [
   "true_false",
   "short_answer",
   "matching",
+  "ordering",
+  "cloze",
+  "categorize",
 ]
 
 export function itemKindLabel(kind: string | null | undefined): string {
@@ -27,10 +33,26 @@ export function findSection<T extends { role: SectionRole }>(
   return sections?.find((section) => section.role === role)
 }
 
-export function hasSectionCopy(section: { title?: string | null; body?: string | null } | null | undefined) {
+export function hasSectionCopy(
+  section:
+    | {
+        title?: string | null
+        body?: string | null
+        objectives?: string[] | null
+        tips?: string[] | null
+        estimatedMinutes?: number | null
+        imageDataUrl?: string | null
+      }
+    | null
+    | undefined
+) {
   const title = section?.title?.trim() ?? ""
   const body = section?.body?.trim() ?? ""
   if (body) return true
+  if (section?.objectives?.some((item) => item.trim()) || section?.tips?.some((item) => item.trim())) {
+    return true
+  }
+  if (section?.estimatedMinutes || section?.imageDataUrl) return true
   if (!title) return false
   return title !== "Resultados" && title !== "Antes de começar"
 }

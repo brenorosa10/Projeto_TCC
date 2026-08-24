@@ -190,14 +190,21 @@ public class StudySessionService(
                 cancellationToken);
         }
 
-        session.Answers.Add(new StudySessionAnswer
-        {
-            ItemId = item.Id,
-            Kind = item.Kind,
-            SelectedOptionId = grade.SelectedOptionId,
-            SelectedOptionIds = grade.SelectedOptionIds?.ToList(),
-            TextAnswer = grade.TextAnswer,
-            Remembered = grade.Remembered,
+            session.Answers.Add(new StudySessionAnswer
+            {
+                ItemId = item.Id,
+                Kind = item.Kind,
+                SelectedOptionId = grade.SelectedOptionId,
+                SelectedOptionIds = grade.SelectedOptionIds?.ToList(),
+                TextAnswer = grade.TextAnswer,
+                OrderedIds = request.OrderedIds,
+                ClozeAnswers = request.ClozeAnswers?
+                    .Select(answer => new ClozeAnswer { BlankId = answer.BlankId, Text = answer.Text })
+                    .ToList(),
+                CategoryPlacements = request.CategoryPlacements?
+                    .Select(placement => new CategoryPlacement { ItemId = placement.ItemId, CategoryId = placement.CategoryId })
+                    .ToList(),
+                Remembered = grade.Remembered,
             IsCorrect = grade.IsCorrect,
             Score = grade.Score,
             ResponseTimeMs = request.ResponseTimeMs,
@@ -344,7 +351,11 @@ public class StudySessionService(
                     ? (section.ItemIds.Count > 0
                         ? section.ItemIds
                         : activity.Items.OrderBy(item => item.Position).Select(item => item.Id).ToList())
-                    : []
+                    : [],
+                Objectives = section.Objectives,
+                EstimatedMinutes = section.EstimatedMinutes,
+                Tips = section.Tips,
+                HasImage = section.ImageBytes is { Length: > 0 }
             })
             .ToList();
 
@@ -371,7 +382,12 @@ public class StudySessionService(
         };
 
     private static bool HasPrepContent(StudySessionPlanSection section) =>
-        !string.IsNullOrWhiteSpace(section.Title) || !string.IsNullOrWhiteSpace(section.Body);
+        !string.IsNullOrWhiteSpace(section.Title)
+        || !string.IsNullOrWhiteSpace(section.Body)
+        || section.Objectives is { Count: > 0 }
+        || section.Tips is { Count: > 0 }
+        || section.EstimatedMinutes is > 0
+        || section.HasImage;
 
     private static void MoveTo(StudySession session, int sectionIndex)
     {
@@ -508,7 +524,11 @@ public class StudySessionService(
                     currentSection.Role,
                     currentSection.Title,
                     currentSection.Body,
-                    currentSection.FeedbackTemplate),
+                    currentSection.FeedbackTemplate,
+                    currentSection.Objectives,
+                    currentSection.EstimatedMinutes,
+                    currentSection.Tips,
+                    ActivityImage.ToDataUrl(activity.Sections.FirstOrDefault(section => section.Id == currentSection.Id))),
             currentItem,
             currentFeedback,
             new StudySessionProgressResponse(session.Answers.Count, practiceTotal, correctCount),
@@ -560,6 +580,12 @@ public class StudySessionService(
     {
         IReadOnlyList<MatchingEntryResponse>? left = null;
         IReadOnlyList<MatchingEntryResponse>? right = null;
+        IReadOnlyList<MatchingEntryResponse>? orderItems = null;
+        IReadOnlyList<MatchingEntryResponse>? categories = null;
+        IReadOnlyList<MatchingEntryResponse>? categoryItems = null;
+        IReadOnlyList<MatchingEntryResponse>? clozeBlanks = null;
+        var prompt = item.Prompt;
+
         if (item.Kind == ItemKinds.Matching && item.Pairs is { Count: > 0 })
         {
             left = item.Pairs
@@ -571,10 +597,44 @@ public class StudySessionService(
                 item.Id);
         }
 
+        if (item.Kind == ItemKinds.Ordering && item.OrderEntries is { Count: > 0 })
+        {
+            orderItems = Shuffle(
+                item.OrderEntries
+                    .OrderBy(entry => entry.Position)
+                    .Select(entry => new MatchingEntryResponse(entry.Id, entry.Text))
+                    .ToList(),
+                sessionId,
+                item.Id);
+        }
+
+        if (item.Kind == ItemKinds.Categorize)
+        {
+            categories = (item.Categories ?? [])
+                .OrderBy(category => category.Position)
+                .Select(category => new MatchingEntryResponse(category.Id, category.Label))
+                .ToList();
+            categoryItems = Shuffle(
+                (item.CategoryItems ?? [])
+                    .Select(member => new MatchingEntryResponse(member.Id, member.Text))
+                    .ToList(),
+                sessionId,
+                item.Id);
+        }
+
+        if (item.Kind == ItemKinds.Cloze && item.ClozeBlanks is { Count: > 0 })
+        {
+            prompt = ClozeMarkup.ToStudentPrompt(item.Prompt, item.ClozeBlanks);
+            clozeBlanks = item.ClozeBlanks
+                .OrderBy(blank => blank.Position)
+                .Select(blank => new MatchingEntryResponse(blank.Id, string.Empty))
+                .ToList();
+        }
+
         return new StudySessionItemResponse(
             item.Id,
             item.Kind,
-            item.Prompt,
+            prompt,
             item.TimeLimitSeconds,
             item.Options?
                 .OrderBy(option => option.Position)
@@ -585,7 +645,11 @@ public class StudySessionService(
             ActivityImage.ToDataUrl(item),
             item.Kind == ItemKinds.MultipleChoice ? item.AllowMultiple : null,
             left,
-            right);
+            right,
+            orderItems,
+            categories,
+            categoryItems,
+            clozeBlanks);
     }
 
     private static StudySessionFeedbackResponse BuildFeedback(
