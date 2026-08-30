@@ -23,7 +23,7 @@ O ScoreHistory já usa Caddy nas portas 80/443. O Astro entra como **outro domí
 4. No `.env` do ScoreHistory: `ASTRO_ADDRESS=astro.seudominio.com`
 5. Recarregue o Caddy do ScoreHistory: `docker compose up -d caddy`
 6. Neste repositório: copie `.env.example` para `.env`, preencha Mongo/Google/JWT e `Auth__FrontendUrl` / `Cors__Origins` com `https://astro.seudominio.com`.
-7. `docker compose up -d --build`
+7. `./scripts/deploy.sh` (ou `docker compose up -d --build`)
 
 O Caddy encaminha o domínio do Astro para o container `astro-frontend`. O nginx interno encaminha `/api`, `/hubs` e `/signin-google` para a API.
 
