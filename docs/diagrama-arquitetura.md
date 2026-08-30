@@ -1,387 +1,431 @@
-# Diagrama de arquitetura — Astro
+# Criar atividades pelo JSON
 
-Documento da arquitetura do sistema na **versão atual** (implementada) e na **versão futura** (próximas entregas do TCC).
+Corpo de `CreateActivityRequest` (camelCase) em `POST /api/activities`. JWT de professor. O mesmo JSON vale no `PUT /api/activities/{id}` (o `type` não pode mudar).
 
-Legenda usada nos diagramas:
+Envelope:
 
-- **Verde** — já implementado e em uso
-- **Âmbar** — modelado ou com stub; ainda não é fluxo completo
-- **Azul** — serviço externo
-
----
-
-## 1. Visão de contexto (atual e futura)
-
-O Astro é um ambiente híbrido: o professor conduz sessões ao vivo (estilo Kahoot) e o aluno também estuda no próprio ritmo (quizzes e flashcards). Visitantes sem conta podem estudar conteúdo **público** na página inicial.
-
-```mermaid
-flowchart LR
-  subgraph Atores
-    P[Professor]
-    AL[Aluno]
-    VIS[Visitante<br/>sem login]
-  end
-
-  subgraph Astro["Astro — aplicação"]
-    FE["Frontend React + Vite<br/>localhost:5173"]
-    API["Backend ASP.NET Core 8<br/>REST + SignalR<br/>localhost:5080"]
-  end
-
-  subgraph Externos
-    G["Google Identity<br/>OAuth 2.0"]
-    DB[("MongoDB Atlas<br/>cluster ClusterTCC<br/>database astro")]
-  end
-
-  P --> FE
-  AL --> FE
-  VIS -->|"estudo público"| FE
-  FE -->|"HTTPS / JSON + JWT"| API
-  FE -->|"WebSocket SignalR<br/>hub /hubs/live"| API
-  FE -->|"redirect OAuth"| API
-  API -->|"OAuth 2.0 / OpenID"| G
-  API -->|"driver oficial MongoDB"| DB
-
-  classDef atual fill:#d4edda,stroke:#2f6f4e,color:#1b4332
-  classDef externo fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
-  class P,AL,VIS,FE,API atual
-  class G,DB externo
+```json
+{
+  "title": "Título da atividade",
+  "type": "quiz",
+  "isPublic": false,
+  "items": [],
+  "sections": []
+}
 ```
 
----
-
-## 2. Arquitetura atual — componentes
-
-Operacional hoje: login Google **ou** conta Astro (e-mail, senha e nome de usuário), turmas, biblioteca de quizzes/flashcards (CRUD, imagens comprimidas, público/privado), estudo off-line autenticado e estudo público anônimo. O hub SignalR e o analytics ainda são stubs.
-
-```mermaid
-flowchart TB
-  subgraph Frontend["Frontend — React + TypeScript"]
-    LP[LandingPage<br/>login + catálogo público]
-    CB[AuthCallbackPage]
-    AUTH[AuthProvider<br/>JWT no localStorage]
-    APIJS["api.ts<br/>Bearer JWT"]
-    PROF["Rotas professor<br/>turmas, atividades, editor"]
-    ALU["Rotas aluno<br/>turmas, estudar"]
-    EXP["Rotas /explorar<br/>estudo sem login"]
-    LIVEP["live-page / live-join<br/>stub SignalR"]
-    ANUI[analytics<br/>placeholder]
-  end
-
-  subgraph Backend["Backend — Astro.Api"]
-    AC["AuthController<br/>Google + register/login"]
-    PC[ProfilesController]
-    CC[ClassesController]
-    ACT[ActivitiesController]
-    STU[StudyController]
-    PUB[PublicController]
-    HC[HealthController]
-    JWT[JwtTokenService]
-    HASH[PasswordHashingService]
-    CUS[CurrentUserService]
-    CODE[ClassCodeGenerator]
-    IMG[ActivityImage]
-    LEIT[LeitnerScheduler]
-    HUB[LiveSessionHub<br/>Join / Advance / Submit]
-    MONGO[MongoDbContext]
-  end
-
-  subgraph Atlas["MongoDB Atlas"]
-    COL1[("profiles")]
-    COL2[("classes<br/>enrollments embutidos")]
-    COL3[("activities<br/>items + imagens BinData")]
-    COL4[("answerAttempts")]
-    COL5[("reviewProgress")]
-    COLX[("liveSessions<br/>índices prontos, sem REST")]
-  end
-
-  GGL[Google OAuth]
-
-  LP --> AUTH
-  LP --> PUB
-  AUTH --> CB
-  AUTH --> APIJS
-  PROF --> APIJS
-  ALU --> APIJS
-  EXP --> PUB
-  LIVEP --> HUB
-  APIJS --> AC
-  APIJS --> PC
-  APIJS --> CC
-  APIJS --> ACT
-  APIJS --> STU
-  APIJS --> PUB
-  AC --> GGL
-  AC --> JWT
-  AC --> HASH
-  AC --> MONGO
-  PC --> CUS
-  PC --> MONGO
-  CC --> CODE
-  CC --> MONGO
-  ACT --> IMG
-  ACT --> MONGO
-  STU --> LEIT
-  STU --> MONGO
-  PUB --> IMG
-  PUB --> MONGO
-  MONGO --> COL1
-  MONGO --> COL2
-  MONGO --> COL3
-  MONGO --> COL4
-  MONGO --> COL5
-  MONGO -.-> COLX
-
-  classDef atual fill:#d4edda,stroke:#2f6f4e,color:#1b4332
-  classDef futuro fill:#fef3c7,stroke:#b45309,color:#7c2d12
-  classDef externo fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
-  class LP,CB,AUTH,APIJS,PROF,ALU,EXP,AC,PC,CC,ACT,STU,PUB,HC,JWT,HASH,CUS,CODE,IMG,LEIT,MONGO,COL1,COL2,COL3,COL4,COL5 atual
-  class LIVEP,ANUI,HUB,COLX futuro
-  class GGL externo
-```
-
-### Endpoints e telas atuais
-
-| Camada | Implementado | Ainda stub / placeholder |
+| Campo | Obrigatório | Valores |
 |---|---|---|
-| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/google`, callback, JWT | — |
-| Perfil | `GET /api/profiles/me`, `POST /api/profiles/ensure` | — |
-| Turmas | listar, detalhe, criar, ingressar por código | — |
-| Atividades | CRUD quiz/flashcards, imagens, `isPublic`, vínculo N turmas, importar flashcards | tipo `prova` e `kind` V/F ainda não no editor |
-| Estudo autenticado | `GET/POST /api/study/quizzes`, `GET/POST /api/study/flashcards` (Leitner) | — |
-| Estudo público | `GET /api/public/activities`, respostas e decks anônimos | — |
-| Ao vivo | hub `JoinSession`, `AdvanceQuestion`, `SubmitAnswer` | sem persistência, sem pontuação, sem ranking |
-| Analytics | rota de UI | sem agregação real |
+| `title` | sim | 2–200 caracteres |
+| `type` | sim | só `"quiz"` ou `"flashcards"` |
+| `isPublic` | não | `false` por padrão; `true` entra no catálogo da landing |
+| `items` | um dos dois | lista plana; o builder cria prep / practice / feedback |
+| `sections` | um dos dois | se vier preenchido, **ganha** de `items` na raiz |
 
----
-
-## 3. Sequência atual — autenticação
-
-Duas entradas: **Google** ou **conta Astro**. O papel (professor/aluno) é escolhido na landing e fica fixo na primeira gravação do perfil.
-
-```mermaid
-sequenceDiagram
-  actor U as Usuário
-  participant FE as Frontend
-  participant API as Astro.Api
-  participant G as Google
-  participant DB as MongoDB
-
-  U->>FE: escolhe professor ou aluno
-  alt Conta Astro
-    U->>FE: criar conta ou entrar
-    FE->>API: POST /api/auth/register ou /login
-    API->>DB: e-mail/usuário únicos + passwordHash
-    API->>API: JwtTokenService.CreateToken
-    API-->>FE: { accessToken, profile }
-    FE->>FE: localStorage JWT
-  else Google
-    FE->>FE: sessionStorage.intendedRole
-    FE->>API: GET /api/auth/google?returnUrl=...
-    API->>G: Challenge OAuth 2.0
-    U->>G: Consentimento
-    G->>API: /signin-google → /api/auth/google-callback
-    API->>DB: upsert profiles por googleId ou e-mail
-    API->>FE: redirect /auth/callback#access_token
-    FE->>API: POST /api/profiles/ensure { role }
-    API->>DB: grava role se ainda vazia
-  end
-  FE->>U: dashboard professor ou aluno
-```
-
----
-
-## 4. Sequência atual — turmas
-
-```mermaid
-sequenceDiagram
-  actor P as Professor
-  actor A as Aluno
-  participant FE as Frontend
-  participant API as ClassesController
-  participant DB as MongoDB classes
-
-  P->>FE: criar turma
-  FE->>API: POST /api/classes { name }
-  API->>API: gera código único 8 chars
-  API->>DB: insert { professorId, professorName, code }
-  API-->>FE: ClassResponse
-
-  A->>FE: informar código
-  FE->>API: POST /api/classes/join { code }
-  API->>DB: $push enrollments { studentId, studentName }
-  API-->>FE: turma + studentCount
-
-  P->>API: GET /api/classes
-  Note over API,DB: filtro professorId
-  A->>API: GET /api/classes
-  Note over API,DB: filtro enrollments.studentId
-```
-
----
-
-## 5. Sequência atual — atividades e visibilidade
-
-```mermaid
-sequenceDiagram
-  actor P as Professor
-  actor A as Aluno
-  actor V as Visitante
-  participant FE as Frontend
-  participant API as REST
-  participant DB as MongoDB activities
-
-  P->>FE: criar/editar quiz ou flashcards
-  FE->>FE: comprime imagens no canvas
-  FE->>API: POST/PUT /api/activities { items, isPublic }
-  API->>API: valida itens + tamanho BSON menor que 16 MB
-  API->>DB: activities com items e imageBytes
-  P->>API: PUT /api/activities/{id}/classes
-  API->>DB: classIds[]
-
-  alt Privado
-    A->>API: GET /api/study/...
-    Note over API,DB: só se matriculado na turma vinculada
-  else Público
-    V->>FE: seção Estudo público na landing
-    FE->>API: GET /api/public/activities
-    V->>API: GET /api/public/activities/{id}
-    Note over API: gabarito só após responder, sem persistir tentativa
-  end
-```
-
----
-
-## 6. Sequência atual — estudo assíncrono (aluno logado)
-
-```mermaid
-sequenceDiagram
-  actor A as Aluno
-  participant FE as Frontend estudo
-  participant API as StudyController
-  participant DB as MongoDB
-
-  A->>API: GET /api/study/quizzes ou /flashcards
-  API->>DB: turmas do aluno ∪ isPublic
-  alt quiz off-line
-    A->>API: POST /api/study/quizzes/{id}/answers
-    API->>DB: insert answerAttempts
-    API-->>A: isCorrect + explanation
-  else flashcard Leitner
-    A->>API: GET /api/study/flashcards/{id}
-    API->>DB: reviewProgress nextReviewAt
-    A->>API: POST /api/study/flashcards/{id}/reviews
-    API->>API: caixa 1..5 ou reset para 1
-    API->>DB: upsert reviewProgress
-  end
-```
-
----
-
-## 7. Arquitetura futura — o que ainda falta
-
-A stack permanece a mesma. Entram sessão ao vivo completa, tipo prova, analytics e pontuação em tempo real.
-
-```mermaid
-flowchart TB
-  subgraph FrontendFuturo["Frontend"]
-    FEA[Auth, turmas, editor,<br/>estudo — já existentes]
-    LIVEUI[Sala ao vivo<br/>PIN, timer, ranking]
-    ANUI[Analytics do professor<br/>taxa de erro por item]
-    PROVA[Editor de prova]
-  end
-
-  subgraph BackendFuturo["Backend"]
-    REST1[Controllers atuais]
-    REST3[LiveSessionsController]
-    REST5[AnalyticsController]
-    HUB2[LiveSessionHub completo<br/>lobby, questão, gabarito, ranking]
-    SCORE[Motor de pontuação<br/>acerto + velocidade]
-  end
-
-  subgraph Dados["MongoDB Atlas — astro"]
-    DNOW[("profiles, classes, activities,<br/>answerAttempts, reviewProgress")]
-    D4[("liveSessions")]
-  end
-
-  FEA --> REST1
-  LIVEUI --> REST3
-  LIVEUI --> HUB2
-  ANUI --> REST5
-  PROVA --> REST1
-  REST1 --> DNOW
-  REST3 --> D4
-  HUB2 --> SCORE
-  HUB2 --> D4
-  HUB2 --> DNOW
-  REST5 --> DNOW
-
-  classDef atual fill:#d4edda,stroke:#2f6f4e,color:#1b4332
-  classDef futuro fill:#fef3c7,stroke:#b45309,color:#7c2d12
-  class FEA,REST1,DNOW atual
-  class LIVEUI,ANUI,PROVA,REST3,REST5,HUB2,SCORE,D4 futuro
-```
-
-### Módulos futuros (requisitos do TCC ainda abertos)
-
-| Módulo | Comportamento previsto |
-|---|---|
-| Prova | Tipo `prova`; sem ranking/gabarito durante a aplicação; nota só por acertos |
-| Ao vivo — quiz | PIN 6 dígitos, pontuação por acerto e velocidade, ranking e gabarito |
-| Analytics | Índice de erros por questão; destaque se erro > 50% |
-
----
-
-## 8. Sequência futura — sessão ao vivo
-
-```mermaid
-sequenceDiagram
-  actor P as Professor
-  actor A as Aluno
-  participant FE as Frontend
-  participant API as REST
-  participant HUB as SignalR
-  participant DB as MongoDB
-
-  P->>API: POST /api/live-sessions { activityId, classId }
-  API->>DB: insert liveSessions { pin, status: lobby }
-  P->>HUB: JoinSession(pin)
-  A->>HUB: JoinSession(pin)
-  P->>HUB: Start / AdvanceQuestion
-  HUB-->>A: QuestionAdvanced + payload
-  A->>HUB: SubmitAnswer
-  HUB->>DB: persiste answerAttempts
-  HUB->>HUB: calcula score
-  alt modo quiz
-    HUB-->>P: ranking parcial + gabarito
-    HUB-->>A: gabarito
-  else modo prova
-    HUB-->>P: contagem de respostas
-    Note over A: sem gabarito até o fim
-  end
-  P->>HUB: Encerrar
-  API->>DB: liveSessions.status = ended
-```
-
----
-
-## 9. Implantação atual (desenvolvimento)
+Turmas **não** vão neste POST. Depois: `PUT /api/activities/{id}/classes` com `{ "classIds": ["…"] }`.
 
 ```mermaid
 flowchart LR
-  subgraph Dev["Máquina local"]
-    VITE["Vite :5173"]
-    KESTREL["Kestrel :5080"]
-  end
-
-  subgraph Nuvem
-    GOOGLE[Google Cloud<br/>cliente OAuth Web]
-    ATLAS[MongoDB Atlas<br/>clustertcc]
-  end
-
-  Browser --> VITE
-  VITE --> KESTREL
-  KESTREL --> GOOGLE
-  KESTREL --> ATLAS
+  J["JSON do professor"] --> POST["POST /api/activities"]
+  POST --> B["Builder lê kind de cada item"]
+  B --> M["Mongo: sections[] + items[]"]
+  M --> CLS["PUT .../classes opcional"]
 ```
 
-A versão futura mantém os mesmos três blocos. O que muda é o hub ao vivo, o analytics e o uso efetivo de `liveSessions`.
+---
+
+## 1. Formato curto — só `items` (o backend monta as seções)
+
+Use quando não precisa de texto de preparação. O builder gera `prep` vazio, `practice` com todos os itens e `feedback` com `score_summary`.
+
+```json
+{
+  "title": "Sistema Solar — revisão rápida",
+  "type": "quiz",
+  "isPublic": true,
+  "items": [
+    {
+      "kind": "multiple_choice",
+      "prompt": "Qual o maior planeta do Sistema Solar?",
+      "explanation": "Júpiter é um gigante gasoso.",
+      "timeLimitSeconds": 30,
+      "options": [
+        { "text": "Marte", "isCorrect": false },
+        { "text": "Júpiter", "isCorrect": true },
+        { "text": "Saturno", "isCorrect": false }
+      ]
+    }
+  ]
+}
+```
+
+O que o servidor grava a mais: `id` em cada item e opção, `position`, `sectionId`, três seções, `professorId`, `createdAt`. Timer omitido vira **30**.
+
+---
+
+## 2. Formato completo — `sections` (prep + prática + feedback)
+
+`items` na raiz é ignorado se `sections` tiver elementos. Só `practice` pode ter questões.
+
+```json
+{
+  "title": "Sistema Solar",
+  "type": "quiz",
+  "isPublic": false,
+  "sections": [
+    {
+      "role": "prep",
+      "title": "Antes de começar",
+      "body": "Revise a ordem dos planetas a partir do Sol.",
+      "objectives": ["Identificar os planetas", "Distinguir interno e externo"],
+      "estimatedMinutes": 10,
+      "tips": ["Leia o enunciado até o fim", "Nas lacunas, acentos não importam se caseSensitive for false"]
+    },
+    {
+      "role": "practice",
+      "title": "Questões",
+      "items": []
+    },
+    {
+      "role": "feedback",
+      "title": "Resultados",
+      "feedbackTemplate": "score_summary"
+    }
+  ]
+}
+```
+
+`feedbackTemplate`: `score_summary`, `explanations` ou `due_cards` (este último faz mais sentido em flashcards). Faltar prep ou feedback: o builder completa.
+
+Os itens de cada kind entram em `sections[1].items`. Os blocos abaixo são recortes prontos para colar aí.
+
+---
+
+## 3. Múltipla escolha — `multiple_choice`
+
+Uma alternativa correta. 2 a 6 opções.
+
+```json
+{
+  "kind": "multiple_choice",
+  "prompt": "Qual o maior planeta do Sistema Solar?",
+  "explanation": "Júpiter é um gigante gasoso.",
+  "timeLimitSeconds": 30,
+  "allowMultiple": false,
+  "options": [
+    { "text": "Terra", "isCorrect": false },
+    { "text": "Júpiter", "isCorrect": true },
+    { "text": "Netuno", "isCorrect": false },
+    { "text": "Vênus", "isCorrect": false }
+  ]
+}
+```
+
+Várias corretas: `"allowMultiple": true` e pelo menos uma `isCorrect: true`.
+
+```json
+{
+  "kind": "multiple_choice",
+  "prompt": "Quais são planetas gasosos?",
+  "allowMultiple": true,
+  "options": [
+    { "text": "Júpiter", "isCorrect": true },
+    { "text": "Marte", "isCorrect": false },
+    { "text": "Saturno", "isCorrect": true },
+    { "text": "Mercúrio", "isCorrect": false }
+  ]
+}
+```
+
+---
+
+## 4. Verdadeiro ou falso — `true_false`
+
+Forma curta: o builder gera as opções “Verdadeiro” e “Falso”.
+
+```json
+{
+  "kind": "true_false",
+  "prompt": "Marte é um planeta interno.",
+  "correctTrue": true,
+  "explanation": "Mercúrio, Vênus, Terra e Marte são os planetas internos."
+}
+```
+
+Forma explícita (exatamente duas opções, uma correta):
+
+```json
+{
+  "kind": "true_false",
+  "prompt": "Plutão é classificado como planeta anão.",
+  "options": [
+    { "text": "Verdadeiro", "isCorrect": true },
+    { "text": "Falso", "isCorrect": false }
+  ]
+}
+```
+
+---
+
+## 5. Resposta curta — `short_answer`
+
+O aluno digita texto. Qualquer string de `acceptedAnswers` vale. `caseSensitive: false` (padrão) ignora maiúsculas.
+
+```json
+{
+  "kind": "short_answer",
+  "prompt": "Qual o satélite natural da Terra?",
+  "acceptedAnswers": ["Lua", "A Lua", "lua"],
+  "caseSensitive": false,
+  "explanation": "A Lua é o único satélite natural da Terra."
+}
+```
+
+---
+
+## 6. Associação — `matching`
+
+Pelo menos **dois** pares. O aluno liga esquerda com direita; o gabarito é o par `left`/`right` de cada objeto. `id` dos lados é gerado se omitido.
+
+```json
+{
+  "kind": "matching",
+  "prompt": "Associe o planeta à característica.",
+  "pairs": [
+    { "left": "Júpiter", "right": "Maior planeta" },
+    { "left": "Marte", "right": "Planeta vermelho" },
+    { "left": "Saturno", "right": "Anéis visíveis" },
+    { "left": "Vênus", "right": "Mais quente" }
+  ]
+}
+```
+
+---
+
+## 7. Ordenação — `ordering`
+
+Pelo menos **três** itens. A **ordem do array é o gabarito** (`position` 0, 1, 2…). Na tela o aluno recebe a lista embaralhada.
+
+```json
+{
+  "kind": "ordering",
+  "prompt": "Ordene os planetas a partir do Sol.",
+  "orderEntries": [
+    { "text": "Mercúrio" },
+    { "text": "Vênus" },
+    { "text": "Terra" },
+    { "text": "Marte" }
+  ]
+}
+```
+
+---
+
+## 8. Lacuna — `cloze`
+
+No `prompt`, cada `{{resposta}}` vira uma lacuna. Várias aceitas na mesma lacuna: `{{Lua|a Lua}}`.
+
+```json
+{
+  "kind": "cloze",
+  "prompt": "A Terra é o {{terceiro|3º}} planeta a partir do Sol e tem um satélite chamado {{Lua|a Lua}}.",
+  "caseSensitive": false,
+  "explanation": "Ordem: Mercúrio, Vênus, Terra."
+}
+```
+
+Opcional: `clozeBlanks` com `acceptedAnswers` extra (o builder **une** com o texto dentro de `{{…}}`). Sem `{{…}}` no enunciado a validação falha.
+
+---
+
+## 9. Categorias — `categorize`
+
+Pelo menos **duas** categorias e **três** itens. Cada item precisa de `categoryId` igual ao `id` da categoria (Guid). Gere os ids no cliente, como o editor faz.
+
+```json
+{
+  "kind": "categorize",
+  "prompt": "Classifique os planetas.",
+  "categories": [
+    { "id": "11111111-1111-1111-1111-111111111111", "label": "Interno" },
+    { "id": "22222222-2222-2222-2222-222222222222", "label": "Externo" }
+  ],
+  "categoryItems": [
+    { "text": "Mercúrio", "categoryId": "11111111-1111-1111-1111-111111111111" },
+    { "text": "Terra", "categoryId": "11111111-1111-1111-1111-111111111111" },
+    { "text": "Júpiter", "categoryId": "22222222-2222-2222-2222-222222222222" },
+    { "text": "Netuno", "categoryId": "22222222-2222-2222-2222-222222222222" }
+  ]
+}
+```
+
+---
+
+## 10. Deck de flashcards — `type: flashcards`
+
+Cada item é `kind: flashcard` com `front` e `back`. Sem timer. O builder ainda cria as três seções; o feedback típico é `due_cards` (Leitner).
+
+```json
+{
+  "title": "Vocabulário — Sistema Solar",
+  "type": "flashcards",
+  "isPublic": false,
+  "sections": [
+    {
+      "role": "prep",
+      "title": "Como revisar",
+      "body": "Marque se lembrou do verso. O Astro usa caixas Leitner (1 a 5).",
+      "estimatedMinutes": 8
+    },
+    {
+      "role": "practice",
+      "items": [
+        {
+          "kind": "flashcard",
+          "front": "Fotossíntese",
+          "back": "Conversão de luz em energia química"
+        },
+        {
+          "kind": "flashcard",
+          "front": "Planeta anão",
+          "back": "Corpo que orbita o Sol, quase esférico, mas não limpou a vizinhança (ex.: Plutão)"
+        }
+      ]
+    },
+    {
+      "role": "feedback",
+      "title": "Fila de revisão",
+      "feedbackTemplate": "due_cards"
+    }
+  ]
+}
+```
+
+Atalho sem seções:
+
+```json
+{
+  "title": "Vocabulário — cap. 2",
+  "type": "flashcards",
+  "items": [
+    { "kind": "flashcard", "front": "AU", "back": "Unidade astronômica: distância média Terra–Sol" }
+  ]
+}
+```
+
+Outro caminho: `POST /api/activities/{idDoQuiz}/import-flashcards` gera um deck a partir de um quiz existente (`sourceActivityId`).
+
+---
+
+## 11. Quiz completo — todos os kinds numa atividade
+
+Um único `POST`. Os `id` de categorize são estáveis só neste exemplo.
+
+```json
+{
+  "title": "Sistema Solar — atividade completa",
+  "type": "quiz",
+  "isPublic": false,
+  "sections": [
+    {
+      "role": "prep",
+      "title": "Contexto",
+      "body": "Conteúdo do 6º ano: planetas, ordem a partir do Sol e classificação.",
+      "objectives": ["Reconhecer planetas", "Ordenar a partir do Sol"],
+      "estimatedMinutes": 15,
+      "tips": ["Nas lacunas, sinônimos estão entre |"]
+    },
+    {
+      "role": "practice",
+      "title": "Prática",
+      "items": [
+        {
+          "kind": "multiple_choice",
+          "prompt": "Qual o maior planeta?",
+          "timeLimitSeconds": 30,
+          "options": [
+            { "text": "Marte", "isCorrect": false },
+            { "text": "Júpiter", "isCorrect": true }
+          ]
+        },
+        {
+          "kind": "true_false",
+          "prompt": "A Terra é um planeta interno.",
+          "correctTrue": true
+        },
+        {
+          "kind": "short_answer",
+          "prompt": "Nome do satélite natural da Terra",
+          "acceptedAnswers": ["Lua", "A Lua"]
+        },
+        {
+          "kind": "matching",
+          "prompt": "Associe planeta e apelido.",
+          "pairs": [
+            { "left": "Marte", "right": "Planeta vermelho" },
+            { "left": "Júpiter", "right": "Gigante gasoso" }
+          ]
+        },
+        {
+          "kind": "ordering",
+          "prompt": "Do mais próximo ao mais distante do Sol.",
+          "orderEntries": [
+            { "text": "Mercúrio" },
+            { "text": "Vênus" },
+            { "text": "Terra" }
+          ]
+        },
+        {
+          "kind": "cloze",
+          "prompt": "O {{Sol}} é a estrela do Sistema Solar."
+        },
+        {
+          "kind": "categorize",
+          "prompt": "Interno ou externo?",
+          "categories": [
+            { "id": "11111111-1111-1111-1111-111111111111", "label": "Interno" },
+            { "id": "22222222-2222-2222-2222-222222222222", "label": "Externo" }
+          ],
+          "categoryItems": [
+            { "text": "Vênus", "categoryId": "11111111-1111-1111-1111-111111111111" },
+            { "text": "Terra", "categoryId": "11111111-1111-1111-1111-111111111111" },
+            { "text": "Saturno", "categoryId": "22222222-2222-2222-2222-222222222222" }
+          ]
+        }
+      ]
+    },
+    {
+      "role": "feedback",
+      "title": "Resultados",
+      "feedbackTemplate": "explanations"
+    }
+  ]
+}
+```
+
+Imagem em um item (opcional): `imageDataUrl` com data URL `data:image/jpeg;base64,…` (JPEG, PNG ou WebP, até 600 KB). O servidor grava `imageBytes` + `imageContentType`, não a string Base64.
+
+---
+
+## 12. Depois de criar — vincular turmas
+
+A atividade ainda não aparece para a turma até este passo.
+
+```json
+{
+  "classIds": [
+    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+  ]
+}
+```
+
+`PUT /api/activities/{id}/classes` **substitui** a lista inteira. Alternativa: `POST /api/classes/{classId}/activities/{activityId}` para incluir uma turma.
+
+---
+
+## 13. De onde o `kind` sai se você omitir
+
+O builder infere nesta ordem: `orderEntries` → `categories`/`categoryItems` → `clozeBlanks` ou `{{` no prompt → `pairs` → `acceptedAnswers` → `correctTrue` → `front`/`back` → senão `flashcard` se `type` for flashcards, senão `multiple_choice`.
+
+Melhor **sempre enviar `kind`**. O editor do frontend faz isso.
