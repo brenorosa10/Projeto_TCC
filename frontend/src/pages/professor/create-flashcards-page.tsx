@@ -9,7 +9,7 @@ import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor"
 import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
 import { findSection } from "@/lib/item-kinds"
@@ -233,14 +233,20 @@ export function ProfessorCreateFlashcardsPage() {
 
         <div className="space-y-6">
           {cards.map((card, index) => (
-            <section key={card.key} className="space-y-4 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="font-display text-lg font-semibold">Cartão {index + 1}</h2>
+            <section key={card.key} className="surface-card overflow-hidden">
+              <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-muted/40 px-4 py-3 sm:px-6">
+                <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground">
+                    {index + 1}
+                  </span>
+                  Cartão {index + 1}
+                </h2>
                 {cards.length > 1 ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
+                    className="text-muted-foreground hover:text-destructive"
                     onClick={() => setCards((prev) => prev.filter((item) => item.key !== card.key))}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -248,44 +254,59 @@ export function ProfessorCreateFlashcardsPage() {
                   </Button>
                 ) : null}
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label htmlFor={`front-${card.key}`}>Frente</Label>
-                  <Textarea
+              <div className="space-y-5 p-4 sm:p-6">
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <RichTextEditor
                     id={`front-${card.key}`}
+                    label="Frente"
                     value={card.front}
-                    onChange={(event) => updateCard(card.key, { front: event.target.value })}
+                    onChange={(front) => updateCard(card.key, { front })}
+                    rows={4}
+                    compact
                     placeholder="Fotossíntese"
+                    hint="Pergunta ou conceito. Aceita código em linha e blocos de código."
                   />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`back-${card.key}`}>Verso</Label>
-                  <Textarea
+                  <RichTextEditor
                     id={`back-${card.key}`}
+                    label="Verso"
                     value={card.back}
-                    onChange={(event) => updateCard(card.key, { back: event.target.value })}
+                    onChange={(back) => updateCard(card.key, { back })}
+                    rows={4}
+                    compact
                     placeholder="Conversão de luz em energia química"
+                    hint="Resposta que o aluno vê ao virar o cartão."
                   />
                 </div>
+                <ItemImageField
+                  id={`image-${card.key}`}
+                  imageDataUrl={card.imageDataUrl}
+                  onChange={(imageDataUrl) => updateCard(card.key, { imageDataUrl })}
+                />
               </div>
-              <ItemImageField
-                id={`image-${card.key}`}
-                imageDataUrl={card.imageDataUrl}
-                onChange={(imageDataUrl) => updateCard(card.key, { imageDataUrl })}
-              />
             </section>
           ))}
         </div>
 
-        <Button type="button" variant="outline" onClick={() => setCards((prev) => [...prev, newCard()])}>
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="w-full border-dashed"
+          onClick={() => setCards((prev) => [...prev, newCard()])}
+        >
           <Plus className="h-4 w-4" />
           Novo cartão
         </Button>
 
-        <div>
-          <Button type="submit" disabled={saving}>
-            {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar flashcards"}
-          </Button>
+        <div className="sticky bottom-4 z-10">
+          <div className="surface-raised flex flex-wrap items-center gap-3 p-4">
+            <Button type="submit" disabled={saving}>
+              {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar flashcards"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Os cartões voltam a aparecer conforme a repetição espaçada.
+            </p>
+          </div>
         </div>
       </form>
       )}

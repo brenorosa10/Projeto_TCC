@@ -49,11 +49,11 @@ export function AlunoStudyPage() {
             {quizzes.length === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">Nenhum quiz disponível.</p>
             ) : (
-              <ul className="mt-4 divide-y divide-border border-y border-border">
+              <ul className="mt-4 grid gap-3">
                 {quizzes.map((quiz) => (
                   <li
                     key={quiz.id}
-                    className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="surface-card flex flex-col gap-3 p-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
                       <p className="font-medium">{quiz.title}</p>
@@ -80,11 +80,11 @@ export function AlunoStudyPage() {
             {decks.length === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">Nenhum deck disponível.</p>
             ) : (
-              <ul className="mt-4 divide-y divide-border border-y border-border">
+              <ul className="mt-4 grid gap-3">
                 {decks.map((deck) => (
                   <li
                     key={deck.id}
-                    className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="surface-card flex flex-col gap-3 p-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
                       <p className="font-medium">{deck.title}</p>

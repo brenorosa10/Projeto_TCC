@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
-import { ArrowDown, ArrowUp } from "lucide-react"
+import { ArrowDown, ArrowRight, ArrowUp, CheckCircle2, RotateCcw, XCircle } from "lucide-react"
 import { PrepPanel } from "@/components/activity/prep-panel"
+import { ResultPanel } from "@/components/activity/result-panel"
+import { RichText } from "@/components/rich-text/rich-text"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -78,19 +80,22 @@ export function AlunoQuizStudyPage() {
   return (
     <AppShell title="Estudar quiz">
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <StudySkeleton />
       ) : !study ? (
         <p className="text-muted-foreground">Quiz não encontrado.</p>
       ) : (
-        <div className="space-y-8">
+        <div className="mx-auto max-w-3xl space-y-6">
           <div>
             <p className="text-sm text-muted-foreground">
-              <Link to={backHref} className="hover:text-primary">
+              <Link to={backHref} className="transition-colors hover:text-primary">
                 {isGuest ? "Início" : "Estudar"}
               </Link>{" "}
               / {study.activityTitle}
             </p>
-            <h1 className="mt-2 font-display text-3xl font-semibold">{study.activityTitle}</h1>
+            <h1 className="mt-2 font-display text-3xl font-semibold text-balance">
+              {study.activityTitle}
+            </h1>
+            <StudyStepper status={study.status} />
           </div>
 
           {study.status === "prep" ? (
@@ -101,6 +106,7 @@ export function AlunoQuizStudyPage() {
               estimatedMinutes={study.currentSection?.estimatedMinutes}
               tips={study.currentSection?.tips}
               imageDataUrl={study.currentSection?.imageDataUrl}
+              itemCount={study.progress.practiceTotal}
               disabled={busy}
               fallbackBody="Revise o que você já sabe e, quando estiver pronto, comece as questões."
               onContinue={() => void apply(() => api.advanceStudySession(study.id))}
@@ -148,68 +154,119 @@ function PracticeView({
   if (!item) return null
 
   const step = Math.min(study.progress.answeredCount + (feedback ? 0 : 1), study.progress.practiceTotal)
+  const progress = study.progress.practiceTotal
+    ? (study.progress.answeredCount / study.progress.practiceTotal) * 100
+    : 0
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span>
-          {step} de {study.progress.practiceTotal}
-        </span>
-        <Badge variant="outline">{itemKindLabel(item.kind)}</Badge>
-        {item.timeLimitSeconds ? <span>{item.timeLimitSeconds}s</span> : null}
+    <div className="space-y-5">
+      <div className="surface-card space-y-3 px-4 py-3.5 sm:px-5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+          <span className="font-semibold text-foreground">
+            Questão {step}
+            <span className="font-normal text-muted-foreground"> de {study.progress.practiceTotal}</span>
+          </span>
+          <Badge variant="outline">{itemKindLabel(item.kind)}</Badge>
+          {item.timeLimitSeconds ? (
+            <span className="text-xs text-muted-foreground">sugestão: {item.timeLimitSeconds}s</span>
+          ) : null}
+          <span className="ml-auto text-xs font-medium text-muted-foreground">
+            {study.progress.correctCount} acerto(s)
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-astro-sky to-primary transition-[width] duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </div>
 
-      <ItemPrompt item={item} />
+      <div key={item.id} className="surface-card animate-enter space-y-6 px-5 py-6 sm:px-7 sm:py-7">
+        <ItemPrompt item={item} />
 
-      {feedback && item.options && item.options.length > 0 ? (
-        <ul className="grid gap-2">
-          {item.options.map((option) => {
-            const selected =
-              feedback.selectedOptionId === option.id ||
-              Boolean(feedback.selectedOptionIds?.includes(option.id))
-            const isCorrect =
-              feedback.correctOptionId === option.id ||
-              Boolean(feedback.correctOptionIds?.includes(option.id))
-            const isWrongPick = selected && !isCorrect
+        {feedback && item.options && item.options.length > 0 ? (
+          <ul className="grid gap-2">
+            {item.options.map((option) => {
+              const selected =
+                feedback.selectedOptionId === option.id ||
+                Boolean(feedback.selectedOptionIds?.includes(option.id))
+              const isCorrect =
+                feedback.correctOptionId === option.id ||
+                Boolean(feedback.correctOptionIds?.includes(option.id))
+              const isWrongPick = selected && !isCorrect
 
-            return (
-              <li key={option.id}>
-                <div
+              return (
+                <li key={option.id}>
+                  <div
+                    className={cn(
+                      "flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-sm",
+                      isCorrect && "border-success/40 bg-success/8",
+                      isWrongPick && "border-destructive/40 bg-destructive/8",
+                      !isCorrect && !isWrongPick && "border-border/70 bg-muted/30 opacity-70"
+                    )}
+                  >
+                    {isCorrect ? (
+                      <CheckCircle2 className="mt-0.5 h-4.5 w-4.5 shrink-0 text-success" />
+                    ) : isWrongPick ? (
+                      <XCircle className="mt-0.5 h-4.5 w-4.5 shrink-0 text-destructive" />
+                    ) : (
+                      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-muted-foreground/40" />
+                    )}
+                    <RichText value={option.text} className="min-w-0 flex-1 text-sm" />
+                    {selected ? (
+                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                        sua escolha
+                      </span>
+                    ) : null}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        ) : null}
+
+        {feedback ? (
+          <div className="space-y-4">
+            <div
+              className={cn(
+                "flex items-start gap-3 rounded-xl border px-4 py-3.5",
+                feedback.isCorrect
+                  ? "border-success/30 bg-success/8"
+                  : "border-destructive/30 bg-destructive/8"
+              )}
+            >
+              {feedback.isCorrect ? (
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+              ) : (
+                <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+              )}
+              <div className="min-w-0 space-y-2">
+                <p
                   className={cn(
-                    "h-auto w-full rounded-md border px-4 py-3 text-sm",
-                    isCorrect && "border-primary bg-primary/10",
-                    isWrongPick && "border-destructive bg-destructive/10"
+                    "font-medium",
+                    feedback.isCorrect ? "text-success" : "text-destructive"
                   )}
                 >
-                  {option.text}
-                  {isCorrect ? " (correta)" : null}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      ) : null}
-
-      {feedback ? (
-        <div className="space-y-3">
-          <p className={feedback.isCorrect ? "font-medium text-primary" : "font-medium text-destructive"}>
-            {feedbackLabel(item.kind, feedback.isCorrect, feedback.remembered)}
-          </p>
-          {feedback.back ? (
-            <p className="rounded-md border border-border bg-muted/30 px-4 py-3">{feedback.back}</p>
-          ) : null}
-          {feedback.explanation ? (
-            <p className="text-sm text-muted-foreground">{feedback.explanation}</p>
-          ) : null}
-          <Button type="button" disabled={busy} onClick={onAdvance}>
-            {study.progress.answeredCount >= study.progress.practiceTotal
-              ? "Ver resultado"
-              : "Próxima"}
-          </Button>
-        </div>
-      ) : (
-        <ItemAnswerForm item={item} busy={busy} onSubmit={onSubmit} />
-      )}
+                  {feedbackLabel(item.kind, feedback.isCorrect, feedback.remembered)}
+                </p>
+                {feedback.back ? <RichText value={feedback.back} className="text-sm" /> : null}
+                {feedback.explanation ? (
+                  <RichText value={feedback.explanation} className="text-sm" />
+                ) : null}
+              </div>
+            </div>
+            <Button type="button" size="lg" disabled={busy} onClick={onAdvance} className="group">
+              {study.progress.answeredCount >= study.progress.practiceTotal
+                ? "Ver resultado"
+                : "Próxima questão"}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Button>
+          </div>
+        ) : (
+          <ItemAnswerForm item={item} busy={busy} onSubmit={onSubmit} />
+        )}
+      </div>
     </div>
   )
 }
@@ -218,14 +275,73 @@ function ItemPrompt({ item }: { item: StudySessionItem }) {
   const title = item.kind === "flashcard" ? item.front : item.prompt
   return (
     <div className="space-y-3">
-      <p className="font-display text-xl font-semibold">{title}</p>
+      <RichText
+        value={title}
+        className="rich-text-prompt font-display text-xl font-semibold text-foreground sm:text-2xl"
+      />
       {item.imageDataUrl ? (
         <img
           src={item.imageDataUrl}
           alt=""
-          className="max-h-64 w-full rounded-lg border border-border object-contain bg-muted/30"
+          className="max-h-72 w-full rounded-xl border border-border object-contain bg-muted/30"
         />
       ) : null}
+    </div>
+  )
+}
+
+function StudyStepper({ status }: { status: string }) {
+  const steps = [
+    { key: "prep", label: "Pré-seção" },
+    { key: "practice", label: "Questões" },
+    { key: "feedback", label: "Pós-seção" },
+  ]
+  const activeIndex =
+    status === "prep" ? 0 : status === "practice" ? 1 : 2
+
+  return (
+    <ol className="mt-4 flex items-center gap-2 text-xs font-medium">
+      {steps.map((step, index) => (
+        <li key={step.key} className="flex flex-1 items-center gap-2">
+          <span
+            className={cn(
+              "flex items-center gap-2 rounded-full px-3 py-1.5 transition-colors",
+              index === activeIndex
+                ? "bg-primary text-primary-foreground"
+                : index < activeIndex
+                  ? "bg-success/12 text-success"
+                  : "bg-muted text-muted-foreground"
+            )}
+          >
+            {index < activeIndex ? (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            ) : (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full border border-current text-[0.6rem]">
+                {index + 1}
+              </span>
+            )}
+            <span className="hidden sm:inline">{step.label}</span>
+          </span>
+          {index < steps.length - 1 ? (
+            <span
+              className={cn(
+                "h-px flex-1",
+                index < activeIndex ? "bg-success/40" : "bg-border"
+              )}
+            />
+          ) : null}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function StudySkeleton() {
+  return (
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div className="skeleton h-9 w-2/3 rounded-lg" />
+      <div className="skeleton h-10 w-full rounded-lg" />
+      <div className="skeleton h-64 w-full rounded-xl" />
     </div>
   )
 }
@@ -267,14 +383,15 @@ function ItemAnswerForm({
         <button
           type="button"
           onClick={() => setFlipped((prev) => !prev)}
-          className="flex min-h-40 w-full flex-col items-center justify-center rounded-lg border border-border bg-background px-6 py-8 text-center"
+          className="flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border border-border bg-gradient-to-b from-card to-secondary/30 px-6 py-8 text-center shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-lift)]"
         >
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {flipped ? "Verso" : "Frente"}
           </p>
-          <p className="mt-3 font-display text-2xl font-semibold">
-            {flipped ? item.back || "—" : item.front}
-          </p>
+          <RichText
+            value={flipped ? item.back || "—" : item.front}
+            className="rich-text-prompt mt-3 font-display text-2xl font-semibold"
+          />
         </button>
         {flipped ? (
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -316,9 +433,11 @@ function ItemAnswerForm({
           value={textAnswer}
           onChange={(event) => setTextAnswer(event.target.value)}
           placeholder="Digite a resposta"
+          className="h-12 text-base"
         />
         <Button
           type="button"
+          size="lg"
           disabled={busy || !textAnswer.trim()}
           onClick={() =>
             onSubmit({
@@ -347,9 +466,11 @@ function ItemAnswerForm({
         <ul className="grid gap-3">
           {left.map((entry) => (
             <li key={entry.id} className="grid gap-2 sm:grid-cols-[1fr_1fr] sm:items-center">
-              <p className="rounded-md border border-border px-3 py-2">{entry.text}</p>
+              <div className="rounded-xl border border-border/80 bg-muted/40 px-3.5 py-2.5">
+                <RichText value={entry.text} className="text-sm" />
+              </div>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-11 w-full rounded-xl border border-input bg-card px-3 py-2 text-sm transition-colors focus-visible:border-ring"
                 value={pairs[entry.id] ?? ""}
                 onChange={(event) =>
                   setPairs((prev) => ({ ...prev, [entry.id]: event.target.value }))
@@ -386,9 +507,14 @@ function ItemAnswerForm({
             const entry = entries.find((item) => item.id === id)
             if (!entry) return null
             return (
-              <li key={id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2">
-                <span className="w-6 text-sm text-muted-foreground">{index + 1}.</span>
-                <span className="flex-1">{entry.text}</span>
+              <li
+                key={id}
+                className="flex items-center gap-2 rounded-xl border border-border/80 bg-card px-3 py-2.5 shadow-[var(--shadow-soft)]"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                  {index + 1}
+                </span>
+                <RichText value={entry.text} className="min-w-0 flex-1 text-sm" />
                 <Button
                   type="button"
                   variant="ghost"
@@ -441,7 +567,7 @@ function ItemAnswerForm({
                 onChange={(event) =>
                   setClozeAnswers((prev) => ({ ...prev, [segment.id]: event.target.value }))
                 }
-                className="inline-flex h-9 w-40"
+                className="inline-flex h-9 w-40 rounded-lg border-b-2 border-primary/50 bg-accent/20 text-center font-medium"
                 aria-label={`Lacuna ${index + 1}`}
               />
             )
@@ -480,14 +606,14 @@ function ItemAnswerForm({
           {categories.map((category) => (
             <div
               key={category.id}
-              className="min-h-32 space-y-2 rounded-lg border border-dashed border-border p-3"
+              className="min-h-32 space-y-2 rounded-xl border-2 border-dashed border-border bg-muted/25 p-3 transition-colors hover:border-primary/50"
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => {
                 const memberId = event.dataTransfer.getData("text/plain")
                 if (memberId) setPlacements((prev) => ({ ...prev, [memberId]: category.id }))
               }}
             >
-              <p className="font-medium">{category.text}</p>
+              <p className="text-sm font-semibold text-primary">{category.text}</p>
               <ul className="grid gap-2">
                 {members
                   .filter((member) => placements[member.id] === category.id)
@@ -496,9 +622,9 @@ function ItemAnswerForm({
                       key={member.id}
                       draggable
                       onDragStart={(event) => event.dataTransfer.setData("text/plain", member.id)}
-                      className="cursor-grab rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      className="cursor-grab rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-[var(--shadow-soft)] active:cursor-grabbing"
                     >
-                      {member.text}
+                      <RichText value={member.text} className="text-sm" />
                     </li>
                   ))}
               </ul>
@@ -513,11 +639,11 @@ function ItemAnswerForm({
                 key={member.id}
                 draggable
                 onDragStart={(event) => event.dataTransfer.setData("text/plain", member.id)}
-                className="flex flex-col gap-2 rounded-md border border-border px-3 py-2 sm:flex-row sm:items-center"
+                className="flex flex-col gap-2 rounded-xl border border-border/80 bg-card px-3 py-2.5 sm:flex-row sm:items-center"
               >
-                <span className="flex-1 cursor-grab">{member.text}</span>
+                <RichText value={member.text} className="min-w-0 flex-1 cursor-grab text-sm" />
                 <select
-                  className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-10 rounded-lg border border-input bg-card px-3 py-2 text-sm"
                   value=""
                   onChange={(event) =>
                     setPlacements((prev) => ({ ...prev, [member.id]: event.target.value }))
@@ -567,29 +693,47 @@ function ItemAnswerForm({
 
   return (
     <div className="space-y-4">
-      <ul className="grid gap-2">
-        {options.map((option) => {
+      <p className="text-sm text-muted-foreground">
+        {allowMultiple ? "Selecione todas as alternativas corretas." : "Escolha uma alternativa."}
+      </p>
+      <ul className="grid gap-2.5">
+        {options.map((option, index) => {
           const selected = selectedIds.includes(option.id)
           return (
             <li key={option.id}>
-              <Button
+              <button
                 type="button"
-                variant="outline"
                 disabled={busy}
+                aria-pressed={selected}
                 onClick={() => toggle(option.id)}
                 className={cn(
-                  "h-auto w-full justify-start whitespace-normal px-4 py-3 text-left",
-                  selected && "border-primary"
+                  "flex w-full items-start gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-all",
+                  "hover:border-primary/60 hover:shadow-[var(--shadow-soft)] disabled:pointer-events-none disabled:opacity-60",
+                  selected
+                    ? "border-primary bg-primary/6 shadow-[var(--shadow-soft)]"
+                    : "border-border/80"
                 )}
               >
-                {option.text}
-              </Button>
+                <span
+                  className={cn(
+                    "flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold transition-colors",
+                    allowMultiple ? "rounded-md" : "rounded-full",
+                    selected
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {String.fromCharCode(65 + index)}
+                </span>
+                <RichText value={option.text} className="min-w-0 flex-1" />
+              </button>
             </li>
           )
         })}
       </ul>
       <Button
         type="button"
+        size="lg"
         disabled={busy || selectedIds.length === 0}
         onClick={() =>
           onSubmit({
@@ -619,50 +763,40 @@ function FeedbackView({
 }) {
   const feedback = study.feedback
   return (
-    <div className="space-y-4 rounded-lg border border-border p-6">
-      <Badge variant="secondary">Resultados</Badge>
-      <h2 className="font-display text-xl font-semibold">
-        {feedback?.title?.trim() || "Como você foi"}
-      </h2>
-      {feedback?.body?.trim() ? (
-        <p className="whitespace-pre-wrap text-muted-foreground">{feedback.body}</p>
-      ) : null}
-      <p className="text-muted-foreground">
-        Você acertou{" "}
-        <span className="font-medium text-foreground">{feedback?.correctCount ?? study.progress.correctCount}</span>{" "}
-        de{" "}
-        <span className="font-medium text-foreground">{feedback?.total ?? study.progress.practiceTotal}</span>{" "}
-        itens.
-      </p>
-      {feedback?.items?.length ? (
-        <ul className="space-y-3">
-          {feedback.items.map((item, index) => (
-            <li key={item.itemId} className="rounded-md border border-border px-4 py-3 text-sm">
-              <p className="font-medium">
-                {index + 1}. {item.prompt || itemKindLabel(item.kind)}
-              </p>
-              <p className={item.isCorrect ? "mt-1 text-primary" : "mt-1 text-destructive"}>
-                {item.isCorrect ? "Correto" : "Incorreto"}
-                {item.remembered === true ? " · lembrado" : null}
-                {item.remembered === false ? " · não lembrado" : null}
-              </p>
-              {item.explanation ? (
-                <p className="mt-1 text-muted-foreground">{item.explanation}</p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={busy} onClick={onRestart}>
-          Refazer
-        </Button>
-        <Button asChild variant="outline">
-          <Link to={backHref}>Voltar à lista</Link>
-        </Button>
-      </div>
-    </div>
+    <ResultPanel
+      title={feedback?.title}
+      body={feedback?.body}
+      correctCount={feedback?.correctCount ?? study.progress.correctCount}
+      total={feedback?.total ?? study.progress.practiceTotal}
+      items={feedback?.items ?? []}
+      itemLabel={(item) => stripMarkdown(item.prompt) || itemKindLabel(item.kind)}
+      actions={
+        <>
+          <Button type="button" disabled={busy} onClick={onRestart}>
+            <RotateCcw className="h-4 w-4" />
+            Refazer atividade
+          </Button>
+          <Button asChild variant="outline">
+            <Link to={backHref}>Voltar à lista</Link>
+          </Button>
+        </>
+      }
+    />
   )
+}
+
+/** Plain-text preview of an authored prompt, for compact list rows. */
+function stripMarkdown(value?: string | null) {
+  return (value ?? "")
+    .replace(/```[\s\S]*?```/g, " [código] ")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s{0,3}>\s?/gm, "")
+    .replace(/[*_~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 function feedbackLabel(kind: string, isCorrect: boolean, remembered?: boolean | null) {

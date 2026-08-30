@@ -3,37 +3,55 @@
 @theme {
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Astro palette */
-  --color-astro-ink: #2d2d2f;
-  --color-astro-slate: #5f6670;
-  --color-astro-navy: #154367;
-  --color-astro-sky: #7cb4c8;
-  --color-astro-mint: #a3fff5;
+  --color-astro-ink: #1d2430;
+  --color-astro-slate: #5a6472;
+  --color-astro-navy: #12395c;
+  --color-astro-sky: #6aa9c4;
+  --color-astro-mint: #9ff5ea;
+  --color-astro-violet: #6d5ce7;
+  --color-astro-amber: #d98324;
 
-  --color-background: #f3f7f8;
-  --color-foreground: #2d2d2f;
+  --color-background: #f4f7f9;
+  --color-foreground: #1d2430;
   --color-card: #ffffff;
-  --color-card-foreground: #2d2d2f;
+  --color-card-foreground: #1d2430;
   --color-popover: #ffffff;
-  --color-popover-foreground: #2d2d2f;
-  --color-primary: #154367;
-  --color-primary-foreground: #a3fff5;
-  --color-secondary: #7cb4c8;
-  --color-secondary-foreground: #2d2d2f;
-  --color-muted: #e4e8eb;
-  --color-muted-foreground: #5f6670;
-  --color-accent: #a3fff5;
-  --color-accent-foreground: #154367;
-  --color-destructive: #b42318;
+  --color-popover-foreground: #1d2430;
+  --color-primary: #12395c;
+  --color-primary-foreground: #eafffb;
+  --color-secondary: #e2edf2;
+  --color-secondary-foreground: #12395c;
+  --color-muted: #eaeff3;
+  --color-muted-foreground: #5a6472;
+  --color-accent: #9ff5ea;
+  --color-accent-foreground: #0d2d49;
+  --color-destructive: #c0362c;
   --color-destructive-foreground: #ffffff;
-  --color-border: #c5ccd3;
-  --color-input: #c5ccd3;
-  --color-ring: #7cb4c8;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  --color-success: #14804a;
+  --color-success-foreground: #ffffff;
+  --color-warning: #b7791f;
+  --color-warning-foreground: #ffffff;
+  --color-border: #d7dfe6;
+  --color-input: #cfd8e0;
+  --color-ring: #3f89ab;
+
+  /* Code surface */
+  --color-code-bg: #101a29;
+  --color-code-fg: #e4ecf6;
+  --color-code-border: #24354c;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+
+  --shadow-soft: 0 1px 2px rgb(18 57 92 / 0.05), 0 8px 24px -12px rgb(18 57 92 / 0.18);
+  --shadow-lift: 0 2px 4px rgb(18 57 92 / 0.06), 0 20px 40px -20px rgb(18 57 92 / 0.28);
+  --shadow-glow: 0 0 0 1px rgb(159 245 234 / 0.5), 0 18px 40px -18px rgb(18 57 92 / 0.35);
 }
 
 @layer base {
@@ -43,16 +61,50 @@
 
   html {
     scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     margin: 0;
     min-height: 100vh;
+    text-rendering: optimizeLegibility;
   }
 
   #root {
     min-height: 100vh;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: rgb(159 245 234 / 0.6);
+    color: var(--color-astro-navy);
+  }
+
+  /* Slim, unobtrusive scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(90 100 114 / 0.35) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgb(90 100 114 / 0.3);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(90 100 114 / 0.5);
   }
 }
 
@@ -62,21 +114,331 @@
   }
 
   .bg-hero-atmosphere {
-    background-color: #f3f7f8;
+    background-color: #f4f7f9;
     background-image:
-      radial-gradient(ellipse 80% 60% at 10% 20%, rgb(163 255 245 / 0.45), transparent 55%),
-      radial-gradient(ellipse 70% 50% at 90% 10%, rgb(124 180 200 / 0.4), transparent 50%),
-      radial-gradient(ellipse 60% 40% at 70% 90%, rgb(21 67 103 / 0.12), transparent 55%),
-      linear-gradient(165deg, #f7fbfb, #e8f2f4);
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgb(159 245 234 / 0.4), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 90% 10%, rgb(106 169 196 / 0.35), transparent 50%),
+      radial-gradient(ellipse 60% 40% at 70% 90%, rgb(109 92 231 / 0.1), transparent 55%),
+      linear-gradient(165deg, #f9fcfd, #e9f1f5);
+    background-attachment: fixed;
   }
 
   .pattern-grid {
     background-image:
-      linear-gradient(rgb(21 67 103 / 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(21 67 103 / 0.06) 1px, transparent 1px);
+      linear-gradient(rgb(18 57 92 / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(18 57 92 / 0.05) 1px, transparent 1px);
     background-size: 48px 48px;
   }
+
+  .surface-card {
+    @apply rounded-xl border border-border/80 bg-card shadow-[var(--shadow-soft)];
+  }
+
+  .surface-raised {
+    @apply rounded-xl border border-border/70 bg-card/85 shadow-[var(--shadow-lift)] backdrop-blur;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
+
+/* ---------------------------------------------------------------------------
+   Rich text (markdown) rendering
+   Used by <RichText /> for section bodies, prompts, options and explanations.
+--------------------------------------------------------------------------- */
+
+.rich-text {
+  @apply text-[0.975rem] leading-relaxed text-foreground/90;
+  overflow-wrap: anywhere;
+}
+
+.rich-text > * + * {
+  margin-top: 0.85em;
+}
+
+.rich-text h1,
+.rich-text h2,
+.rich-text h3,
+.rich-text h4 {
+  font-family: var(--font-display);
+  @apply font-semibold text-foreground;
+  line-height: 1.25;
+}
+
+.rich-text h1 {
+  @apply text-2xl;
+}
+.rich-text h2 {
+  @apply text-xl;
+}
+.rich-text h3 {
+  @apply text-lg;
+}
+.rich-text h4 {
+  @apply text-base;
+}
+
+.rich-text h1 + *,
+.rich-text h2 + *,
+.rich-text h3 + * {
+  margin-top: 0.5em;
+}
+
+.rich-text a {
+  @apply font-medium text-primary underline decoration-primary/35 underline-offset-4 transition-colors;
+}
+
+.rich-text a:hover {
+  @apply decoration-primary;
+}
+
+.rich-text strong {
+  @apply font-semibold text-foreground;
+}
+
+.rich-text ul,
+.rich-text ol {
+  @apply space-y-1.5 pl-6;
+}
+
+.rich-text ul {
+  list-style: none;
+}
+
+.rich-text ul > li {
+  position: relative;
+}
+
+.rich-text ul > li::before {
+  content: "";
+  position: absolute;
+  left: -1rem;
+  top: 0.65em;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background-color: var(--color-astro-sky);
+}
+
+.rich-text ol {
+  list-style: decimal;
+}
+
+.rich-text ol::marker,
+.rich-text ol > li::marker {
+  @apply font-semibold text-primary;
+}
+
+.rich-text li > ul,
+.rich-text li > ol {
+  margin-top: 0.4em;
+}
+
+/* Task lists */
+.rich-text li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+
+.rich-text li > input[type="checkbox"] {
+  @apply mr-2 h-4 w-4 rounded border-border align-middle accent-[var(--color-primary)];
+}
+
+.rich-text li:has(> input[type="checkbox"])::before {
+  display: none;
+}
+
+.rich-text blockquote {
+  @apply rounded-r-lg border-l-4 border-astro-sky bg-secondary/50 py-2 pl-4 pr-3 text-muted-foreground italic;
+}
+
+.rich-text blockquote > * + * {
+  margin-top: 0.5em;
+}
+
+.rich-text hr {
+  @apply my-6 border-t border-border;
+}
+
+.rich-text img {
+  @apply max-h-80 rounded-lg border border-border bg-muted/30 object-contain;
+}
+
+.rich-text table {
+  @apply w-full border-collapse overflow-hidden rounded-lg text-sm;
+  display: block;
+  overflow-x: auto;
+}
+
+.rich-text th,
+.rich-text td {
+  @apply border border-border px-3 py-2 text-left align-top;
+}
+
+.rich-text th {
+  @apply bg-secondary/60 font-semibold text-foreground;
+}
+
+.rich-text tbody tr:nth-child(even) {
+  @apply bg-muted/40;
+}
+
+.rich-text kbd {
+  @apply rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.75em] shadow-[0_1px_0_rgb(18_57_92/0.2)];
+}
+
+.rich-text mark {
+  @apply rounded bg-accent/70 px-1 py-0.5 text-accent-foreground;
+}
+
+/* Inline code */
+.rich-text :not(pre) > code {
+  @apply rounded-[0.4rem] border border-astro-navy/12 bg-astro-navy/8 px-1.5 py-0.5 font-mono text-[0.85em] font-medium text-astro-navy;
+}
+
+/* Code blocks */
+.rich-text pre {
+  @apply overflow-x-auto rounded-xl border p-4 font-mono text-[0.85rem] leading-relaxed;
+  background-color: var(--color-code-bg);
+  border-color: var(--color-code-border);
+  color: var(--color-code-fg);
+  tab-size: 2;
+}
+
+.rich-text pre code {
+  @apply bg-transparent p-0 font-mono text-inherit;
+  border: 0;
+  white-space: pre;
+}
+
+/* Prompt variant: the wrapper controls typography, paragraphs inherit it. */
+.rich-text-prompt {
+  color: inherit;
+}
+
+.rich-text-prompt > p {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: 1.35;
+  color: inherit;
+}
+
+.rich-text-prompt pre,
+.rich-text-prompt :not(pre) > code {
+  font-weight: 400;
+}
+
+/* Inline variant: no block spacing, flows with surrounding text. */
+.rich-text-inline > p {
+  display: inline;
+}
+
+.rich-text-inline > * + * {
+  margin-top: 0;
+}
+
+.code-block {
+  @apply overflow-hidden rounded-xl border;
+  background-color: var(--color-code-bg);
+  border-color: var(--color-code-border);
+}
+
+.code-block pre {
+  @apply rounded-none border-0;
+}
+
+/* ---------------------------------------------------------------------------
+   highlight.js theme (Astro dark) — applied to rehype-highlight output
+--------------------------------------------------------------------------- */
+
+.hljs-comment,
+.hljs-quote {
+  color: #7d8ea6;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type {
+  color: #ff9ecd;
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: #9ff5ea;
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-template-variable,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: #ffc87d;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-title.function_,
+.hljs-name {
+  color: #8fc7ff;
+}
+
+.hljs-attr,
+.hljs-property,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: #c3aaff;
+}
+
+.hljs-built_in,
+.hljs-class .hljs-title,
+.hljs-title.class_ {
+  color: #ffd479;
+}
+
+.hljs-meta,
+.hljs-doctag {
+  color: #8aa0bb;
+}
+
+.hljs-deletion {
+  color: #ff8c86;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
+}
+
+.hljs-link {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+   Motion
+--------------------------------------------------------------------------- */
 
 @keyframes fade-up {
   from {
@@ -101,6 +463,26 @@
   }
 }
 
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
 .animate-fade-up {
   animation: fade-up 0.7s ease-out both;
 }
@@ -115,4 +497,34 @@
 
 .animate-soft-pulse {
   animation: soft-pulse 6s ease-in-out infinite;
+}
+
+.animate-pop-in {
+  animation: pop-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-enter {
+  animation: fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.skeleton {
+  background-image: linear-gradient(
+    90deg,
+    rgb(215 223 230 / 0.4) 25%,
+    rgb(215 223 230 / 0.8) 37%,
+    rgb(215 223 230 / 0.4) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

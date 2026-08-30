@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
 import { ItemImageField } from "@/components/activity/item-image-field"
 import { PrepFeedbackFields } from "@/components/activity/prep-feedback-fields"
 import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
+import { RichTextEditor } from "@/components/rich-text/rich-text-editor"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
 import { findSection, ITEM_KIND_LABELS, QUIZ_ITEM_KINDS } from "@/lib/item-kinds"
+import { cn } from "@/lib/utils"
 import type {
   ActivityItem,
   CreateActivityItemRequest,
@@ -565,14 +567,20 @@ export function ProfessorCreateQuizPage() {
 
           <div className="space-y-6">
             {questions.map((question, index) => (
-              <section key={question.key} className="space-y-4 rounded-lg border border-border p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="font-display text-lg font-semibold">Questão {index + 1}</h2>
+              <section key={question.key} className="surface-card overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 bg-muted/40 px-4 py-3 sm:px-6">
+                  <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground">
+                      {index + 1}
+                    </span>
+                    Questão {index + 1}
+                  </h2>
                   {questions.length > 1 ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
+                      className="text-muted-foreground hover:text-destructive"
                       onClick={() =>
                         setQuestions((prev) => prev.filter((item) => item.key !== question.key))
                       }
@@ -583,11 +591,12 @@ export function ProfessorCreateQuizPage() {
                   ) : null}
                 </div>
 
+                <div className="space-y-5 p-4 sm:p-6">
                 <div className="grid gap-2 sm:max-w-xs">
                   <Label htmlFor={`kind-${question.key}`}>Tipo</Label>
                   <select
                     id={`kind-${question.key}`}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm"
                     value={question.kind}
                     onChange={(event) => {
                       const kind = event.target.value as ItemKind
@@ -616,19 +625,32 @@ export function ProfessorCreateQuizPage() {
                   </select>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor={`prompt-${question.key}`}>Enunciado</Label>
-                  <Textarea
+                {question.kind === "cloze" ? (
+                  <div className="grid gap-2">
+                    <Label htmlFor={`prompt-${question.key}`}>Enunciado</Label>
+                    <Textarea
+                      id={`prompt-${question.key}`}
+                      value={question.prompt}
+                      onChange={(event) =>
+                        updateQuestion(question.key, { prompt: event.target.value })
+                      }
+                      placeholder="Júpiter é o {{maior}} planeta do {{Sistema Solar}}"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Lacunas usam texto simples para que o aluno digite a resposta.
+                    </p>
+                  </div>
+                ) : (
+                  <RichTextEditor
                     id={`prompt-${question.key}`}
+                    label="Enunciado"
                     value={question.prompt}
-                    onChange={(event) => updateQuestion(question.key, { prompt: event.target.value })}
-                    placeholder={
-                      question.kind === "cloze"
-                        ? "Júpiter é o {{maior}} planeta do {{Sistema Solar}}"
-                        : "Qual o maior planeta do Sistema Solar?"
-                    }
+                    onChange={(prompt) => updateQuestion(question.key, { prompt })}
+                    rows={4}
+                    placeholder={"Qual é a saída do programa abaixo?\n\n```python\nprint(sum(range(5)))\n```"}
+                    hint="Você pode inserir blocos de código, listas e destaques no enunciado."
                   />
-                </div>
+                )}
 
                 <ItemImageField
                   id={`image-${question.key}`}
@@ -638,33 +660,54 @@ export function ProfessorCreateQuizPage() {
 
                 {question.kind === "multiple_choice" ? (
                   <div className="grid gap-3">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={question.allowMultiple}
-                        onChange={(event) =>
-                          updateQuestion(question.key, { allowMultiple: event.target.checked })
-                        }
-                      />
-                      Permitir várias alternativas corretas
-                    </label>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium">Alternativas</p>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-[var(--color-primary)]"
+                          checked={question.allowMultiple}
+                          onChange={(event) =>
+                            updateQuestion(question.key, { allowMultiple: event.target.checked })
+                          }
+                        />
+                        Permitir várias corretas
+                      </label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Marque a alternativa correta à esquerda. Use crases para código:{" "}
+                      <code className="rounded bg-muted px-1 py-0.5 font-mono">`for i in x`</code>.
+                    </p>
                     {question.options.map((option, optionIndex) => (
-                      <div key={option.key} className="flex items-center gap-2">
+                      <div
+                        key={option.key}
+                        className={cn(
+                          "flex items-center gap-2 rounded-xl border px-2.5 py-2 transition-colors",
+                          option.isCorrect
+                            ? "border-success/40 bg-success/6"
+                            : "border-border/70 bg-muted/25"
+                        )}
+                      >
                         <input
                           type={question.allowMultiple ? "checkbox" : "radio"}
                           name={`correct-${question.key}`}
+                          className="h-4 w-4 accent-[var(--color-success)]"
                           checked={option.isCorrect}
                           onChange={() =>
                             markCorrect(question.key, option.key, question.allowMultiple)
                           }
                           aria-label={`Marcar alternativa ${optionIndex + 1} como correta`}
                         />
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-card text-xs font-bold text-muted-foreground">
+                          {String.fromCharCode(65 + optionIndex)}
+                        </span>
                         <Input
                           value={option.text}
                           onChange={(event) =>
                             updateOption(question.key, option.key, event.target.value)
                           }
-                          placeholder={`Alternativa ${optionIndex + 1}`}
+                          className="border-transparent bg-card"
+                          placeholder={`Alternativa ${String.fromCharCode(65 + optionIndex)}`}
                         />
                         {question.options.length > 2 ? (
                           <Button
@@ -1028,9 +1071,9 @@ export function ProfessorCreateQuizPage() {
                   </div>
                 ) : null}
 
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label htmlFor={`time-${question.key}`}>Tempo (segundos)</Label>
+                <div className="grid gap-4 border-t border-border/70 pt-4">
+                  <div className="grid max-w-56 gap-2">
+                    <Label htmlFor={`time-${question.key}`}>Tempo sugerido (segundos)</Label>
                     <Input
                       id={`time-${question.key}`}
                       type="number"
@@ -1044,17 +1087,17 @@ export function ProfessorCreateQuizPage() {
                       }
                     />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor={`expl-${question.key}`}>Explicação (opcional)</Label>
-                    <Input
-                      id={`expl-${question.key}`}
-                      value={question.explanation}
-                      onChange={(event) =>
-                        updateQuestion(question.key, { explanation: event.target.value })
-                      }
-                      placeholder="Aparece no gabarito"
-                    />
-                  </div>
+                  <RichTextEditor
+                    id={`expl-${question.key}`}
+                    label="Explicação da resposta (opcional)"
+                    value={question.explanation}
+                    onChange={(explanation) => updateQuestion(question.key, { explanation })}
+                    rows={3}
+                    compact
+                    placeholder="Explique por que essa é a resposta correta. Use `código` quando fizer sentido."
+                    hint="Aparece no gabarito e na revisão item a item da pós-seção."
+                  />
+                </div>
                 </div>
               </section>
             ))}
@@ -1063,28 +1106,34 @@ export function ProfessorCreateQuizPage() {
           <Button
             type="button"
             variant="outline"
+            size="lg"
+            className="w-full border-dashed"
             onClick={() => setQuestions((prev) => [...prev, newQuestion()])}
           >
             <Plus className="h-4 w-4" />
             Nova questão
           </Button>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button type="button" disabled={saving} onClick={() => void saveQuiz(false)}>
-              {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar quiz"}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={saving}
-              onClick={() => void saveQuiz(true)}
-            >
-              {isEditing ? "Salvar e sincronizar flashcards" : "Importar flashcards"}
-            </Button>
+          <div className="sticky bottom-4 z-10">
+            <div className="surface-raised flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button type="button" disabled={saving} onClick={() => void saveQuiz(false)}>
+                  {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar quiz"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={saving}
+                  onClick={() => void saveQuiz(true)}
+                >
+                  {isEditing ? "Salvar e sincronizar flashcards" : "Importar flashcards"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground sm:ml-auto sm:max-w-xs">
+                Importar flashcards usa questões de múltipla escolha ou V/F com alternativa correta.
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Importar flashcards usa questões de múltipla escolha ou V/F com alternativa correta.
-          </p>
         </div>
       )}
     </AppShell>

@@ -13,6 +13,20 @@ Coleções: `profiles`, `classes` (matrículas embutidas), `activities` (itens p
 
 No Google Cloud Console, crie um cliente OAuth **Web** e coloque `ClientId`/`ClientSecret` em `backend/appsettings.Development.json`. URI de redirecionamento: `http://localhost:5080/signin-google`.
 
+## Deploy na VPS (junto com o ScoreHistory)
+
+O ScoreHistory já usa Caddy nas portas 80/443. O Astro entra como **outro domínio** na mesma VPS, sem segundo Caddy.
+
+1. DNS: `astro.seudominio.com` → IP da VPS.
+2. Google OAuth: origem e redirect `https://astro.seudominio.com` e `https://astro.seudominio.com/signin-google`.
+3. Uma vez na VPS: `docker network create proxy`
+4. No `.env` do ScoreHistory: `ASTRO_ADDRESS=astro.seudominio.com`
+5. Recarregue o Caddy do ScoreHistory: `docker compose up -d caddy`
+6. Neste repositório: copie `.env.example` para `.env`, preencha Mongo/Google/JWT e `Auth__FrontendUrl` / `Cors__Origins` com `https://astro.seudominio.com`.
+7. `docker compose up -d --build`
+
+O Caddy encaminha o domínio do Astro para o container `astro-frontend`. O nginx interno encaminha `/api`, `/hubs` e `/signin-google` para a API.
+
 ## Funcionalidades
 
 A plataforma combina sessões síncronas gamificadas com materiais de fixação para estudo individual. Professores criam turmas, elaboram avaliações e acompanham o desempenho; alunos entram por código, participam ao vivo e revisam no próprio ritmo.

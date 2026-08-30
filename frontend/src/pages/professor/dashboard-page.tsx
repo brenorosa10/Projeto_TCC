@@ -1,8 +1,54 @@
 import { Link } from "react-router-dom"
-import { BarChart3, BookOpen, Plus, Radio } from "lucide-react"
+import {
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  Layers,
+  Radio,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
+import { cn } from "@/lib/utils"
+
+const actions: Array<{
+  to: string
+  icon: LucideIcon
+  title: string
+  description: string
+  tone: "primary" | "sky" | "violet" | "amber"
+}> = [
+  {
+    to: "/professor/turmas",
+    icon: BookOpen,
+    title: "Minhas turmas",
+    description: "Crie turmas e acompanhe quem entrou pelo código de acesso.",
+    tone: "primary",
+  },
+  {
+    to: "/professor/atividades",
+    icon: Layers,
+    title: "Atividades",
+    description: "Monte quizzes e flashcards reutilizáveis em várias turmas.",
+    tone: "sky",
+  },
+  {
+    to: "/professor/ao-vivo",
+    icon: Radio,
+    title: "Iniciar ao vivo",
+    description: "Aplique uma atividade em tempo real com PIN de 6 dígitos.",
+    tone: "violet",
+  },
+  {
+    to: "/professor/analytics",
+    icon: BarChart3,
+    title: "Analytics",
+    description: "Veja o índice de erros por questão e ajuste o plano de aula.",
+    tone: "amber",
+  },
+]
 
 export function ProfessorDashboardPage() {
   const { profile } = useAuth()
@@ -10,54 +56,78 @@ export function ProfessorDashboardPage() {
   return (
     <AppShell title="Painel do professor">
       <div className="space-y-8">
-        <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">
-            Olá, {profile?.fullName?.split(" ")[0] ?? "professor"}
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Crie turmas, prepare atividades e inicie sessões ao vivo.
-          </p>
-        </div>
+        <section className="surface-card relative overflow-hidden px-6 py-8 sm:px-8">
+          <div className="pattern-grid absolute inset-0 opacity-40" aria-hidden />
+          <div className="relative max-w-2xl space-y-3">
+            <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+              <Sparkles className="h-3.5 w-3.5" />
+              Painel do professor
+            </span>
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              Olá, {profile?.fullName?.split(" ")[0] ?? "professor"}
+            </h1>
+            <p className="text-muted-foreground text-pretty">
+              Organize suas turmas, escreva atividades com texto formatado e blocos de código, e
+              acompanhe o desempenho da sala.
+            </p>
+            <div className="flex flex-wrap gap-3 pt-1">
+              <Button asChild>
+                <Link to="/professor/quiz/novo">
+                  Criar quiz
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/professor/flashcards/novo">Criar flashcards</Link>
+              </Button>
+            </div>
+          </div>
+        </section>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Button asChild className="h-auto flex-col items-start gap-2 p-5">
-            <Link to="/professor/turmas">
-              <BookOpen className="h-5 w-5" />
-              <span className="text-base font-semibold">Minhas turmas</span>
-              <span className="text-xs font-normal text-primary-foreground/80">
-                Criar e gerenciar turmas
-              </span>
-            </Link>
-          </Button>
-          <Button asChild variant="secondary" className="h-auto flex-col items-start gap-2 p-5">
-            <Link to="/professor/atividades">
-              <Plus className="h-5 w-5" />
-              <span className="text-base font-semibold">Atividades</span>
-              <span className="text-xs font-normal text-secondary-foreground/70">
-                Quizzes e flashcards reutilizáveis
-              </span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="h-auto flex-col items-start gap-2 p-5">
-            <Link to="/professor/ao-vivo">
-              <Radio className="h-5 w-5" />
-              <span className="text-base font-semibold">Iniciar ao vivo</span>
-              <span className="text-xs font-normal text-muted-foreground">
-                Sessão com PIN de 6 dígitos
-              </span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="h-auto flex-col items-start gap-2 p-5">
-            <Link to="/professor/analytics">
-              <BarChart3 className="h-5 w-5" />
-              <span className="text-base font-semibold">Analytics</span>
-              <span className="text-xs font-normal text-muted-foreground">
-                Índice de erros por questão
-              </span>
-            </Link>
-          </Button>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {actions.map((action) => (
+            <ActionCard key={action.to} {...action} />
+          ))}
         </div>
       </div>
     </AppShell>
+  )
+}
+
+function ActionCard({
+  to,
+  icon: Icon,
+  title,
+  description,
+  tone,
+}: {
+  to: string
+  icon: LucideIcon
+  title: string
+  description: string
+  tone: "primary" | "sky" | "violet" | "amber"
+}) {
+  return (
+    <Link
+      to={to}
+      className="surface-card group flex items-start gap-4 p-5 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+    >
+      <span
+        className={cn(
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+          tone === "primary" && "bg-primary/10 text-primary",
+          tone === "sky" && "bg-astro-sky/20 text-astro-navy",
+          tone === "violet" && "bg-astro-violet/12 text-astro-violet",
+          tone === "amber" && "bg-astro-amber/12 text-astro-amber"
+        )}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-display text-lg font-semibold">{title}</p>
+        <p className="mt-1 text-sm text-muted-foreground text-pretty">{description}</p>
+      </div>
+      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+    </Link>
   )
 }

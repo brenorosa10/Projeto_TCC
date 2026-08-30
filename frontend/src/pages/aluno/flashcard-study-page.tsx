@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react"
 import { Link, useLocation, useParams } from "react-router-dom"
 import { toast } from "sonner"
+import { Layers, RefreshCw, Sparkles } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { PrepPanel } from "@/components/activity/prep-panel"
+import { ResultPanel } from "@/components/activity/result-panel"
+import { RichText } from "@/components/rich-text/rich-text"
 import { findSection, hasSectionCopy } from "@/lib/item-kinds"
 import type { ActivitySection, StudyFlashcardCard, StudyFlashcardSession } from "@/lib/types"
 
@@ -97,17 +99,18 @@ export function AlunoFlashcardStudyPage() {
       ) : !session ? (
         <p className="text-muted-foreground">Deck não encontrado.</p>
       ) : (
-        <div className="space-y-8">
+        <div className="mx-auto max-w-3xl space-y-6">
           <div>
             <p className="text-sm text-muted-foreground">
-              <Link to={backHref} className="hover:text-primary">
+              <Link to={backHref} className="transition-colors hover:text-primary">
                 {isGuest ? "Início" : "Estudar"}
               </Link>{" "}
               / {session.title}
             </p>
-            <h1 className="mt-2 font-display text-3xl font-semibold">{session.title}</h1>
-            <p className="mt-2 text-muted-foreground">
-              Acerto avança o cartão nas caixas 1 a 5; erro volta para a caixa 1.
+            <h1 className="mt-2 font-display text-3xl font-semibold text-balance">{session.title}</h1>
+            <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <Layers className="h-4 w-4" />
+              Repetição espaçada: acertar avança o cartão nas caixas 1 a 5; errar volta para a caixa 1.
             </p>
           </div>
 
@@ -119,76 +122,101 @@ export function AlunoFlashcardStudyPage() {
               estimatedMinutes={prep?.estimatedMinutes}
               tips={prep?.tips}
               imageDataUrl={prep?.imageDataUrl}
+              itemCount={queue.length}
               actionLabel="Começar revisão"
               onContinue={() => setPhase("cards")}
             />
           ) : null}
 
           {phase === "done" || (phase === "cards" && !card) ? (
-            <div className="space-y-4 rounded-lg border border-border p-6">
-              <Badge variant="secondary">Resultados</Badge>
-              <h2 className="font-display text-xl font-semibold">
-                {feedback?.title?.trim() || (reviewed > 0 ? "Sessão concluída" : "Nada para revisar agora")}
-              </h2>
-              {feedback?.body?.trim() ? (
-                <p className="whitespace-pre-wrap text-muted-foreground">{feedback.body}</p>
-              ) : null}
-              <p className="text-muted-foreground">
-                {reviewed > 0
-                  ? `Você revisou ${reviewed} cartão(ões). Os demais voltam quando chegar a hora da caixa.`
-                  : "Nenhum cartão está devido. Volte mais tarde para a repetição espaçada."}
-              </p>
-              <Button asChild variant="outline">
-                <Link to={backHref}>Voltar à lista</Link>
-              </Button>
-            </div>
+            <ResultPanel
+              title={
+                feedback?.title?.trim() ||
+                (reviewed > 0 ? "Sessão concluída" : "Nada para revisar agora")
+              }
+              body={feedback?.body}
+              summary={
+                <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-secondary/40 px-4 py-3.5">
+                  <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <p className="text-sm text-foreground/85">
+                    {reviewed > 0
+                      ? `Você revisou ${reviewed} cartão(ões). Os demais voltam quando chegar a hora da caixa.`
+                      : "Nenhum cartão está devido agora. Volte mais tarde para a repetição espaçada."}
+                  </p>
+                </div>
+              }
+              actions={
+                <Button asChild variant="outline">
+                  <Link to={backHref}>Voltar à lista</Link>
+                </Button>
+              }
+            />
           ) : null}
 
           {phase === "cards" && card ? (
-            <div className="space-y-6">
-              <p className="text-sm text-muted-foreground">
-                Cartão {reviewed + 1} · {queue.length} restante(s) nesta sessão · caixa {card.boxLevel}
-              </p>
+            <div className="space-y-5">
+              <div className="surface-card flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm">
+                <span className="font-semibold">Cartão {reviewed + 1}</span>
+                <span className="text-muted-foreground">{queue.length} restante(s)</span>
+                <span className="ml-auto rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                  Caixa {card.boxLevel}
+                </span>
+              </div>
 
               <button
+                key={`${card.id}-${flipped}`}
                 type="button"
                 onClick={() => setFlipped((prev) => !prev)}
-                className="flex min-h-48 w-full flex-col items-center justify-center rounded-lg border border-border bg-background px-6 py-10 text-center"
+                className="animate-pop-in flex min-h-56 w-full flex-col items-center justify-center rounded-2xl border border-border bg-gradient-to-b from-card to-secondary/40 px-6 py-10 text-center shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-lift)]"
               >
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {flipped ? "Verso" : "Frente"}
-                </p>
+                </span>
                 {!flipped && card.imageDataUrl ? (
                   <img
                     src={card.imageDataUrl}
                     alt=""
-                    className="mt-3 max-h-56 w-full rounded-md object-contain"
+                    className="mt-4 max-h-56 w-full rounded-lg object-contain"
                   />
                 ) : null}
-                <p className="mt-3 font-display text-2xl font-semibold">
-                  {flipped ? card.back : card.front}
-                </p>
-                <p className="mt-4 text-sm text-muted-foreground">
-                  {flipped ? "Avalie se você lembrava" : "Toque para ver a resposta"}
-                </p>
+                <RichText
+                  value={flipped ? card.back : card.front}
+                  className="rich-text-prompt mt-4 font-display text-2xl font-semibold sm:text-3xl"
+                />
+                <span className="mt-5 text-sm text-muted-foreground">
+                  {flipped ? "Avalie se você lembrava" : "Toque no cartão para ver a resposta"}
+                </span>
               </button>
 
               {flipped ? (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button type="button" disabled={submitting} onClick={() => void review(true)}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    size="lg"
+                    disabled={submitting}
+                    onClick={() => void review(true)}
+                  >
                     Lembrei
                   </Button>
                   <Button
                     type="button"
+                    size="lg"
                     variant="outline"
                     disabled={submitting}
                     onClick={() => void review(false)}
                   >
+                    <RefreshCw className="h-4 w-4" />
                     Não lembrei
                   </Button>
                 </div>
               ) : (
-                <Button type="button" variant="secondary" onClick={() => setFlipped(true)}>
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => setFlipped(true)}
+                >
                   Mostrar verso
                 </Button>
               )}

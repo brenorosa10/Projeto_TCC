@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
+import { Flag, Rocket } from "lucide-react"
 import { DeleteActivityButton } from "@/components/activity/delete-activity-button"
+import { RichText } from "@/components/rich-text/rich-text"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { findSection, hasSectionCopy, itemKindLabel } from "@/lib/item-kinds"
+import { cn } from "@/lib/utils"
 import type { Activity, ActivityItem, ActivitySection, ClassRoom } from "@/lib/types"
 
 function typeLabel(type: string) {
@@ -122,7 +125,7 @@ export function ProfessorActivityDetailPage() {
             </div>
           </div>
 
-          <section className="space-y-4 rounded-lg border border-border p-4">
+          <section className="surface-card space-y-4 p-4 sm:p-6">
             <div>
               <h2 className="font-display text-lg font-semibold">Turmas</h2>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -163,23 +166,22 @@ export function ProfessorActivityDetailPage() {
             </Button>
           ) : null}
 
-          <SectionCopy
-            heading="Preparação"
-            section={findSection(activity.sections, "prep")}
-          />
+          <SectionCopy heading="Pré-seção" section={findSection(activity.sections, "prep")} />
 
-          <ul className="space-y-4">
-            {activity.items.map((item, index) => (
-              <li key={item.id} className="rounded-lg border border-border p-4">
-                <ActivityItemPreview item={item} index={index} activityType={activity.type} />
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-3">
+            <h2 className="font-display text-lg font-semibold">
+              {activity.type === "flashcards" ? "Cartões" : "Questões"}
+            </h2>
+            <ul className="space-y-3">
+              {activity.items.map((item, index) => (
+                <li key={item.id} className="surface-card p-4 sm:p-5">
+                  <ActivityItemPreview item={item} index={index} activityType={activity.type} />
+                </li>
+              ))}
+            </ul>
+          </div>
 
-          <SectionCopy
-            heading="Feedback"
-            section={findSection(activity.sections, "feedback")}
-          />
+          <SectionCopy heading="Pós-seção" section={findSection(activity.sections, "feedback")} />
         </div>
       )}
     </AppShell>
@@ -194,40 +196,71 @@ function SectionCopy({
   section: ActivitySection | undefined
 }) {
   if (!hasSectionCopy(section)) return null
+  const isPrep = heading === "Pré-seção"
   return (
-    <section className="space-y-3 rounded-lg border border-border p-4">
-      <h2 className="font-display text-lg font-semibold">{heading}</h2>
-      {section?.estimatedMinutes ? (
-        <p className="text-sm text-muted-foreground">Tempo estimado: {section.estimatedMinutes} min</p>
-      ) : null}
-      {section?.title?.trim() ? <p className="font-medium">{section.title}</p> : null}
-      {section?.imageDataUrl ? (
-        <img
-          src={section.imageDataUrl}
-          alt=""
-          className="max-h-56 w-full rounded-md border border-border object-contain bg-muted/30"
-        />
-      ) : null}
-      {section?.body?.trim() ? (
-        <p className="whitespace-pre-wrap text-sm text-muted-foreground">{section.body}</p>
-      ) : null}
-      {section?.objectives?.length ? (
-        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          {section.objectives.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      ) : null}
-      {section?.tips?.length ? (
-        <div className="space-y-1">
-          <p className="text-sm font-medium">Dicas</p>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            {section.tips.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+    <section className="surface-card overflow-hidden">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border/70 bg-muted/40 px-4 py-3 sm:px-6">
+        <span
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg",
+            isPrep ? "bg-primary text-primary-foreground" : "bg-astro-amber/15 text-astro-amber"
+          )}
+        >
+          {isPrep ? <Rocket className="h-4 w-4" /> : <Flag className="h-4 w-4" />}
+        </span>
+        <h2 className="font-display text-lg font-semibold">{heading}</h2>
+        {section?.estimatedMinutes ? (
+          <Badge variant="outline" className="ml-auto">
+            {section.estimatedMinutes} min
+          </Badge>
+        ) : null}
+      </div>
+      <div className="space-y-4 p-4 sm:p-6">
+        {section?.title?.trim() ? (
+          <p className="font-display text-base font-semibold">{section.title}</p>
+        ) : null}
+        {section?.imageDataUrl ? (
+          <img
+            src={section.imageDataUrl}
+            alt=""
+            className="max-h-56 w-full rounded-lg border border-border object-contain bg-muted/30"
+          />
+        ) : null}
+        <RichText value={section?.body} className="text-sm" />
+        {section?.objectives?.length ? (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Objetivos
+            </p>
+            <ul className="grid gap-1.5 text-sm sm:grid-cols-2">
+              {section.objectives.map((item, index) => (
+                <li
+                  key={item}
+                  className="flex items-start gap-2 rounded-lg bg-secondary/40 px-3 py-2"
+                >
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[0.65rem] font-bold text-primary-foreground">
+                    {index + 1}
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {section?.tips?.length ? (
+          <div className="space-y-2 rounded-lg border border-astro-amber/30 bg-astro-amber/8 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-astro-amber">Dicas</p>
+            <ul className="grid gap-1 text-sm">
+              {section.tips.map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-astro-amber" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
     </section>
   )
 }
@@ -249,7 +282,10 @@ function ActivityItemPreview({
         {item.kind ? ` · ${itemKindLabel(item.kind)}` : null}
         {item.timeLimitSeconds && !isCard ? ` · ${item.timeLimitSeconds}s` : null}
       </p>
-      <p className="mt-2 font-medium">{isCard ? item.front : item.prompt}</p>
+      <RichText
+        value={isCard ? item.front : item.prompt}
+        className="rich-text-prompt mt-2 font-medium"
+      />
       {item.imageDataUrl ? (
         <img
           src={item.imageDataUrl}
@@ -257,7 +293,7 @@ function ActivityItemPreview({
           className="mt-3 max-h-56 w-full rounded-md border border-border object-contain bg-muted/30"
         />
       ) : null}
-      {isCard ? <p className="mt-1 text-muted-foreground">{item.back}</p> : null}
+      {isCard ? <RichText value={item.back} className="mt-2 text-sm" /> : null}
       {item.kind === "short_answer" && item.acceptedAnswers?.length ? (
         <p className="mt-3 text-sm text-muted-foreground">
           Aceitas: {item.acceptedAnswers.join(" · ")}
@@ -298,17 +334,37 @@ function ActivityItemPreview({
         </ul>
       ) : null}
       {item.options && item.options.length > 0 ? (
-        <ul className="mt-3 space-y-1 text-sm">
-          {item.options.map((option) => (
-            <li key={option.id} className={option.isCorrect ? "font-medium text-primary" : ""}>
-              {option.text}
-              {option.isCorrect ? " (correta)" : null}
+        <ul className="mt-3 grid gap-1.5 text-sm">
+          {item.options.map((option, optionIndex) => (
+            <li
+              key={option.id}
+              className={cn(
+                "flex items-start gap-2 rounded-lg border px-3 py-2",
+                option.isCorrect
+                  ? "border-success/40 bg-success/6"
+                  : "border-border/60 bg-muted/30"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold",
+                  option.isCorrect ? "bg-success text-white" : "bg-card text-muted-foreground"
+                )}
+              >
+                {String.fromCharCode(65 + optionIndex)}
+              </span>
+              <RichText value={option.text} className="min-w-0 flex-1 text-sm" />
             </li>
           ))}
         </ul>
       ) : null}
       {item.explanation ? (
-        <p className="mt-3 text-sm text-muted-foreground">{item.explanation}</p>
+        <div className="mt-3 rounded-lg border border-border/60 bg-secondary/40 px-3 py-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Explicação
+          </p>
+          <RichText value={item.explanation} className="mt-1 text-sm" />
+        </div>
       ) : null}
     </>
   )

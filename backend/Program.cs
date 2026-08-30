@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MongoDB.Bson;
@@ -18,9 +19,22 @@ using Astro.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var listenPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(listenPort))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{listenPort}");
+}
+
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = 20_971_520;
+});
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 
 builder.Services.AddControllers()
@@ -69,8 +83,7 @@ ConfigureAuth(builder);
 
 builder.Services.AddAuthorization();
 
-var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>()
-    ?? ["http://localhost:5173"];
+var corsOrigins = ReadCorsOrigins(builder.Configuration);
 
 builder.Services.AddCors(options =>
 {
@@ -84,6 +97,8 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
@@ -100,6 +115,17 @@ app.MapHub<LiveSessionHub>("/hubs/live");
 app.MapGet("/", () => Results.Ok(new { name = "Astro.Api", docs = "/swagger" }));
 
 app.Run();
+
+static string[] ReadCorsOrigins(IConfiguration configuration)
+{
+    var fromEnv = configuration["Cors:Origins"];
+    if (!string.IsNullOrWhiteSpace(fromEnv) && !fromEnv.TrimStart().StartsWith('['))
+    {
+        return fromEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    return configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:5173"];
+}
 
 static void ConfigureAuth(WebApplicationBuilder builder)
 {

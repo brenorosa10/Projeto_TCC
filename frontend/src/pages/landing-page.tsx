@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, Navigate } from "react-router-dom"
-import { GraduationCap, Users } from "lucide-react"
+import { Code2, Flag, GraduationCap, Rocket, Users } from "lucide-react"
 import { AuthMethodDialog } from "@/components/auth/auth-method-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -46,17 +46,35 @@ export function LandingPage() {
           <span className="text-sm text-muted-foreground">Ambiente híbrido de aprendizagem</span>
         </nav>
 
-        <section className="flex flex-1 flex-col justify-center py-16 md:py-20">
+        <section className="flex flex-1 flex-col justify-center py-14 md:py-16">
           <p className="animate-fade-up font-display text-6xl font-semibold tracking-tight text-primary sm:text-7xl md:text-8xl">
             Astro
           </p>
-          <h1 className="animate-fade-up-delay mt-6 max-w-2xl font-display text-3xl font-medium leading-tight text-foreground sm:text-4xl">
+          <h1 className="animate-fade-up-delay mt-6 max-w-2xl font-display text-3xl font-medium leading-tight text-foreground text-balance sm:text-4xl">
             Quizzes ao vivo e estudo personalizado no mesmo lugar.
           </h1>
-          <p className="animate-fade-up-delay-2 mt-4 max-w-xl text-lg text-muted-foreground">
-            Professores criam turmas e sessões em tempo real. Alunos revisam com
-            flashcards e quizzes com feedback imediato.
+          <p className="animate-fade-up-delay-2 mt-4 max-w-xl text-lg text-muted-foreground text-pretty">
+            Professores criam turmas e sessões em tempo real. Alunos revisam com flashcards e
+            quizzes com feedback imediato.
           </p>
+
+          <ul className="animate-fade-up-delay-2 mt-8 grid gap-3 sm:grid-cols-3">
+            <Highlight
+              icon={<Rocket className="h-4 w-4" />}
+              title="Pré-seção"
+              text="Objetivos, tempo estimado e dicas antes de começar."
+            />
+            <Highlight
+              icon={<Code2 className="h-4 w-4" />}
+              title="Código formatado"
+              text="Blocos de código com destaque de sintaxe nas questões."
+            />
+            <Highlight
+              icon={<Flag className="h-4 w-4" />}
+              title="Pós-seção"
+              text="Placar, revisão item a item e explicações do professor."
+            />
+          </ul>
 
           <div className="animate-fade-up-delay-2 mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
@@ -138,15 +156,15 @@ function PublicList({
       {items.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <ul className="mt-4 divide-y divide-border border-y border-border">
+        <ul className="mt-4 grid gap-3">
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between"
+              className="surface-card flex flex-col gap-3 p-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] sm:flex-row sm:items-center sm:justify-between"
             >
-              <div>
-                <p className="font-medium">{item.title}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <div className="min-w-0">
+                <p className="font-medium text-pretty">{item.title}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Badge variant="secondary">Público</Badge>
                   <span>
                     {item.itemCount} {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
@@ -154,7 +172,7 @@ function PublicList({
                   </span>
                 </div>
               </div>
-              <Button asChild size="sm">
+              <Button asChild size="sm" className="shrink-0">
                 <Link to={hrefFor(item.id)}>Estudar</Link>
               </Button>
             </li>
@@ -162,5 +180,27 @@ function PublicList({
         </ul>
       )}
     </div>
+  )
+}
+
+function Highlight({
+  icon,
+  title,
+  text,
+}: {
+  icon: React.ReactNode
+  title: string
+  text: string
+}) {
+  return (
+    <li className="surface-card flex flex-col gap-1.5 p-4">
+      <span className="flex items-center gap-2 text-sm font-semibold text-primary">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+          {icon}
+        </span>
+        {title}
+      </span>
+      <span className="text-sm text-muted-foreground text-pretty">{text}</span>
+    </li>
   )
 }

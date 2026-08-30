@@ -44,11 +44,11 @@ export function AlunoClassesPage() {
           </Link>
         </p>
       ) : (
-        <ul className="divide-y divide-border border-y border-border">
+        <ul className="grid gap-3">
           {classes.map((item) => (
             <li
               key={item.id}
-              className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between"
+              className="surface-card flex flex-col gap-3 p-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
                 <Link
