@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -20,7 +19,7 @@ public class AuthController(
     MongoDbContext db,
     JwtTokenService jwtTokenService,
     PasswordHashingService passwordHasher,
-    IConfiguration configuration) : ControllerBase
+    GoogleSignInService googleSignIn) : ControllerBase
 {
     private const string ExternalScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     private static readonly Regex UsernamePattern = new("^[a-zA-Z0-9_]{3,32}$", RegexOptions.Compiled);
@@ -138,7 +137,7 @@ public class AuthController(
         {
             RedirectUri = "/api/auth/google-callback"
         };
-        properties.Items["returnUrl"] = SanitizeReturnUrl(returnUrl);
+        properties.Items["returnUrl"] = googleSignIn.SanitizeReturnUrl(returnUrl);
         return Challenge(properties, GoogleDefaults.AuthenticationScheme);
     }
 
@@ -147,87 +146,17 @@ public class AuthController(
     public async Task<IActionResult> GoogleCallback(CancellationToken cancellationToken)
     {
         var result = await HttpContext.AuthenticateAsync(ExternalScheme);
-        var frontendCallback = DefaultFrontendCallback();
-
         if (!result.Succeeded || result.Principal is null)
         {
             await HttpContext.SignOutAsync(ExternalScheme);
-            return Redirect($"{frontendCallback}?error=google");
+            return Redirect(googleSignIn.ErrorRedirect());
         }
 
-        var googleId = result.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
-        var email = NormalizeEmail(
-            result.Principal.FindFirstValue(ClaimTypes.Email)
-            ?? result.Principal.FindFirstValue("email"));
-        var name = result.Principal.FindFirstValue(ClaimTypes.Name)
-            ?? result.Principal.FindFirstValue("name");
-        var picture = result.Principal.FindFirstValue("picture");
-
-        await HttpContext.SignOutAsync(ExternalScheme);
-
-        if (string.IsNullOrWhiteSpace(googleId) || string.IsNullOrWhiteSpace(email))
-        {
-            return Redirect($"{frontendCallback}?error=google");
-        }
-
-        var profile = await db.Profiles
-            .Find(p => p.GoogleId == googleId)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (profile is null)
-        {
-            profile = await db.Profiles
-                .Find(EmailFilter(email))
-                .FirstOrDefaultAsync(cancellationToken);
-        }
-
-        if (profile is null)
-        {
-            profile = new Profile
-            {
-                Id = Guid.NewGuid(),
-                GoogleId = googleId,
-                Email = email,
-                FullName = name,
-                AvatarUrl = picture,
-                Role = string.Empty,
-                CreatedAt = DateTimeOffset.UtcNow
-            };
-            try
-            {
-                await db.Profiles.InsertOneAsync(profile, cancellationToken: cancellationToken);
-            }
-            catch (MongoWriteException)
-            {
-                profile = await db.Profiles
-                    .Find(EmailFilter(email))
-                    .FirstOrDefaultAsync(cancellationToken);
-                if (profile is null)
-                {
-                    return Redirect($"{frontendCallback}?error=google");
-                }
-            }
-        }
-        else
-        {
-            if (!string.IsNullOrWhiteSpace(profile.GoogleId)
-                && !string.Equals(profile.GoogleId, googleId, StringComparison.Ordinal))
-            {
-                return Redirect($"{frontendCallback}?error=google");
-            }
-
-            profile.GoogleId = googleId;
-            profile.Email = email;
-            profile.FullName = name ?? profile.FullName;
-            profile.AvatarUrl = picture ?? profile.AvatarUrl;
-            await db.Profiles.ReplaceOneAsync(p => p.Id == profile.Id, profile, cancellationToken: cancellationToken);
-        }
-
-        var token = jwtTokenService.CreateToken(profile);
         string? storedReturnUrl = null;
         result.Properties?.Items.TryGetValue("returnUrl", out storedReturnUrl);
-        var returnUrl = SanitizeReturnUrl(storedReturnUrl);
-        return Redirect($"{returnUrl}#access_token={Uri.EscapeDataString(token)}");
+        var redirect = await googleSignIn.CompleteAsync(result.Principal, storedReturnUrl, cancellationToken);
+        await HttpContext.SignOutAsync(ExternalScheme);
+        return Redirect(redirect);
     }
 
     private AuthResponse ToAuthResponse(Profile profile) =>
@@ -255,33 +184,4 @@ public class AuthController(
 
     private static string NormalizeEmail(string? email) =>
         (email ?? string.Empty).Trim().ToLowerInvariant();
-
-    private string DefaultFrontendCallback()
-    {
-        var frontend = configuration["Auth:FrontendUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
-        return $"{frontend}/auth/callback";
-    }
-
-    private string SanitizeReturnUrl(string? returnUrl)
-    {
-        var fallback = DefaultFrontendCallback();
-        if (!Uri.TryCreate(returnUrl, UriKind.Absolute, out var uri))
-        {
-            return fallback;
-        }
-
-        var allowedOrigins = (configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
-            .Append(configuration["Auth:FrontendUrl"])
-            .Where(origin => !string.IsNullOrWhiteSpace(origin))
-            .Select(origin => origin!.TrimEnd('/'))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var origin = uri.GetLeftPart(UriPartial.Authority);
-        if (!allowedOrigins.Contains(origin) || !uri.AbsolutePath.Equals("/auth/callback", StringComparison.OrdinalIgnoreCase))
-        {
-            return fallback;
-        }
-
-        return $"{origin}{uri.AbsolutePath}";
-    }
 }

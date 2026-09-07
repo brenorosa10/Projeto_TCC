@@ -23,7 +23,11 @@ export function AuthCallbackPage() {
     async function complete() {
       const authError = getAuthErrorFromUrl()
       if (authError) {
-        setError("Não foi possível entrar com o Google. Tente novamente.")
+        setError(
+          authError === "access_denied"
+            ? "Login com Google cancelado."
+            : "Não foi possível entrar com o Google. Tente novamente."
+        )
         return
       }
 

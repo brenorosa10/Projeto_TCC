@@ -9,6 +9,23 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
     {
         try
         {
+            await EnsureIndexesAsync(cancellationToken);
+            logger.LogInformation("Índices MongoDB verificados.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Não foi possível falar com o MongoDB na inicialização. A API sobe, mas login e dados falham até o Atlas conectar.");
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private async Task EnsureIndexesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
             await db.Profiles.Indexes.DropOneAsync("email_1", cancellationToken);
         }
         catch (Exception)
@@ -90,11 +107,7 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
                     Builders<StudySession>.IndexKeys.Ascending(x => x.ActivityId))
             ],
             cancellationToken);
-
-        logger.LogInformation("Índices MongoDB verificados.");
     }
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     private async Task MergeDuplicateEmailsAsync(CancellationToken cancellationToken)
     {

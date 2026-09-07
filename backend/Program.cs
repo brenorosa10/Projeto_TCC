@@ -1,3 +1,4 @@
+using System.Security.Authentication;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -74,6 +75,7 @@ builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddSingleton<PasswordHashingService>();
 builder.Services.AddScoped<ClassCodeGenerator>();
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddScoped<GoogleSignInService>();
 builder.Services.AddScoped<StudyAccessService>();
 builder.Services.AddScoped<StudySessionService>();
 builder.Services.AddSignalR();
@@ -135,7 +137,6 @@ static void ConfigureAuth(WebApplicationBuilder builder)
         ?? throw new InvalidOperationException("Auth:Jwt:Key não configurada.");
     var jwtIssuer = builder.Configuration["Auth:Jwt:Issuer"] ?? "Astro.Api";
     var jwtAudience = builder.Configuration["Auth:Jwt:Audience"] ?? "Astro.Frontend";
-    var frontendUrl = builder.Configuration["Auth:FrontendUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
 
     builder.Services.AddAuthentication(options =>
         {
@@ -148,7 +149,9 @@ static void ConfigureAuth(WebApplicationBuilder builder)
             options.Cookie.Name = "astro.external";
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Lax;
-            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+                ? CookieSecurePolicy.SameAsRequest
+                : CookieSecurePolicy.Always;
             options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
             options.SlidingExpiration = false;
         })
@@ -162,9 +165,50 @@ static void ConfigureAuth(WebApplicationBuilder builder)
             options.Scope.Add("profile");
             options.Scope.Add("email");
             options.ClaimActions.MapJsonKey("picture", "picture");
+            options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+            options.CorrelationCookie.SecurePolicy = builder.Environment.IsDevelopment()
+                ? CookieSecurePolicy.SameAsRequest
+                : CookieSecurePolicy.Always;
+            options.CorrelationCookie.HttpOnly = true;
+            options.CorrelationCookie.IsEssential = true;
+            options.Events.OnTicketReceived = async context =>
+            {
+                var googleSignIn = context.HttpContext.RequestServices.GetRequiredService<GoogleSignInService>();
+                try
+                {
+                    string? storedReturnUrl = null;
+                    context.Properties?.Items.TryGetValue("returnUrl", out storedReturnUrl);
+                    var redirect = await googleSignIn.CompleteAsync(
+                        context.Principal!,
+                        storedReturnUrl,
+                        context.HttpContext.RequestAborted);
+                    context.HandleResponse();
+                    context.Response.Redirect(redirect);
+                }
+                catch (Exception ex)
+                {
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("Astro.Api.GoogleAuth");
+                    logger.LogError(ex, "Falha ao concluir login Google.");
+                    context.HandleResponse();
+                    context.Response.Redirect(googleSignIn.ErrorRedirect());
+                }
+            };
             options.Events.OnRemoteFailure = context =>
             {
-                context.Response.Redirect($"{frontendUrl}/auth/callback?error=google");
+                var googleSignIn = context.HttpContext.RequestServices.GetRequiredService<GoogleSignInService>();
+                var oauthError = context.Request.Query["error"].ToString();
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Astro.Api.GoogleAuth");
+                logger.LogWarning(
+                    context.Failure,
+                    "Falha no OAuth Google: {OAuthError} {Message}",
+                    oauthError,
+                    context.Failure?.Message);
+                var error = string.Equals(oauthError, "access_denied", StringComparison.OrdinalIgnoreCase)
+                    ? "access_denied"
+                    : "google";
+                context.Response.Redirect(googleSignIn.ErrorRedirect(error));
                 context.HandleResponse();
                 return Task.CompletedTask;
             };
@@ -234,6 +278,17 @@ static void ConfigureMongo(WebApplicationBuilder builder)
     var mongoUrl = new MongoUrl(mongoUri);
     var clientSettings = MongoClientSettings.FromUrl(mongoUrl);
     clientSettings.ApplicationName = mongoUrl.ApplicationName ?? "Astro.Api";
+    if (OperatingSystem.IsWindows())
+    {
+        // Schannel/LSA no Windows (0x80090304) ao falar com o Atlas: evita cert de cliente
+        // e OCSP, e usa TLS 1.2 em vez do default que dispara o handshake.
+        clientSettings.SslSettings = new SslSettings
+        {
+            CheckCertificateRevocation = false,
+            EnabledSslProtocols = SslProtocols.Tls12,
+            ClientCertificateSelectionCallback = static (_, _, _, _, _) => null!
+        };
+    }
 
     var mongoClient = new MongoClient(clientSettings);
     var databaseName = string.IsNullOrWhiteSpace(mongoUrl.DatabaseName) ? "astro" : mongoUrl.DatabaseName;
