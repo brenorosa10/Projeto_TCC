@@ -15,6 +15,8 @@ services:
       Auth__Jwt__Issuer: ${Auth__Jwt__Issuer:-Astro.Api}
       Auth__Jwt__Audience: ${Auth__Jwt__Audience:-Astro.Frontend}
       Cors__Origins: ${Cors__Origins}
+    volumes:
+      - backend-dp-keys:/app/dp-keys
     expose:
       - "8080"
 
@@ -33,6 +35,9 @@ services:
     networks:
       - default
       - proxy
+
+volumes:
+  backend-dp-keys:
 
 networks:
   proxy:

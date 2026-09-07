@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -33,10 +34,17 @@ builder.WebHost.ConfigureKestrel(options =>
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
     options.KnownNetworks.Clear();
     options.KnownProxies.Clear();
 });
+
+var dataProtectionKeys = Path.Combine(builder.Environment.ContentRootPath, "dp-keys");
+Directory.CreateDirectory(dataProtectionKeys);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeys))
+    .SetApplicationName("Astro.Api");
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -102,11 +110,24 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
+if (!app.Environment.IsDevelopment()
+    && Uri.TryCreate(app.Configuration["Auth:FrontendUrl"], UriKind.Absolute, out var publicOrigin))
+{
+    app.Use(async (context, next) =>
+    {
+        context.Request.Scheme = publicOrigin.Scheme;
+        context.Request.Host = HostString.FromUriComponent(publicOrigin);
+        await next();
+    });
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+LogGoogleAuthConfig(app);
 
 app.UseCors("Frontend");
 app.UseAuthentication();
@@ -129,10 +150,37 @@ static string[] ReadCorsOrigins(IConfiguration configuration)
     return configuration.GetSection("Cors:Origins").Get<string[]>() ?? ["http://localhost:5173"];
 }
 
+static void LogGoogleAuthConfig(WebApplication app)
+{
+    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Astro.Api.GoogleAuth");
+    var clientId = app.Configuration["Auth:Google:ClientId"] ?? string.Empty;
+    var secret = app.Configuration["Auth:Google:ClientSecret"] ?? string.Empty;
+    var suffix = clientId.Length >= 8 ? clientId[^8..] : clientId;
+    var secretOk = secret.StartsWith("GOCSPX-", StringComparison.Ordinal)
+        && !secret.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase);
+    logger.LogInformation(
+        "Google OAuth: frontend={Frontend} clientIdSuffix={Suffix} secretLooksValid={SecretOk}",
+        app.Configuration["Auth:FrontendUrl"],
+        suffix,
+        secretOk);
+}
+
 static void ConfigureAuth(WebApplicationBuilder builder)
 {
-    var googleClientId = builder.Configuration["Auth:Google:ClientId"] ?? "YOUR_GOOGLE_CLIENT_ID";
-    var googleClientSecret = builder.Configuration["Auth:Google:ClientSecret"] ?? "YOUR_GOOGLE_CLIENT_SECRET";
+    var googleClientId = (builder.Configuration["Auth:Google:ClientId"] ?? string.Empty).Trim();
+    var googleClientSecret = (builder.Configuration["Auth:Google:ClientSecret"] ?? string.Empty).Trim();
+    if (string.IsNullOrWhiteSpace(googleClientId)
+        || googleClientId.Contains("YOUR_GOOGLE", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException("Auth:Google:ClientId inválido.");
+    }
+
+    if (string.IsNullOrWhiteSpace(googleClientSecret)
+        || googleClientSecret.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException(
+            "Auth:Google:ClientSecret inválido. No .env da VPS use o secret do cliente Web (começa com GOCSPX-), sem prefixo YOUR_.");
+    }
     var jwtKey = builder.Configuration["Auth:Jwt:Key"]
         ?? throw new InvalidOperationException("Auth:Jwt:Key não configurada.");
     var jwtIssuer = builder.Configuration["Auth:Jwt:Issuer"] ?? "Astro.Api";
@@ -147,6 +195,7 @@ static void ConfigureAuth(WebApplicationBuilder builder)
         .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
         {
             options.Cookie.Name = "astro.external";
+            options.Cookie.Path = "/";
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Lax;
             options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
@@ -165,6 +214,7 @@ static void ConfigureAuth(WebApplicationBuilder builder)
             options.Scope.Add("profile");
             options.Scope.Add("email");
             options.ClaimActions.MapJsonKey("picture", "picture");
+            options.CorrelationCookie.Path = "/";
             options.CorrelationCookie.SameSite = SameSiteMode.Lax;
             options.CorrelationCookie.SecurePolicy = builder.Environment.IsDevelopment()
                 ? CookieSecurePolicy.SameAsRequest
@@ -202,13 +252,12 @@ static void ConfigureAuth(WebApplicationBuilder builder)
                     .CreateLogger("Astro.Api.GoogleAuth");
                 logger.LogWarning(
                     context.Failure,
-                    "Falha no OAuth Google: {OAuthError} {Message}",
+                    "Falha no OAuth Google: {OAuthError} {Message} scheme={Scheme} host={Host}",
                     oauthError,
-                    context.Failure?.Message);
-                var error = string.Equals(oauthError, "access_denied", StringComparison.OrdinalIgnoreCase)
-                    ? "access_denied"
-                    : "google";
-                context.Response.Redirect(googleSignIn.ErrorRedirect(error));
+                    context.Failure?.Message,
+                    context.Request.Scheme,
+                    context.Request.Host);
+                context.Response.Redirect(googleSignIn.ErrorRedirect(ClassifyGoogleFailure(oauthError, context.Failure)));
                 context.HandleResponse();
                 return Task.CompletedTask;
             };
@@ -258,6 +307,32 @@ static void ConfigureAuth(WebApplicationBuilder builder)
                 }
             };
         });
+}
+
+static string ClassifyGoogleFailure(string oauthError, Exception? failure)
+{
+    if (string.Equals(oauthError, "access_denied", StringComparison.OrdinalIgnoreCase))
+    {
+        return "access_denied";
+    }
+
+    var message = failure?.Message ?? oauthError;
+    if (message.Contains("Correlation", StringComparison.OrdinalIgnoreCase))
+    {
+        return "correlation";
+    }
+
+    if (message.Contains("invalid_client", StringComparison.OrdinalIgnoreCase))
+    {
+        return "invalid_client";
+    }
+
+    if (message.Contains("redirect_uri", StringComparison.OrdinalIgnoreCase))
+    {
+        return "redirect_uri";
+    }
+
+    return "google";
 }
 
 static void ConfigureMongo(WebApplicationBuilder builder)

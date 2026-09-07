@@ -10,6 +10,21 @@ function isUserRole(value: string | null): value is UserRole {
   return value === "professor" || value === "aluno"
 }
 
+function googleAuthErrorMessage(authError: string) {
+  switch (authError) {
+    case "access_denied":
+      return "Login com Google cancelado."
+    case "invalid_client":
+      return "O secret do Google na VPS está incorreto. Confira Auth__Google__ClientSecret no .env (deve começar com GOCSPX-, sem YOUR_)."
+    case "redirect_uri":
+      return "O Google recusou o endereço de retorno. No Cloud Console a URI tem que ser https://astroarq.online/signin-google."
+    case "correlation":
+      return "A sessão do Google expirou ou o navegador bloqueou o cookie. Feche a aba, abra https://astroarq.online e tente de novo."
+    default:
+      return "Não foi possível entrar com o Google. Tente novamente."
+  }
+}
+
 export function AuthCallbackPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -23,11 +38,7 @@ export function AuthCallbackPage() {
     async function complete() {
       const authError = getAuthErrorFromUrl()
       if (authError) {
-        setError(
-          authError === "access_denied"
-            ? "Login com Google cancelado."
-            : "Não foi possível entrar com o Google. Tente novamente."
-        )
+        setError(googleAuthErrorMessage(authError))
         return
       }
 
