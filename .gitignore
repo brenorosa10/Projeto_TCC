@@ -7,6 +7,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+deploy/proxy/letsencrypt/
 frontend/.env
 frontend/.env.local
 backend/appsettings.*.local.json

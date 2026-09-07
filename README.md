@@ -15,17 +15,17 @@ No Google Cloud Console, crie um cliente OAuth **Web** e coloque `ClientId`/`Cli
 
 ## Deploy na VPS (junto com o ScoreHistory)
 
-O ScoreHistory já usa Caddy nas portas 80/443. O Astro entra como **outro domínio** na mesma VPS, sem segundo Caddy.
+O nginx de borda fica num diretório próprio (`~/proxy`), não dentro do Astro nem do ScoreHistory. Ele escuta 80/443, emite HTTPS (Let’s Encrypt) e encaminha cada domínio ao container certo na rede Docker `proxy`.
 
-1. DNS: `astro.seudominio.com` → IP da VPS.
-2. Google OAuth: origem e redirect `https://astro.seudominio.com` e `https://astro.seudominio.com/signin-google`.
+1. DNS: `astroarq.online` e `scorehistory.tech` → IP da VPS (sem AAAA de parking).
+2. Google OAuth: origem e redirect `https://astroarq.online` e `https://astroarq.online/signin-google`.
 3. Uma vez na VPS: `docker network create proxy`
-4. No `.env` do ScoreHistory: `ASTRO_ADDRESS=astro.seudominio.com`
-5. Recarregue o Caddy do ScoreHistory: `docker compose up -d caddy`
-6. Neste repositório: copie `.env.example` para `.env`, preencha Mongo/Google/JWT e `Auth__FrontendUrl` / `Cors__Origins` com `https://astro.seudominio.com`.
-7. `./scripts/deploy.sh` (ou `docker compose up -d --build`)
+4. Copie `deploy/proxy/` para `~/proxy`, preencha `CERTBOT_EMAIL` e rode `./obter-certs.sh`.
+5. Se ainda existir Caddy (ou outro processo) nas portas 80/443, pare-o. Os dois frontends precisam estar na rede `proxy`.
+6. Neste repositório: copie `.env.example` para `.env`, preencha Mongo/Google/JWT e `Auth__FrontendUrl` / `Cors__Origins` com `https://astroarq.online`.
+7. `./scripts/deploy.sh` (ou `docker compose up -d --build --remove-orphans`)
 
-O Caddy encaminha o domínio do Astro para o container `astro-frontend`. O nginx interno encaminha `/api`, `/hubs` e `/signin-google` para a API.
+O nginx de borda encaminha o domínio do Astro para o container `astro-frontend`. O nginx interno do container encaminha `/api`, `/hubs` e `/signin-google` para a API.
 
 ## Funcionalidades
 
