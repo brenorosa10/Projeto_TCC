@@ -448,6 +448,22 @@ public class StudySessionService(
         }
     }
 
+    private static StudySessionSectionViewResponse? ToSectionView(
+        StudySessionPlanSection? section,
+        Activity activity) =>
+        section is null
+            ? null
+            : new StudySessionSectionViewResponse(
+                section.Id,
+                section.Role,
+                section.Title,
+                section.Body,
+                section.FeedbackTemplate,
+                section.Objectives,
+                section.EstimatedMinutes,
+                section.Tips,
+                ActivityImage.ToDataUrl(activity.Sections.FirstOrDefault(item => item.Id == section.Id)));
+
     private static StudySessionPlanSection? CurrentPlanSection(StudySession session) =>
         session.SectionIndex >= 0 && session.SectionIndex < session.Plan.Count
             ? session.Plan[session.SectionIndex]
@@ -475,6 +491,8 @@ public class StudySessionService(
         DateTimeOffset? nextReviewAt = null)
     {
         var currentSection = CurrentPlanSection(session);
+        var prepPlan = session.Plan.FirstOrDefault(section =>
+            section.Role == SectionRoles.Prep && HasPrepContent(section));
         var practiceTotal = session.Plan
             .Where(section => section.Role == SectionRoles.Practice)
             .Sum(section => section.ItemIds.Count);
@@ -517,22 +535,12 @@ public class StudySessionService(
             session.Status,
             session.SectionIndex,
             session.Plan.Count,
-            currentSection is null
-                ? null
-                : new StudySessionSectionViewResponse(
-                    currentSection.Id,
-                    currentSection.Role,
-                    currentSection.Title,
-                    currentSection.Body,
-                    currentSection.FeedbackTemplate,
-                    currentSection.Objectives,
-                    currentSection.EstimatedMinutes,
-                    currentSection.Tips,
-                    ActivityImage.ToDataUrl(activity.Sections.FirstOrDefault(section => section.Id == currentSection.Id))),
+            ToSectionView(currentSection, activity),
             currentItem,
             currentFeedback,
             new StudySessionProgressResponse(session.Answers.Count, practiceTotal, correctCount),
-            showFeedback ? BuildFeedback(session, activity, currentSection) : null);
+            showFeedback ? BuildFeedback(session, activity, currentSection) : null,
+            ToSectionView(prepPlan, activity));
     }
 
     private static StudyAnswerResponse ToAnswerResponse(

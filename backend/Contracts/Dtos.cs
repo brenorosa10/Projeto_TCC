@@ -468,5 +468,6 @@ public record StudySessionResponse(
     StudySessionItemResponse? CurrentItem,
     StudyAnswerResponse? CurrentItemFeedback,
     StudySessionProgressResponse Progress,
-    StudySessionFeedbackResponse? Feedback
+    StudySessionFeedbackResponse? Feedback,
+    StudySessionSectionViewResponse? PrepSection = null
 );

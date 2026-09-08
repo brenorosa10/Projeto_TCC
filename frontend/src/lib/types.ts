@@ -407,6 +407,7 @@ export interface StudySession {
   currentItemFeedback?: StudyAnswerFeedback | null
   progress: StudySessionProgress
   feedback?: StudySessionFeedback | null
+  prepSection?: StudySessionSectionView | null
 }
 
 export interface CreateStudySessionRequest {
