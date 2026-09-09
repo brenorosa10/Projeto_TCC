@@ -4,15 +4,10 @@ import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
+import { activityTypeLabel } from "@/lib/item-kinds"
 import type { ActivitySummary, ClassRoom } from "@/lib/types"
-
-function typeLabel(type: string) {
-  if (type === "quiz") return "Quiz"
-  if (type === "flashcards") return "Flashcards"
-  if (type === "prova") return "Prova"
-  return type
-}
 
 export function AlunoClassDetailPage() {
   const { id } = useParams()
@@ -36,9 +31,9 @@ export function AlunoClassDetailPage() {
   return (
     <AppShell title="Turma">
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <PageLoader />
       ) : !classroom ? (
-        <p className="text-muted-foreground">Turma não encontrada.</p>
+        <EmptyState title="Turma não encontrada" description="Ela pode ter sido removida ou o link está incorreto." />
       ) : (
         <div className="space-y-8">
           <div>
@@ -68,9 +63,10 @@ export function AlunoClassDetailPage() {
           <section>
             <h2 className="font-display text-xl font-semibold">Atividades</h2>
             {activities.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                O professor ainda não publicou quizzes ou flashcards nesta turma.
-              </p>
+              <EmptyState
+                title="Nenhuma atividade ainda"
+                description="O professor ainda não publicou quizzes ou flashcards nesta turma."
+              />
             ) : (
               <ul className="mt-4 grid gap-3">
                 {activities.map((item) => (
@@ -81,14 +77,23 @@ export function AlunoClassDetailPage() {
                     <div>
                       <p className="font-medium">{item.title}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                        <Badge variant="secondary">{typeLabel(item.type)}</Badge>
+                        <Badge variant="secondary">{activityTypeLabel(item.type)}</Badge>
                         <span>
                           {item.itemCount}{" "}
                           {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
                         </span>
                       </div>
+                      {item.type === "prova" ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Prova é ao vivo: entre na sessão quando o professor liberar o PIN.
+                        </p>
+                      ) : null}
                     </div>
-                    {item.type === "quiz" ? (
+                    {item.type === "prova" ? (
+                      <Button asChild size="sm">
+                        <Link to="/aluno/sessao">Participar ao vivo</Link>
+                      </Button>
+                    ) : item.type === "quiz" ? (
                       <Button asChild size="sm">
                         <Link to={`/aluno/estudar/${item.id}`}>Estudar</Link>
                       </Button>

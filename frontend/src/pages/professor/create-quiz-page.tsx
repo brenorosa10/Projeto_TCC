@@ -24,6 +24,7 @@ import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
+import { PageLoader } from "@/components/ui/page-loader"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -254,6 +255,7 @@ function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
     promptBlocks,
     feedbackBlocks,
     feedbackMessages: feedbackMessages.length > 0 ? feedbackMessages : undefined,
+    timeLimitSeconds: Math.min(300, Math.max(5, question.timeLimitSeconds || 30)),
     topics: topics.length > 0 ? topics : undefined,
     difficulty: question.difficulty || undefined,
     requireExplanation: supportsReflection ? question.requireExplanation : undefined,
@@ -356,6 +358,7 @@ export function ProfessorCreateQuizPage() {
   const [prepTitle, setPrepTitle] = useState("")
   const [prepBody, setPrepBody] = useState("")
   const [prepObjectives, setPrepObjectives] = useState("")
+  const [prepMinutes, setPrepMinutes] = useState("")
   const [prepTips, setPrepTips] = useState("")
   const [prepImageDataUrl, setPrepImageDataUrl] = useState<string>()
   const [feedbackTitle, setFeedbackTitle] = useState("Resultados")
@@ -389,6 +392,7 @@ export function ProfessorCreateQuizPage() {
         setPrepTitle(prep?.title ?? "")
         setPrepBody(prep?.body ?? "")
         setPrepObjectives((prep?.objectives ?? []).join("\n"))
+        setPrepMinutes(prep?.estimatedMinutes ? String(prep.estimatedMinutes) : "")
         setPrepTips((prep?.tips ?? []).join("\n"))
         setPrepImageDataUrl(prep?.imageDataUrl ?? undefined)
         setFeedbackTitle(feedback?.title ?? "Resultados")
@@ -598,6 +602,7 @@ export function ProfessorCreateQuizPage() {
           title: prepTitle.trim() || undefined,
           body: prepBody.trim() || undefined,
           objectives: lines(prepObjectives),
+          estimatedMinutes: Number(prepMinutes) || undefined,
           tips: lines(prepTips),
           imageDataUrl: prepImageDataUrl,
         },
@@ -639,7 +644,7 @@ export function ProfessorCreateQuizPage() {
   return (
     <AppShell title={isEditing ? "Editar quiz" : "Novo quiz"}>
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <PageLoader />
       ) : (
         <div className="space-y-4">
           <div>
@@ -746,6 +751,7 @@ export function ProfessorCreateQuizPage() {
                 prepTitle={prepTitle}
                 prepBody={prepBody}
                 prepObjectives={prepObjectives}
+                prepMinutes={prepMinutes}
                 prepTips={prepTips}
                 prepImageDataUrl={prepImageDataUrl}
                 feedbackTitle={feedbackTitle}
@@ -753,6 +759,7 @@ export function ProfessorCreateQuizPage() {
                 onPrepTitle={setPrepTitle}
                 onPrepBody={setPrepBody}
                 onPrepObjectives={setPrepObjectives}
+                onPrepMinutes={setPrepMinutes}
                 onPrepTips={setPrepTips}
                 onPrepImageDataUrl={setPrepImageDataUrl}
                 onFeedbackTitle={setFeedbackTitle}
@@ -939,6 +946,21 @@ export function ProfessorCreateQuizPage() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`time-${question.key}`}>Tempo ao vivo (segundos)</Label>
+                    <Input
+                      id={`time-${question.key}`}
+                      type="number"
+                      min={5}
+                      max={300}
+                      value={question.timeLimitSeconds}
+                      onChange={(event) =>
+                        updateQuestion(question.key, {
+                          timeLimitSeconds: Number(event.target.value) || 30,
+                        })
+                      }
+                    />
                   </div>
                 </div>
 

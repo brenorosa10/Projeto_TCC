@@ -66,7 +66,7 @@ export function PrepPanel({
         {imageDataUrl ? (
           <img
             src={imageDataUrl}
-            alt=""
+            alt="Imagem da pré-seção"
             className="max-h-72 w-full rounded-xl border border-border bg-muted/40 object-contain"
           />
         ) : null}

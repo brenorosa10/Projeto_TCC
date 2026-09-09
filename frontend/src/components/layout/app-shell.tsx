@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { ArrowLeft, LogOut } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -24,6 +24,7 @@ export function AppShell({
 }) {
   const { profile, signOut } = useAuth()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const home = !profile ? "/" : profile.role === "professor" ? "/professor" : "/aluno"
   const backTo = pathname.startsWith("/explorar") ? "/" : parentRoute(pathname)
   const displayName = profile?.username ?? profile?.fullName ?? profile?.email
@@ -39,12 +40,14 @@ export function AppShell({
     ? []
     : profile.role === "professor"
       ? [
+          { to: "/professor", label: "Início", exact: true },
           { to: "/professor/turmas", label: "Turmas" },
           { to: "/professor/atividades", label: "Atividades" },
           { to: "/professor/ao-vivo", label: "Ao vivo" },
           { to: "/professor/analytics", label: "Analytics" },
         ]
       : [
+          { to: "/aluno", label: "Início", exact: true },
           { to: "/aluno/turmas", label: "Turmas" },
           { to: "/aluno/estudar", label: "Estudar" },
           { to: "/aluno/sessao", label: "Ao vivo" },
@@ -81,11 +84,12 @@ export function AppShell({
           {navLinks.length > 0 ? (
             <nav className="hidden items-center gap-1 md:flex">
               {navLinks.map((link) => {
-                const active = pathname.startsWith(link.to)
+                const active = isNavActive(pathname, link.to, "exact" in link && link.exact)
                 return (
                   <Link
                     key={link.to}
                     to={link.to}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
                       "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                       active
@@ -124,7 +128,11 @@ export function AppShell({
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{profile.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => void signOut()}>
+                <DropdownMenuItem
+                  onClick={() => {
+                    void signOut().then(() => navigate("/", { replace: true }))
+                  }}
+                >
                   <LogOut className="h-4 w-4" />
                   Sair
                 </DropdownMenuItem>
@@ -140,11 +148,12 @@ export function AppShell({
       {navLinks.length > 0 ? (
         <nav className="scrollbar-none flex gap-1 overflow-x-auto border-b border-border/60 bg-background/60 px-4 py-2 backdrop-blur md:hidden">
           {navLinks.map((link) => {
-            const active = pathname.startsWith(link.to)
+            const active = isNavActive(pathname, link.to, "exact" in link && link.exact)
             return (
               <Link
                 key={link.to}
                 to={link.to}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
                   active ? "bg-primary text-primary-foreground" : "bg-secondary/70 text-muted-foreground"
@@ -160,6 +169,11 @@ export function AppShell({
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">{children}</main>
     </div>
   )
+}
+
+function isNavActive(pathname: string, to: string, exact?: boolean) {
+  if (exact) return pathname === to
+  return pathname === to || pathname.startsWith(`${to}/`)
 }
 
 function parentRoute(pathname: string) {

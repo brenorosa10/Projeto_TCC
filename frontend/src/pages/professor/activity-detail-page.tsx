@@ -9,18 +9,12 @@ import { RichText } from "@/components/rich-text/rich-text"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
 import { hasContentBlocks } from "@/lib/content-blocks"
-import { findSection, hasSectionCopy, itemKindLabel } from "@/lib/item-kinds"
+import { activityTypeLabel, findSection, hasSectionCopy, itemKindLabel } from "@/lib/item-kinds"
 import { cn } from "@/lib/utils"
 import type { Activity, ActivityItem, ActivitySection, ClassRoom } from "@/lib/types"
-
-function typeLabel(type: string) {
-  if (type === "quiz") return "Quiz"
-  if (type === "flashcards") return "Flashcards"
-  if (type === "prova") return "Prova"
-  return type
-}
 
 export function ProfessorActivityDetailPage() {
   const { activityId } = useParams()
@@ -30,6 +24,7 @@ export function ProfessorActivityDetailPage() {
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
+  const [importedDecks, setImportedDecks] = useState<Activity[]>([])
   const [savingLinks, setSavingLinks] = useState(false)
 
   useEffect(() => {
@@ -72,6 +67,7 @@ export function ProfessorActivityDetailPage() {
     setImporting(true)
     try {
       const deck = await api.importFlashcards(activity.id)
+      setImportedDecks((prev) => [deck, ...prev.filter((item) => item.id !== deck.id)])
       toast.success(
         `Deck "${deck.title}" com ${deck.itemCount} cartão(ões) a partir das respostas corretas.`
       )
@@ -85,9 +81,12 @@ export function ProfessorActivityDetailPage() {
   return (
     <AppShell title="Atividade">
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <PageLoader />
       ) : !activity ? (
-        <p className="text-muted-foreground">Atividade não encontrada.</p>
+        <EmptyState
+          title="Atividade não encontrada"
+          description="Ela pode ter sido removida ou o link está incorreto."
+        />
       ) : (
         <div className="space-y-8">
           <div>
@@ -99,7 +98,7 @@ export function ProfessorActivityDetailPage() {
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <h1 className="font-display text-3xl font-semibold">{activity.title}</h1>
-              <Badge variant="secondary">{typeLabel(activity.type)}</Badge>
+              <Badge variant="secondary">{activityTypeLabel(activity.type)}</Badge>
               <Badge variant="outline">{activity.isPublic ? "Público" : "Privado"}</Badge>
             </div>
             <p className="mt-2 text-muted-foreground">
@@ -150,6 +149,24 @@ export function ProfessorActivityDetailPage() {
               />
             </div>
           </div>
+
+          {importedDecks.length > 0 ? (
+            <section className="surface-card space-y-3 p-4 sm:p-6">
+              <h2 className="font-display text-lg font-semibold">Decks importados</h2>
+              <ul className="grid gap-2">
+                {importedDecks.map((deck) => (
+                  <li key={deck.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span>
+                      {deck.title} · {deck.itemCount} cartão(ões)
+                    </span>
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/professor/atividades/${deck.id}`}>Abrir deck</Link>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           <section className="surface-card space-y-4 p-4 sm:p-6">
             <div>
@@ -242,7 +259,13 @@ function SectionCopy({
         {section?.imageDataUrl ? (
           <img
             src={section.imageDataUrl}
-            alt=""
+            alt={
+              section.title?.trim()
+                ? `Imagem da seção ${section.title}`
+                : isPrep
+                  ? "Imagem da pré-seção"
+                  : "Imagem da pós-seção"
+            }
             className="max-h-56 w-full rounded-lg border border-border object-contain bg-muted/30"
           />
         ) : null}

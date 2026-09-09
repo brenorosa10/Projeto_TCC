@@ -7,6 +7,7 @@ import { PrepFeedbackFields } from "@/components/activity/prep-feedback-fields"
 import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
+import { PageLoader } from "@/components/ui/page-loader"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor"
@@ -171,7 +172,7 @@ export function ProfessorCreateFlashcardsPage() {
   return (
     <AppShell title={isEditing ? "Editar flashcards" : "Novos flashcards"}>
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <PageLoader />
       ) : (
       <form className="space-y-8" onSubmit={(event) => void handleSubmit(event)}>
         <div>

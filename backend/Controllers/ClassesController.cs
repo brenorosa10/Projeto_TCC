@@ -124,24 +124,21 @@ public class ClassesController(
             return NotFound(new { detail = "Código de turma inválido." });
         }
 
-        if (classroom.Enrollments.All(e => e.StudentId != profile.Id))
+        var enrollment = new ClassEnrollment
         {
-            var enrollment = new ClassEnrollment
-            {
-                StudentId = profile.Id,
-                StudentName = profile.FullName,
-                JoinedAt = DateTimeOffset.UtcNow
-            };
+            StudentId = profile.Id,
+            StudentName = profile.FullName,
+            JoinedAt = DateTimeOffset.UtcNow
+        };
 
-            await db.Classes.UpdateOneAsync(
-                c => c.Id == classroom.Id,
-                Builders<ClassRoom>.Update.Push(c => c.Enrollments, enrollment),
-                cancellationToken: cancellationToken);
+        await db.Classes.UpdateOneAsync(
+            c => c.Id == classroom.Id && !c.Enrollments.Any(e => e.StudentId == profile.Id),
+            Builders<ClassRoom>.Update.Push(c => c.Enrollments, enrollment),
+            cancellationToken: cancellationToken);
 
-            classroom.Enrollments.Add(enrollment);
-        }
-
-        return Ok(ToResponse(classroom));
+        var current = await db.Classes.Find(c => c.Id == classroom.Id).FirstOrDefaultAsync(cancellationToken)
+            ?? classroom;
+        return Ok(ToResponse(current));
     }
 
     private async Task<Profile?> GetCurrentProfileAsync(CancellationToken cancellationToken)

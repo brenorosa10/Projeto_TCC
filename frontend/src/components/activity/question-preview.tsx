@@ -21,7 +21,7 @@ export function PromptMedia({
   const image = imageDataUrl ? (
     <img
       src={imageDataUrl}
-      alt=""
+      alt="Imagem da questão"
       className={cn(
         "w-full rounded-xl border border-border object-contain bg-muted/30",
         className ?? "max-h-72"

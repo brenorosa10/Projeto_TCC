@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import {
   Dialog,
   DialogContent,
@@ -100,9 +101,12 @@ export function ProfessorClassesPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando turmas...</p>
+        <PageLoader />
       ) : classes.length === 0 ? (
-        <p className="text-muted-foreground">Nenhuma turma ainda. Crie a primeira.</p>
+        <EmptyState
+          title="Nenhuma turma ainda"
+          description="Crie a primeira turma para gerar um código de acesso aos alunos."
+        />
       ) : (
         <ul className="grid gap-3">
           {classes.map((item) => (

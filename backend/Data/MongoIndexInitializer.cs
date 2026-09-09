@@ -81,7 +81,13 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
                 new CreateIndexModel<LiveSession>(
                     Builders<LiveSession>.IndexKeys.Ascending(x => x.ActivityId)),
                 new CreateIndexModel<LiveSession>(
-                    Builders<LiveSession>.IndexKeys.Ascending(x => x.ProfessorId).Descending(x => x.StartedAt))
+                    Builders<LiveSession>.IndexKeys.Ascending(x => x.ProfessorId).Descending(x => x.StartedAt)),
+                new CreateIndexModel<LiveSession>(
+                    Builders<LiveSession>.IndexKeys.Ascending(x => x.HostConnectionId),
+                    new CreateIndexOptions { Sparse = true }),
+                new CreateIndexModel<LiveSession>(
+                    Builders<LiveSession>.IndexKeys.Ascending("participants.connectionId"),
+                    new CreateIndexOptions { Sparse = true })
             ],
             cancellationToken);
 
@@ -95,6 +101,22 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
                     Builders<AnswerAttempt>.IndexKeys.Ascending(x => x.LiveSessionId))
             ],
             cancellationToken);
+
+        await CreateIndexSafelyAsync(
+            "live_answer_unique",
+            () => db.AnswerAttempts.Indexes.CreateOneAsync(
+                new CreateIndexModel<AnswerAttempt>(
+                    Builders<AnswerAttempt>.IndexKeys
+                        .Ascending(x => x.LiveSessionId)
+                        .Ascending(x => x.StudentId)
+                        .Ascending(x => x.ItemId),
+                    new CreateIndexOptions<AnswerAttempt>
+                    {
+                        Name = "live_answer_unique",
+                        Unique = true,
+                        PartialFilterExpression = Builders<AnswerAttempt>.Filter.Ne(x => x.LiveSessionId, null)
+                    }),
+                cancellationToken: cancellationToken));
 
         await db.ReviewProgress.Indexes.CreateManyAsync(
             [
@@ -125,6 +147,13 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
 
     private async Task MergeDuplicateEmailsAsync(CancellationToken cancellationToken)
     {
+        var profileCount = await db.Profiles.CountDocumentsAsync(FilterDefinition<Profile>.Empty, cancellationToken: cancellationToken);
+        if (profileCount > 2000)
+        {
+            logger.LogInformation("Pulando unificação de e-mails duplicados ({Count} perfis).", profileCount);
+            return;
+        }
+
         var profiles = await db.Profiles.Find(FilterDefinition<Profile>.Empty).ToListAsync(cancellationToken);
         var groups = profiles
             .Where(profile => !string.IsNullOrWhiteSpace(profile.Email))

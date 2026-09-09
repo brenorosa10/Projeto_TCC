@@ -64,6 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null)
         return null
       }
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        clearAccessToken()
+        setSession(null)
+        setProfile(null)
+        return null
+      }
       throw error
     }
   }, [])

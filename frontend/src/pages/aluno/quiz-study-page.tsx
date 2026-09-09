@@ -14,8 +14,9 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { hasContentBlocks } from "@/lib/content-blocks"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { itemKindLabel } from "@/lib/item-kinds"
-import { cn } from "@/lib/utils"
+import { cn, stripMarkdown } from "@/lib/utils"
 import type { StudySession, SubmitStudyAnswerRequest } from "@/lib/types"
 
 export function AlunoQuizStudyPage() {
@@ -97,9 +98,12 @@ export function AlunoQuizStudyPage() {
   return (
     <AppShell title="Estudar quiz">
       {loading ? (
-        <StudySkeleton />
+        <PageLoader />
       ) : !study ? (
-        <p className="text-muted-foreground">Quiz não encontrado.</p>
+        <EmptyState
+          title="Quiz não encontrado"
+          description="A atividade pode ter sido removida ou o link está incorreto."
+        />
       ) : (
         <div className="mx-auto max-w-3xl space-y-6">
           <div>
@@ -413,16 +417,6 @@ function StudyStepper({
   )
 }
 
-function StudySkeleton() {
-  return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="skeleton h-9 w-2/3 rounded-lg" />
-      <div className="skeleton h-10 w-full rounded-lg" />
-      <div className="skeleton h-64 w-full rounded-xl" />
-    </div>
-  )
-}
-
 function FeedbackView({
   study,
   backHref,
@@ -466,20 +460,6 @@ function FeedbackView({
       }
     />
   )
-}
-
-/** Plain-text preview of an authored prompt, for compact list rows. */
-function stripMarkdown(value?: string | null) {
-  return (value ?? "")
-    .replace(/```[\s\S]*?```/g, " [código] ")
-    .replace(/`([^`]*)`/g, "$1")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-    .replace(/^\s{0,3}>\s?/gm, "")
-    .replace(/[*_~]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
 }
 
 function feedbackLabel(kind: string, isCorrect: boolean, remembered?: boolean | null) {

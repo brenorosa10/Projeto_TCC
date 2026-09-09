@@ -72,7 +72,7 @@ public static class ActivityMapper
                     option.Position))
                 .ToList(),
             item.Front,
-            item.Back,
+            includeAnswers ? item.Back : null,
             ActivityImage.ToDataUrl(item),
             item.SectionId,
             item.Kind == ItemKinds.MultipleChoice ? item.AllowMultiple : null,

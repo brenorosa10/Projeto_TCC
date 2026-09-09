@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import {
   Dialog,
   DialogContent,
@@ -13,14 +14,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { api } from "@/lib/api"
+import { activityTypeLabel } from "@/lib/item-kinds"
 import type { ActivitySummary, ClassRoom } from "@/lib/types"
-
-function typeLabel(type: string) {
-  if (type === "quiz") return "Quiz"
-  if (type === "flashcards") return "Flashcards"
-  if (type === "prova") return "Prova"
-  return type
-}
 
 export function ProfessorClassDetailPage() {
   const { id } = useParams()
@@ -83,9 +78,9 @@ export function ProfessorClassDetailPage() {
   return (
     <AppShell title="Detalhe da turma">
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <PageLoader />
       ) : !classroom ? (
-        <p className="text-muted-foreground">Turma não encontrada.</p>
+        <EmptyState title="Turma não encontrada" description="Ela pode ter sido removida ou o link está incorreto." />
       ) : (
         <div className="space-y-8">
           <div>
@@ -129,7 +124,7 @@ export function ProfessorClassDetailPage() {
                       <li key={item.id} className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium">{item.title}</p>
-                          <p className="text-xs text-muted-foreground">{typeLabel(item.type)}</p>
+                          <p className="text-xs text-muted-foreground">{activityTypeLabel(item.type)}</p>
                         </div>
                         <Button
                           type="button"
@@ -156,9 +151,10 @@ export function ProfessorClassDetailPage() {
           <section>
             <h2 className="font-display text-xl font-semibold">Atividades desta turma</h2>
             {activities.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Nenhuma atividade vinculada. Crie na biblioteca e vincule aqui.
-              </p>
+              <EmptyState
+                title="Nenhuma atividade vinculada"
+                description="Crie na biblioteca e vincule aqui para os alunos estudarem."
+              />
             ) : (
               <ul className="mt-4 grid gap-3">
                 {activities.map((item) => (
@@ -174,7 +170,7 @@ export function ProfessorClassDetailPage() {
                         {item.title}
                       </Link>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                        <Badge variant="secondary">{typeLabel(item.type)}</Badge>
+                        <Badge variant="secondary">{activityTypeLabel(item.type)}</Badge>
                         <span>
                           {item.itemCount}{" "}
                           {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}

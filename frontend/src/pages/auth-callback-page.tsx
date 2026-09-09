@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { ApiError } from "@/lib/api"
@@ -31,9 +31,12 @@ export function AuthCallbackPage() {
   const { session, loading, ensureProfile, refreshProfile, getIntendedRole, profile } =
     useAuth()
   const [error, setError] = useState<string | null>(null)
+  const started = useRef(false)
 
   useEffect(() => {
     if (loading) return
+    if (started.current) return
+    started.current = true
 
     async function complete() {
       const authError = getAuthErrorFromUrl()

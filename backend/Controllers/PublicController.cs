@@ -20,6 +20,7 @@ public class PublicController(MongoDbContext db) : ControllerBase
         var activities = await db.Activities
             .Find(a => a.IsPublic && (a.Type == ActivityTypes.Quiz || a.Type == ActivityTypes.Flashcards))
             .SortByDescending(a => a.CreatedAt)
+            .Limit(48)
             .ToListAsync(cancellationToken);
 
         var professorIds = activities.Select(a => a.ProfessorId).Distinct().ToList();

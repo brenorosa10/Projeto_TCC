@@ -70,7 +70,7 @@ public static class ActivityItemPresenter
                 .Select(option => new QuestionOptionResponse(option.Id, option.Text, null, option.Position))
                 .ToList(),
             item.Front,
-            item.Kind == ItemKinds.Flashcard ? item.Back : null,
+            null,
             ActivityImage.ToDataUrl(item),
             item.Kind == ItemKinds.MultipleChoice ? item.AllowMultiple : null,
             left,

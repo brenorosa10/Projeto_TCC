@@ -5,15 +5,10 @@ import { DeleteActivityButton } from "@/components/activity/delete-activity-butt
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
+import { activityTypeLabel } from "@/lib/item-kinds"
 import type { ActivitySummary } from "@/lib/types"
-
-function typeLabel(type: string) {
-  if (type === "quiz") return "Quiz"
-  if (type === "flashcards") return "Flashcards"
-  if (type === "prova") return "Prova"
-  return type
-}
 
 export function ProfessorActivitiesPage() {
   const [activities, setActivities] = useState<ActivitySummary[]>([])
@@ -24,6 +19,7 @@ export function ProfessorActivitiesPage() {
     setImportingId(activity.id)
     try {
       const deck = await api.importFlashcards(activity.id)
+      setActivities((current) => [deck, ...current.filter((item) => item.id !== deck.id)])
       toast.success(
         `Deck "${deck.title}" com ${deck.itemCount} cartão(ões) a partir das respostas corretas.`
       )
@@ -64,9 +60,12 @@ export function ProfessorActivitiesPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <PageLoader />
       ) : activities.length === 0 ? (
-        <p className="text-muted-foreground">Nenhuma atividade ainda. Crie um quiz ou um deck.</p>
+        <EmptyState
+          title="Nenhuma atividade ainda"
+          description="Crie um quiz ou um deck para começar a biblioteca."
+        />
       ) : (
         <ul className="grid gap-3">
           {activities.map((item) => (
@@ -82,7 +81,7 @@ export function ProfessorActivitiesPage() {
                   {item.title}
                 </Link>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                  <Badge variant="secondary">{typeLabel(item.type)}</Badge>
+                  <Badge variant="secondary">{activityTypeLabel(item.type)}</Badge>
                   <Badge variant="outline">{item.isPublic ? "Público" : "Privado"}</Badge>
                   <span>
                     {item.itemCount} {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}

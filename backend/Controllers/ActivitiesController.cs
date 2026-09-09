@@ -115,7 +115,7 @@ public class ActivitiesController(
             return NotFound(new { detail = "Atividade não encontrada." });
         }
 
-        if (!await OwnsActivityAsync(profile, activity, cancellationToken))
+        if (!IsActivityAuthor(profile, activity))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Apenas o autor da atividade pode editá-la." });
         }
@@ -165,7 +165,7 @@ public class ActivitiesController(
             return NotFound(new { detail = "Atividade não encontrada." });
         }
 
-        if (!await OwnsActivityAsync(profile, activity, cancellationToken))
+        if (!IsActivityAuthor(profile, activity))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Apenas o autor da atividade pode excluí-la." });
         }
@@ -242,7 +242,7 @@ public class ActivitiesController(
             return NotFound(new { detail = "Atividade não encontrada." });
         }
 
-        if (!await OwnsActivityAsync(profile, activity, cancellationToken))
+        if (!IsActivityAuthor(profile, activity))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Apenas o autor da atividade pode vinculá-la a turmas." });
         }
@@ -282,8 +282,7 @@ public class ActivitiesController(
             return NotFound(new { detail = "Atividade não encontrada." });
         }
 
-        var owns = await OwnsActivityAsync(profile, activity, cancellationToken);
-        if (owns)
+        if (await CanViewAnswersAsync(profile, activity, cancellationToken))
         {
             return Ok(ActivityMapper.ToResponse(activity, includeAnswers: true));
         }
@@ -336,7 +335,7 @@ public class ActivitiesController(
             return NotFound(new { detail = "Atividade não encontrada." });
         }
 
-        if (!await OwnsActivityAsync(profile, quiz, cancellationToken))
+        if (!IsActivityAuthor(profile, quiz))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Apenas o autor do quiz pode importar flashcards." });
         }
@@ -457,7 +456,7 @@ public class ActivitiesController(
             return (null, NotFound(new { detail = "Atividade não encontrada." }));
         }
 
-        if (!await OwnsActivityAsync(profile, activity, cancellationToken))
+        if (!IsActivityAuthor(profile, activity))
         {
             return (null, StatusCode(StatusCodes.Status403Forbidden, new { detail = "Esta atividade não é sua." }));
         }
@@ -486,16 +485,14 @@ public class ActivitiesController(
         return (ActivityMapper.ToResponse(activity, includeAnswers: true), null);
     }
 
-    private async Task<bool> OwnsActivityAsync(Profile profile, Activity activity, CancellationToken cancellationToken)
+    private static bool IsActivityAuthor(Profile profile, Activity activity) =>
+        profile.Role == UserRoles.Professor && activity.ProfessorId == profile.Id;
+
+    private async Task<bool> TeachesLinkedClassAsync(Profile profile, Activity activity, CancellationToken cancellationToken)
     {
         if (profile.Role != UserRoles.Professor)
         {
             return false;
-        }
-
-        if (activity.ProfessorId == profile.Id)
-        {
-            return true;
         }
 
         var linked = activity.LinkedClassIds();
@@ -508,6 +505,11 @@ public class ActivitiesController(
             .Find(c => linked.Contains(c.Id) && c.ProfessorId == profile.Id)
             .AnyAsync(cancellationToken);
     }
+
+    private Task<bool> CanViewAnswersAsync(Profile profile, Activity activity, CancellationToken cancellationToken) =>
+        IsActivityAuthor(profile, activity)
+            ? Task.FromResult(true)
+            : TeachesLinkedClassAsync(profile, activity, cancellationToken);
 
     private async Task<(Profile? Profile, ClassRoom? Classroom, ActionResult? Error)> ResolveClassAccessAsync(
         Guid classId,

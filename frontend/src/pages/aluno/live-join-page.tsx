@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import type * as signalR from "@microsoft/signalr"
 import { toast } from "sonner"
@@ -23,12 +23,17 @@ export function AlunoLiveJoinPage() {
   const [busy, setBusy] = useState(false)
   const [state, setState] = useState<LiveSessionState | null>(null)
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null)
+  const connectionRef = useRef<signalR.HubConnection | null>(null)
+
+  useEffect(() => {
+    connectionRef.current = connection
+  }, [connection])
 
   useEffect(() => {
     return () => {
-      void connection?.stop()
+      void connectionRef.current?.stop()
     }
-  }, [connection])
+  }, [])
 
   async function handleJoin() {
     if (pin.length !== 6) {
@@ -37,6 +42,8 @@ export function AlunoLiveJoinPage() {
     }
     setJoining(true)
     try {
+      await connectionRef.current?.stop()
+      setConnection(null)
       const preview = await api.getLiveSessionByPin(pin)
       const hub = createLiveHub(setState)
       try {
@@ -48,6 +55,7 @@ export function AlunoLiveJoinPage() {
       hub.onreconnected(() => {
         void joinLiveAsStudent(hub, pin).catch(() => undefined)
       })
+      connectionRef.current = hub
       setConnection(hub)
       setState(preview)
     } catch (error) {
@@ -55,6 +63,15 @@ export function AlunoLiveJoinPage() {
     } finally {
       setJoining(false)
     }
+  }
+
+  async function resetSession() {
+    await connectionRef.current?.stop()
+    connectionRef.current = null
+    setConnection(null)
+    setState(null)
+    setBusy(false)
+    setPin("")
   }
 
   async function handleSubmit(payload: SubmitStudyAnswerRequest) {
@@ -72,7 +89,13 @@ export function AlunoLiveJoinPage() {
   return (
     <AppShell title="Sessão ao vivo">
       {!state ? (
-        <div className="mx-auto max-w-md space-y-6">
+        <form
+          className="mx-auto max-w-md space-y-6"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void handleJoin()
+          }}
+        >
           <div>
             <h1 className="font-display text-3xl font-semibold">Entrar com PIN</h1>
             <p className="mt-2 text-muted-foreground">
@@ -86,16 +109,23 @@ export function AlunoLiveJoinPage() {
               value={pin}
               onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder="839201"
+              inputMode="numeric"
+              autoComplete="one-time-code"
               maxLength={6}
               className="font-mono tracking-widest"
             />
           </div>
-          <Button type="button" disabled={joining} onClick={() => void handleJoin()}>
+          <Button type="submit" disabled={joining || pin.length !== 6}>
             {joining ? "Entrando..." : "Entrar na sessão"}
           </Button>
-        </div>
+        </form>
       ) : (
-        <StudentRoom state={state} busy={busy} onSubmit={(payload) => void handleSubmit(payload)} />
+        <StudentRoom
+          state={state}
+          busy={busy}
+          onSubmit={(payload) => void handleSubmit(payload)}
+          onReset={() => void resetSession()}
+        />
       )}
     </AppShell>
   )
@@ -105,10 +135,12 @@ function StudentRoom({
   state,
   busy,
   onSubmit,
+  onReset,
 }: {
   state: LiveSessionState
   busy: boolean
   onSubmit: (payload: SubmitStudyAnswerRequest) => void
+  onReset: () => void
 }) {
   const hasAnswered = Boolean(state.personal?.hasAnswered)
 
@@ -229,9 +261,14 @@ function StudentRoom({
               ))}
             </ol>
           ) : null}
-          <Button asChild variant="outline">
-            <Link to="/aluno">Voltar ao início</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link to="/aluno">Voltar ao início</Link>
+            </Button>
+            <Button type="button" onClick={onReset}>
+              Entrar em outra sessão
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>

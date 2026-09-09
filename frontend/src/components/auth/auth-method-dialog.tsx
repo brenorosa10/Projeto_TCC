@@ -65,7 +65,7 @@ export function AuthMethodDialog({ role, onClose }: AuthMethodDialogProps) {
       const profile = await signInWithPassword(login.trim(), password)
       if (profile.role !== role) {
         toast.message(
-          `Você entrou como ${roleLabel(profile.role)}. O perfil da conta não pode ser trocado.`
+          `Esta conta já é de ${roleLabel(profile.role)}. Não dá para entrar como ${roleLabel(role)} com o mesmo e-mail.`
         )
       }
       navigate(profile.role === "professor" ? "/professor" : "/aluno", { replace: true })

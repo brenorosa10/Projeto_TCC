@@ -42,6 +42,7 @@ public class StudyController(
         var quizzes = await db.Activities
             .Find(filter)
             .SortByDescending(a => a.CreatedAt)
+            .Limit(200)
             .ToListAsync(cancellationToken);
 
         var summaries = quizzes.Select(quiz =>
@@ -73,14 +74,21 @@ public class StudyController(
         var nameById = classes.ToDictionary(c => c.Id, c => c.Name);
         var decks = await FindStudyActivitiesAsync(classIds, ActivityTypes.Flashcards, cancellationToken);
         var now = DateTimeOffset.UtcNow;
+        var deckIds = decks.Select(deck => deck.Id).ToList();
+        var allProgress = deckIds.Count == 0
+            ? []
+            : await db.ReviewProgress
+                .Find(p => p.StudentId == access.Profile!.Id && deckIds.Contains(p.ActivityId))
+                .ToListAsync(cancellationToken);
+        var progressByDeck = allProgress
+            .GroupBy(item => item.ActivityId)
+            .ToDictionary(group => group.Key, group => group.ToList());
         var summaries = new List<StudyFlashcardSummaryResponse>();
 
         foreach (var deck in decks)
         {
-            var progress = await db.ReviewProgress
-                .Find(p => p.StudentId == access.Profile.Id && p.ActivityId == deck.Id)
-                .ToListAsync(cancellationToken);
-            var progressByItem = progress.ToDictionary(p => p.ItemId);
+            var progressByItem = progressByDeck.GetValueOrDefault(deck.Id, [])
+                .ToDictionary(p => p.ItemId);
 
             var dueCount = deck.Items.Count(item => IsDue(progressByItem.GetValueOrDefault(item.Id), now));
             var names = deck.LinkedClassIds()
@@ -248,6 +256,7 @@ public class StudyController(
         return db.Activities
             .Find(filter)
             .SortByDescending(a => a.CreatedAt)
+            .Limit(200)
             .ToListAsync(cancellationToken);
     }
 

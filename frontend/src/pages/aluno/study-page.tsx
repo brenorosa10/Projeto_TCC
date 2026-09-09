@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
 import type { StudyFlashcardSummary, StudyQuizSummary } from "@/lib/types"
 
@@ -29,7 +30,7 @@ export function AlunoStudyPage() {
   return (
     <AppShell title="Estudar">
       <div className="mb-8 space-y-2">
-        <h1 className="font-display text-3xl font-semibold">Estudo off-line</h1>
+        <h1 className="font-display text-3xl font-semibold">Estudo individual</h1>
         <p className="max-w-2xl text-muted-foreground">
           Quizzes com preparação, ordenação, lacunas, categorias e feedback ao terminar. Flashcards
           continuam com repetição espaçada (Leitner, caixas 1 a 5).
@@ -37,11 +38,12 @@ export function AlunoStudyPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <PageLoader />
       ) : empty ? (
-        <p className="text-muted-foreground">
-          Nenhum quiz ou deck vinculado às suas turmas ainda.
-        </p>
+        <EmptyState
+          title="Nada para estudar ainda"
+          description="Nenhum quiz ou deck vinculado às suas turmas ainda."
+        />
       ) : (
         <div className="space-y-10">
           <section>

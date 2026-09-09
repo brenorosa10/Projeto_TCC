@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { Layers, RefreshCw, Sparkles } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { PrepPanel } from "@/components/activity/prep-panel"
@@ -32,6 +33,7 @@ export function AlunoFlashcardStudyPage() {
 
   useEffect(() => {
     if (!activityId) return
+    let cancelled = false
     const activityLoader = isGuest ? api.getPublicActivity(activityId) : api.getActivity(activityId)
     const deckLoader = isGuest
       ? api.getPublicFlashcardSession(activityId)
@@ -39,6 +41,7 @@ export function AlunoFlashcardStudyPage() {
 
     Promise.all([activityLoader, deckLoader])
       .then(([activity, data]) => {
+        if (cancelled) return
         const prepSection = findSection(activity.sections, "prep")
         const feedbackSection = findSection(activity.sections, "feedback")
         setPrep(prepSection ?? null)
@@ -53,10 +56,16 @@ export function AlunoFlashcardStudyPage() {
           setPhase("cards")
         }
       })
-      .catch((error: unknown) =>
+      .catch((error: unknown) => {
+        if (cancelled) return
         toast.error(error instanceof Error ? error.message : "Erro ao carregar flashcards")
-      )
-      .finally(() => setLoading(false))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [activityId, isGuest])
 
   const card = queue[0]
@@ -95,9 +104,9 @@ export function AlunoFlashcardStudyPage() {
   return (
     <AppShell title="Estudar flashcards">
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <PageLoader />
       ) : !session ? (
-        <p className="text-muted-foreground">Deck não encontrado.</p>
+        <EmptyState title="Deck não encontrado" description="O deck pode ter sido removido ou o link está incorreto." />
       ) : (
         <div className="mx-auto max-w-3xl space-y-6">
           <div>
@@ -166,6 +175,7 @@ export function AlunoFlashcardStudyPage() {
               <button
                 key={`${card.id}-${flipped}`}
                 type="button"
+                aria-expanded={flipped}
                 onClick={() => setFlipped((prev) => !prev)}
                 className="animate-pop-in flex min-h-56 w-full flex-col items-center justify-center rounded-2xl border border-border bg-gradient-to-b from-card to-secondary/40 px-6 py-10 text-center shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-lift)]"
               >
@@ -175,7 +185,7 @@ export function AlunoFlashcardStudyPage() {
                 {!flipped && card.imageDataUrl ? (
                   <img
                     src={card.imageDataUrl}
-                    alt=""
+                    alt="Imagem da frente do cartão"
                     className="mt-4 max-h-56 w-full rounded-lg object-contain"
                   />
                 ) : null}
@@ -217,7 +227,7 @@ export function AlunoFlashcardStudyPage() {
                   className="w-full"
                   onClick={() => setFlipped(true)}
                 >
-                  Mostrar verso
+                  Virar cartão
                 </Button>
               )}
             </div>

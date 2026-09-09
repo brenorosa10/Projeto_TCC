@@ -26,6 +26,20 @@ export function itemKindLabel(kind: string | null | undefined): string {
   return ITEM_KIND_LABELS[kind as ItemKind] ?? kind
 }
 
+export function activityTypeLabel(type: string | null | undefined): string {
+  if (type === "quiz") return "Quiz"
+  if (type === "flashcards") return "Flashcards"
+  if (type === "prova") return "Prova"
+  return type?.trim() || "Atividade"
+}
+
+export function liveSessionStatusLabel(status: string | null | undefined): string {
+  if (status === "lobby") return "Aguardando"
+  if (status === "running") return "Em andamento"
+  if (status === "ended") return "Encerrada"
+  return status?.trim() || "Sessão"
+}
+
 export function findSection<T extends { role: SectionRole }>(
   sections: T[] | null | undefined,
   role: SectionRole

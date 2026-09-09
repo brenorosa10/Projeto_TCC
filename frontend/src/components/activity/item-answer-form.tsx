@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
+import { cn, stripMarkdown } from "@/lib/utils"
 import type { MatchingAnswerRequest, StudySessionItem, SubmitStudyAnswerRequest } from "@/lib/types"
 
 export function ItemAnswerForm({
@@ -167,7 +167,7 @@ export function ItemAnswerForm({
                 <option value="">Associar...</option>
                 {right.map((choice) => (
                   <option key={choice.id} value={choice.id}>
-                    {choice.text}
+                    {stripMarkdown(choice.text) || "Opção"}
                   </option>
                 ))}
               </select>
@@ -340,7 +340,7 @@ export function ItemAnswerForm({
                   <option value="">Categorizar...</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
-                      {category.text}
+                      {stripMarkdown(category.text) || "Categoria"}
                     </option>
                   ))}
                 </select>

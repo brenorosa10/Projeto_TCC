@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import type * as signalR from "@microsoft/signalr"
 import { toast } from "sonner"
-import { BarChart3, Radio, Users } from "lucide-react"
+import { BarChart3, Copy, Radio, Users } from "lucide-react"
 import { ItemPrompt } from "@/components/activity/item-prompt"
 import { LiveCountdown } from "@/components/activity/live-countdown"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { RichText } from "@/components/rich-text/rich-text"
 import { api } from "@/lib/api"
 import {
@@ -29,26 +30,41 @@ export function ProfessorLivePage() {
   const [activityId, setActivityId] = useState(searchParams.get("activityId") ?? "")
   const [creating, setCreating] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [state, setState] = useState<LiveSessionState | null>(null)
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null)
+  const connectionRef = useRef<signalR.HubConnection | null>(null)
   const autoAdvanceKey = useRef<string | null>(null)
+  const advancingRef = useRef(false)
 
   useEffect(() => {
+    let cancelled = false
     Promise.all([api.listClasses(), api.listMyActivities()])
       .then(([classData, activityData]) => {
+        if (cancelled) return
         setClasses(classData)
         setActivities(activityData.filter((item) => item.type === "quiz" || item.type === "prova"))
       })
       .catch((error: unknown) =>
         toast.error(error instanceof Error ? error.message : "Erro ao carregar turmas e atividades")
       )
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
-    return () => {
-      void connection?.stop()
-    }
+    connectionRef.current = connection
   }, [connection])
+
+  useEffect(() => {
+    return () => {
+      void connectionRef.current?.stop()
+    }
+  }, [])
 
   useEffect(() => {
     if (!state || state.phase !== "question" || !state.questionEndsAt || !connection) return
@@ -57,9 +73,15 @@ export function ProfessorLivePage() {
     autoAdvanceKey.current = key
     const delay = new Date(state.questionEndsAt).getTime() - Date.now() + 250
     const timer = window.setTimeout(() => {
-      void liveAdvance(connection).catch((error: unknown) => {
-        toast.error(error instanceof Error ? error.message : "Não foi possível avançar")
-      })
+      if (advancingRef.current) return
+      advancingRef.current = true
+      void liveAdvance(connection)
+        .catch((error: unknown) => {
+          toast.error(error instanceof Error ? error.message : "Não foi possível avançar")
+        })
+        .finally(() => {
+          advancingRef.current = false
+        })
     }, Math.max(0, delay))
     return () => window.clearTimeout(timer)
   }, [connection, state])
@@ -69,13 +91,31 @@ export function ProfessorLivePage() {
     [activities, classId]
   )
 
+  function handleClassId(value: string) {
+    setClassId(value)
+    setActivityId((current) => {
+      if (!current) return current
+      const stillValid = activities.some(
+        (item) => item.id === current && (!value || item.classIds?.includes(value))
+      )
+      return stillValid ? current : ""
+    })
+  }
+
   async function handleCreate() {
     if (!classId || !activityId) {
       toast.error("Escolha a turma e a atividade.")
       return
     }
+    const activity = activities.find((item) => item.id === activityId)
+    if (activity && !activity.classIds?.includes(classId)) {
+      toast.error("Vincule esta atividade à turma antes de iniciar ao vivo.")
+      return
+    }
     setCreating(true)
     try {
+      await connectionRef.current?.stop()
+      setConnection(null)
       const created = await api.createLiveSession({ classId, activityId })
       const hub = createLiveHub(setState)
       try {
@@ -88,6 +128,7 @@ export function ProfessorLivePage() {
       hub.onreconnected(() => {
         void joinLiveAsHost(hub, created.id).catch(() => undefined)
       })
+      connectionRef.current = hub
       setConnection(hub)
       setState(created)
     } catch (error) {
@@ -97,28 +138,42 @@ export function ProfessorLivePage() {
     }
   }
 
+  async function resetSession() {
+    advancingRef.current = false
+    autoAdvanceKey.current = null
+    await connectionRef.current?.stop()
+    connectionRef.current = null
+    setConnection(null)
+    setState(null)
+    setBusy(false)
+  }
+
   async function run(action: () => Promise<void>, fallback: string) {
-    if (!connection) return
+    if (!connection || advancingRef.current) return
+    advancingRef.current = true
     setBusy(true)
     try {
       await action()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : fallback)
     } finally {
+      advancingRef.current = false
       setBusy(false)
     }
   }
 
   return (
     <AppShell title="Sessão ao vivo">
-      {!state ? (
+      {loading ? (
+        <PageLoader className="mx-auto max-w-xl" rows={2} />
+      ) : !state ? (
         <SetupForm
           classes={classes}
           activities={linkedActivities}
           classId={classId}
           activityId={activityId}
           creating={creating}
-          onClassId={setClassId}
+          onClassId={handleClassId}
           onActivityId={setActivityId}
           onCreate={() => void handleCreate()}
         />
@@ -129,6 +184,7 @@ export function ProfessorLivePage() {
           onStart={() => void run(() => liveStart(connection!), "Não foi possível iniciar")}
           onAdvance={() => void run(() => liveAdvance(connection!), "Não foi possível avançar")}
           onEnd={() => void run(() => liveEnd(connection!), "Não foi possível encerrar")}
+          onReset={() => void resetSession()}
         />
       )}
     </AppShell>
@@ -195,9 +251,24 @@ function SetupForm({
             ))}
           </select>
         </div>
-        <Button type="button" disabled={creating || !classId || !activityId} onClick={onCreate}>
-          {creating ? "Criando sala..." : "Criar sala"}
-        </Button>
+          {classes.length === 0 ? (
+            <EmptyState
+              title="Nenhuma turma ainda"
+              description="Crie uma turma e vincule um quiz antes de iniciar uma sessão ao vivo."
+            >
+              <Button asChild>
+                <Link to="/professor/turmas">Ir para turmas</Link>
+              </Button>
+            </EmptyState>
+          ) : null}
+          {classes.length > 0 && activities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum quiz vinculado a esta turma. Vincule uma atividade na página da turma.
+            </p>
+          ) : null}
+          <Button type="button" disabled={creating || !classId || !activityId} onClick={onCreate}>
+            {creating ? "Criando sala..." : "Criar sala"}
+          </Button>
       </div>
     </div>
   )
@@ -209,12 +280,14 @@ function HostRoom({
   onStart,
   onAdvance,
   onEnd,
+  onReset,
 }: {
   state: LiveSessionState
   busy: boolean
   onStart: () => void
   onAdvance: () => void
   onEnd: () => void
+  onReset: () => void
 }) {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -228,6 +301,21 @@ function HostRoom({
         <div className="rounded-2xl border border-primary/30 bg-primary/8 px-5 py-3 text-center">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">PIN</p>
           <p className="font-mono text-3xl font-semibold tracking-[0.3em]">{state.pin}</p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-1 h-8"
+            onClick={() => {
+              void navigator.clipboard.writeText(state.pin).then(
+                () => toast.success("PIN copiado."),
+                () => toast.error("Não foi possível copiar o PIN.")
+              )
+            }}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copiar
+          </Button>
         </div>
       </div>
 
@@ -321,8 +409,8 @@ function HostRoom({
                   Ver analytics
                 </Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link to="/professor/ao-vivo">Nova sessão</Link>
+              <Button type="button" variant="outline" onClick={onReset}>
+                Nova sessão
               </Button>
             </div>
           </div>
@@ -411,7 +499,7 @@ function ParticipantList({ participants }: { participants: LiveSessionState["par
             >
               <span>{participant.name}</span>
               <span className={participant.isConnected ? "text-success" : "text-muted-foreground"}>
-                {participant.isConnected ? "online" : "saiu"}
+                {participant.isConnected ? "conectado" : "saiu"}
               </span>
             </li>
           ))}

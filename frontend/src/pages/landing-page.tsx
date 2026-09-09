@@ -12,12 +12,24 @@ export function LandingPage() {
   const { session, profile, loading } = useAuth()
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
   const [publicActivities, setPublicActivities] = useState<PublicActivitySummary[]>([])
+  const [publicLoading, setPublicLoading] = useState(true)
 
   useEffect(() => {
+    let cancelled = false
     api
       .listPublicActivities()
-      .then(setPublicActivities)
-      .catch(() => setPublicActivities([]))
+      .then((items) => {
+        if (!cancelled) setPublicActivities(items)
+      })
+      .catch(() => {
+        if (!cancelled) setPublicActivities([])
+      })
+      .finally(() => {
+        if (!cancelled) setPublicLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   if (!loading && session && profile) {
@@ -110,7 +122,13 @@ export function LandingPage() {
             Quizzes e flashcards abertos pela comunidade. Não precisa de conta para estudar.
           </p>
 
-          {publicActivities.length === 0 ? (
+          {publicLoading ? (
+            <div className="mt-8 grid gap-3 md:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="skeleton h-24 rounded-xl" />
+              ))}
+            </div>
+          ) : publicActivities.length === 0 ? (
             <p className="mt-6 text-sm text-muted-foreground">
               Nenhum conteúdo público no momento. Quando um professor marcar um quiz ou deck como
               público, ele aparece aqui.

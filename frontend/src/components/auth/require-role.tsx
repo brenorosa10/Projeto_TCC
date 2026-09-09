@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { Navigate, useLocation } from "react-router-dom"
+import { PageLoader } from "@/components/ui/page-loader"
 import { useAuth } from "@/contexts/auth-context"
 import type { UserRole } from "@/lib/types"
 
@@ -15,8 +16,8 @@ export function RequireRole({
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Carregando...
+      <div className="flex min-h-screen items-center justify-center bg-hero-atmosphere px-6">
+        <PageLoader className="w-full max-w-md" rows={2} />
       </div>
     )
   }

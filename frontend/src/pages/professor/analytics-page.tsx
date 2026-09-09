@@ -5,7 +5,9 @@ import { AlertTriangle, Users } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
+import { liveSessionStatusLabel } from "@/lib/item-kinds"
 import { cn } from "@/lib/utils"
 import type { AnalyticsOverview, AnalyticsQuestion } from "@/lib/types"
 
@@ -49,16 +51,16 @@ export function ProfessorAnalyticsPage() {
         </div>
 
         {loading ? (
-          <p className="text-muted-foreground">Carregando...</p>
+          <PageLoader />
         ) : !data || data.activities.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border px-6 py-16 text-center text-sm text-muted-foreground">
-            Sem dados ainda. Realize uma sessão ao vivo para gerar métricas.
-            <div className="mt-4">
-              <Button asChild>
-                <Link to="/professor/ao-vivo">Iniciar sessão</Link>
-              </Button>
-            </div>
-          </div>
+          <EmptyState
+            title="Sem dados ainda"
+            description="Realize uma sessão ao vivo para gerar métricas de acerto por questão."
+          >
+            <Button asChild>
+              <Link to="/professor/ao-vivo">Iniciar sessão</Link>
+            </Button>
+          </EmptyState>
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -140,7 +142,7 @@ export function ProfessorAnalyticsPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline">{session.status}</Badge>
+                          <Badge variant="outline">{liveSessionStatusLabel(session.status)}</Badge>
                           <Button asChild size="sm" variant="outline">
                             <Link
                               to={`/professor/analytics?activityId=${session.activityId}&sessionId=${session.id}`}
@@ -156,9 +158,9 @@ export function ProfessorAnalyticsPage() {
                       </p>
                       {session.participants.length > 0 ? (
                         <ul className="flex flex-wrap gap-1.5">
-                          {session.participants.map((participant) => (
+                          {session.participants.map((participant, index) => (
                             <li
-                              key={participant.studentId}
+                              key={`${participant.studentId}-${index}`}
                               className="rounded-full bg-muted px-2.5 py-1 text-xs"
                             >
                               {participant.name}
@@ -257,8 +259,8 @@ function NameList({
         <p className="mt-1 text-sm text-muted-foreground">{empty}</p>
       ) : (
         <ul className="mt-2 flex flex-wrap gap-1.5">
-          {names.map((name) => (
-            <li key={name} className="rounded-full bg-muted px-2.5 py-1 text-xs">
+          {names.map((name, index) => (
+            <li key={`${name}-${index}`} className="rounded-full bg-muted px-2.5 py-1 text-xs">
               {name}
             </li>
           ))}

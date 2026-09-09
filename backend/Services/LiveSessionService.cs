@@ -180,9 +180,14 @@ public class LiveSessionService(
         }
 
         loaded.Session.HostConnectionId = connectionId;
-        await ReplaceAsync(loaded.Session, cancellationToken);
+        await db.LiveSessions.UpdateOneAsync(
+            item => item.Id == loaded.Session.Id && item.ProfessorId == profile.Id,
+            Builders<LiveSession>.Update.Set(item => item.HostConnectionId, connectionId),
+            cancellationToken: cancellationToken);
+        var current = await db.LiveSessions.Find(item => item.Id == loaded.Session.Id).FirstOrDefaultAsync(cancellationToken)
+            ?? loaded.Session;
         return LiveOperationResult.Ok(
-            await BuildStateAsync(loaded.Session, loaded.Activity!, loaded.Classroom!, profile.Id, isHost: true, cancellationToken));
+            await BuildStateAsync(current, loaded.Activity!, loaded.Classroom!, profile.Id, isHost: true, cancellationToken));
     }
 
     public async Task<LiveOperationResult> JoinStudentAsync(string pin, string connectionId, CancellationToken cancellationToken)
@@ -263,29 +268,30 @@ public class LiveSessionService(
 
     public async Task<LiveOperationResult?> DisconnectAsync(string connectionId, CancellationToken cancellationToken)
     {
-        var session = await db.LiveSessions
-            .Find(item =>
-                item.HostConnectionId == connectionId
-                || item.Participants.Any(participant => participant.ConnectionId == connectionId))
-            .FirstOrDefaultAsync(cancellationToken);
+        var hostUpdate = await db.LiveSessions.FindOneAndUpdateAsync(
+            item => item.HostConnectionId == connectionId,
+            Builders<LiveSession>.Update.Set(item => item.HostConnectionId, null),
+            new FindOneAndUpdateOptions<LiveSession> { ReturnDocument = ReturnDocument.After },
+            cancellationToken);
 
+        var participantFilter = Builders<LiveSession>.Filter.ElemMatch(
+            item => item.Participants,
+            participant => participant.ConnectionId == connectionId);
+        var participantUpdate = Builders<LiveSession>.Update
+            .Set("participants.$.isConnected", false)
+            .Set("participants.$.connectionId", (string?)null);
+        var participantUpdateResult = await db.LiveSessions.FindOneAndUpdateAsync(
+            participantFilter,
+            participantUpdate,
+            new FindOneAndUpdateOptions<LiveSession> { ReturnDocument = ReturnDocument.After },
+            cancellationToken);
+
+        var session = participantUpdateResult ?? hostUpdate;
         if (session is null)
         {
             return null;
         }
 
-        if (session.HostConnectionId == connectionId)
-        {
-            session.HostConnectionId = null;
-        }
-
-        foreach (var participant in session.Participants.Where(item => item.ConnectionId == connectionId))
-        {
-            participant.IsConnected = false;
-            participant.ConnectionId = null;
-        }
-
-        await ReplaceAsync(session, cancellationToken);
         var loaded = await LoadBundleAsync(session.Id, cancellationToken);
         if (loaded.Error is not null || loaded.Session is null)
         {
@@ -311,7 +317,10 @@ public class LiveSessionService(
         }
 
         OpenQuestion(session, host.Activity!, 0);
-        await ReplaceAsync(session, cancellationToken);
+        if (!await TryReplaceExpectedAsync(session, LiveSessionStatuses.Lobby, LiveSessionPhases.Lobby, cancellationToken))
+        {
+            return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "A sessão já foi iniciada.");
+        }
         return await SnapshotAsync(session, host.Activity!, host.Classroom!, host.Profile!.Id, true, cancellationToken);
     }
 
@@ -328,6 +337,9 @@ public class LiveSessionService(
         {
             return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "A sessão não está em andamento.");
         }
+
+        var expectedStatus = session.Status;
+        var expectedPhase = session.Phase;
 
         if (session.Phase == LiveSessionPhases.Question && session.Mode == ActivityTypes.Quiz)
         {
@@ -346,7 +358,10 @@ public class LiveSessionService(
             }
         }
 
-        await ReplaceAsync(session, cancellationToken);
+        if (!await TryReplaceExpectedAsync(session, expectedStatus, expectedPhase, cancellationToken))
+        {
+            return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "A sessão mudou. Tente avançar de novo.");
+        }
         return await SnapshotAsync(session, host.Activity!, host.Classroom!, host.Profile!.Id, true, cancellationToken);
     }
 
@@ -361,8 +376,17 @@ public class LiveSessionService(
         var session = host.Session!;
         if (session.Status != LiveSessionStatuses.Ended)
         {
+            var expectedStatus = session.Status;
+            var expectedPhase = session.Phase;
             EndSession(session);
-            await ReplaceAsync(session, cancellationToken);
+            if (!await TryReplaceExpectedAsync(session, expectedStatus, expectedPhase, cancellationToken))
+            {
+                var current = await db.LiveSessions.Find(item => item.Id == session.Id).FirstOrDefaultAsync(cancellationToken);
+                if (current is not null)
+                {
+                    session = current;
+                }
+            }
         }
 
         return await SnapshotAsync(session, host.Activity!, host.Classroom!, host.Profile!.Id, true, cancellationToken);
@@ -431,35 +455,42 @@ public class LiveSessionService(
             return LiveOperationResult.Fail(StatusCodes.Status400BadRequest, grade.Error ?? "Resposta inválida.");
         }
 
-        var responseTimeMs = request.ResponseTimeMs;
+        var responseTimeMs = 0;
         if (session.QuestionStartedAt is DateTimeOffset started)
         {
             var elapsed = (int)Math.Clamp(
                 (DateTimeOffset.UtcNow - started).TotalMilliseconds,
                 0,
                 (session.TimeLimitSeconds ?? 30) * 1000 + AnswerGraceMs);
-            responseTimeMs = Math.Min(responseTimeMs ?? elapsed, elapsed);
+            responseTimeMs = elapsed;
         }
 
-        var score = ComputeScore(session, grade.IsCorrect, responseTimeMs ?? 0);
-        await db.AnswerAttempts.InsertOneAsync(
-            new AnswerAttempt
-            {
-                Id = Guid.NewGuid(),
-                StudentId = profile.Id,
-                ActivityId = session.ActivityId,
-                ItemId = item.Id,
-                LiveSessionId = session.Id,
-                SelectedOptionId = grade.SelectedOptionId,
-                SelectedOptionIds = grade.SelectedOptionIds?.ToList(),
-                TextAnswer = grade.TextAnswer,
-                Remembered = grade.Remembered,
-                IsCorrect = grade.IsCorrect,
-                ResponseTimeMs = responseTimeMs,
-                Score = score,
-                AnsweredAt = DateTimeOffset.UtcNow
-            },
-            cancellationToken: cancellationToken);
+        var score = ComputeScore(session, grade.IsCorrect, responseTimeMs);
+        try
+        {
+            await db.AnswerAttempts.InsertOneAsync(
+                new AnswerAttempt
+                {
+                    Id = Guid.NewGuid(),
+                    StudentId = profile.Id,
+                    ActivityId = session.ActivityId,
+                    ItemId = item.Id,
+                    LiveSessionId = session.Id,
+                    SelectedOptionId = grade.SelectedOptionId,
+                    SelectedOptionIds = grade.SelectedOptionIds?.ToList(),
+                    TextAnswer = grade.TextAnswer,
+                    Remembered = grade.Remembered,
+                    IsCorrect = grade.IsCorrect,
+                    ResponseTimeMs = responseTimeMs,
+                    Score = score,
+                    AnsweredAt = DateTimeOffset.UtcNow
+                },
+                cancellationToken: cancellationToken);
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "Você já respondeu esta questão.");
+        }
 
         return await SnapshotAsync(session, loaded.Activity, loaded.Classroom!, profile.Id, isHost: false, cancellationToken);
     }
@@ -475,19 +506,23 @@ public class LiveSessionService(
         }
 
         var session = loaded.Session;
+        var attempts = await db.AnswerAttempts
+            .Find(attempt => attempt.LiveSessionId == session.Id)
+            .ToListAsync(cancellationToken);
+
         var states = new List<(string ConnectionId, LiveSessionStateResponse State)>();
         if (!string.IsNullOrWhiteSpace(session.HostConnectionId))
         {
             states.Add((
                 session.HostConnectionId,
-                await BuildStateAsync(session, loaded.Activity!, loaded.Classroom!, session.ProfessorId, isHost: true, cancellationToken)));
+                BuildStateFromAttempts(session, loaded.Activity!, loaded.Classroom!, session.ProfessorId, isHost: true, attempts)));
         }
 
         foreach (var participant in session.Participants.Where(item => item.IsConnected && !string.IsNullOrWhiteSpace(item.ConnectionId)))
         {
             states.Add((
                 participant.ConnectionId!,
-                await BuildStateAsync(session, loaded.Activity!, loaded.Classroom!, participant.StudentId, isHost: false, cancellationToken)));
+                BuildStateFromAttempts(session, loaded.Activity!, loaded.Classroom!, participant.StudentId, isHost: false, attempts)));
         }
 
         return states;
@@ -514,6 +549,17 @@ public class LiveSessionService(
             .Find(attempt => attempt.LiveSessionId == session.Id)
             .ToListAsync(cancellationToken);
 
+        return BuildStateFromAttempts(session, activity, classroom, viewerId, isHost, attempts);
+    }
+
+    private static LiveSessionStateResponse BuildStateFromAttempts(
+        LiveSession session,
+        Activity activity,
+        ClassRoom classroom,
+        Guid viewerId,
+        bool isHost,
+        IReadOnlyList<AnswerAttempt> attempts)
+    {
         var currentId = CurrentItemId(session);
         var currentEntity = currentId is Guid id
             ? activity.Items.FirstOrDefault(item => item.Id == id)
@@ -702,8 +748,18 @@ public class LiveSessionService(
         session.QuestionStartedAt = null;
     }
 
-    private async Task ReplaceAsync(LiveSession session, CancellationToken cancellationToken) =>
-        await db.LiveSessions.ReplaceOneAsync(item => item.Id == session.Id, session, cancellationToken: cancellationToken);
+    private async Task<bool> TryReplaceExpectedAsync(
+        LiveSession session,
+        string expectedStatus,
+        string expectedPhase,
+        CancellationToken cancellationToken)
+    {
+        var result = await db.LiveSessions.ReplaceOneAsync(
+            item => item.Id == session.Id && item.Status == expectedStatus && item.Phase == expectedPhase,
+            session,
+            cancellationToken: cancellationToken);
+        return result.ModifiedCount == 1;
+    }
 
     private async Task<string> GeneratePinAsync(CancellationToken cancellationToken)
     {

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentPropsWithoutRef, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ComponentPropsWithoutRef, type ReactNode } from "react"
 import Markdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkBreaks from "remark-breaks"
@@ -54,12 +54,16 @@ type PreProps = ComponentPropsWithoutRef<"pre"> & { node?: unknown }
 function CodeBlock({ children, node, ...props }: PreProps) {
   const { language, source } = useMemo(() => readCodeNode(node), [node])
   const [copied, setCopied] = useState(false)
+  const copyTimer = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(copyTimer.current), [])
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(source)
       setCopied(true)
-      window.setTimeout(() => setCopied(false), 1600)
+      window.clearTimeout(copyTimer.current)
+      copyTimer.current = window.setTimeout(() => setCopied(false), 1600)
     } catch {
       /* clipboard unavailable — the code is still selectable */
     }
