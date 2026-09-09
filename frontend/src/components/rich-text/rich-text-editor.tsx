@@ -62,7 +62,6 @@ export function RichTextEditor({
   onChange,
   placeholder,
   label,
-  hint,
   rows = 6,
   compact = false,
   disabled,
