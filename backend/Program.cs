@@ -86,7 +86,12 @@ builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddScoped<GoogleSignInService>();
 builder.Services.AddScoped<StudyAccessService>();
 builder.Services.AddScoped<StudySessionService>();
-builder.Services.AddSignalR();
+builder.Services.AddScoped<LiveSessionService>();
+builder.Services.AddScoped<AnalyticsService>();
+builder.Services.AddSignalR(options =>
+{
+    options.MaximumReceiveMessageSize = 10 * 1024 * 1024;
+});
 
 ConfigureMongo(builder);
 ConfigureAuth(builder);

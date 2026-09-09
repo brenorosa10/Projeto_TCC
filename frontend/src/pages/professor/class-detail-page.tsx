@@ -146,7 +146,7 @@ export function ProfessorClassDetailPage() {
               </DialogContent>
             </Dialog>
             <Button asChild variant="outline">
-              <Link to="/professor/ao-vivo">Iniciar ao vivo</Link>
+              <Link to={`/professor/ao-vivo?classId=${id}`}>Iniciar ao vivo</Link>
             </Button>
             <Button asChild variant="outline">
               <Link to="/professor/analytics">Ver analytics</Link>
@@ -185,6 +185,13 @@ export function ProfessorClassDetailPage() {
                       <Button asChild variant="outline" size="sm">
                         <Link to={`/professor/atividades/${item.id}`}>Abrir</Link>
                       </Button>
+                      {item.type !== "flashcards" ? (
+                        <Button asChild size="sm">
+                          <Link to={`/professor/ao-vivo?classId=${id}&activityId=${item.id}`}>
+                            Ao vivo
+                          </Link>
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"

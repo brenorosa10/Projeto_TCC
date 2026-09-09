@@ -103,6 +103,22 @@ public class ActivitySection
     public string? ImageContentType { get; set; }
 }
 
+public class ContentBlock
+{
+    public string Type { get; set; } = ContentBlockTypes.Markdown;
+    public string Content { get; set; } = string.Empty;
+    public string? Language { get; set; }
+}
+
+public static class ContentBlockTypes
+{
+    public const string Markdown = "markdown";
+    public const string Code = "code";
+    public const string Question = "question";
+
+    public static readonly string[] All = [Markdown, Code, Question];
+}
+
 public class ActivityItem
 {
     public Guid Id { get; set; }
@@ -123,6 +139,17 @@ public class ActivityItem
     public List<CategoryItem>? CategoryItems { get; set; }
     public string? Front { get; set; }
     public string? Back { get; set; }
+    public List<ContentBlock>? Intro { get; set; }
+    public List<ContentBlock>? PromptBlocks { get; set; }
+    public List<ContentBlock>? FeedbackBlocks { get; set; }
+    public List<string>? FeedbackMessages { get; set; }
+    public List<string>? Topics { get; set; }
+    public string? Difficulty { get; set; }
+    public string? ChallengeId { get; set; }
+    public bool RequireExplanation { get; set; }
+    public int? ExplanationMinLength { get; set; }
+    public string? ExplanationPrompt { get; set; }
+    public string? ImagePosition { get; set; }
 
     [BsonIgnoreIfNull]
     public byte[]? ImageBytes { get; set; }
@@ -190,6 +217,15 @@ public class CategoryPlacement
     public Guid CategoryId { get; set; }
 }
 
+public class LiveParticipant
+{
+    public Guid StudentId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public DateTimeOffset JoinedAt { get; set; } = DateTimeOffset.UtcNow;
+    public bool IsConnected { get; set; } = true;
+    public string? ConnectionId { get; set; }
+}
+
 public class LiveSession
 {
     [BsonId]
@@ -197,10 +233,35 @@ public class LiveSession
 
     public Guid ActivityId { get; set; }
     public Guid ClassId { get; set; }
+    public Guid ProfessorId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Mode { get; set; } = ActivityTypes.Quiz;
     public string Pin { get; set; } = string.Empty;
-    public string Status { get; set; } = "lobby";
+    public string Status { get; set; } = LiveSessionStatuses.Lobby;
+    public string Phase { get; set; } = LiveSessionPhases.Lobby;
+    public int ItemIndex { get; set; }
+    public List<Guid> ItemIds { get; set; } = [];
+    public DateTimeOffset? QuestionStartedAt { get; set; }
+    public int? TimeLimitSeconds { get; set; }
+    public string? HostConnectionId { get; set; }
+    public List<LiveParticipant> Participants { get; set; } = [];
     public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? EndedAt { get; set; }
+}
+
+public static class LiveSessionStatuses
+{
+    public const string Lobby = "lobby";
+    public const string Running = "running";
+    public const string Ended = "ended";
+}
+
+public static class LiveSessionPhases
+{
+    public const string Lobby = "lobby";
+    public const string Question = "question";
+    public const string Reveal = "reveal";
+    public const string Ended = "ended";
 }
 
 public class AnswerAttempt

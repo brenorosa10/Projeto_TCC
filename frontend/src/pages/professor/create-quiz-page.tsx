@@ -1,9 +1,25 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  ListChecks,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react"
+import {
+  ContentBlockFields,
+  blocksFromApi,
+  type DraftBlock,
+} from "@/components/activity/content-block-fields"
 import { ItemImageField } from "@/components/activity/item-image-field"
 import { PrepFeedbackFields } from "@/components/activity/prep-feedback-fields"
+import { QuestionPreview } from "@/components/activity/question-preview"
 import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor"
 import { AppShell } from "@/components/layout/app-shell"
@@ -13,6 +29,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
+import { cleanContentBlocks, flattenContentBlocks, QUESTION_DIFFICULTIES } from "@/lib/content-blocks"
 import { findSection, ITEM_KIND_LABELS, QUIZ_ITEM_KINDS } from "@/lib/item-kinds"
 import { cn } from "@/lib/utils"
 import type {
@@ -35,6 +52,7 @@ type DraftQuestion = {
   explanation: string
   timeLimitSeconds: number
   imageDataUrl?: string
+  imagePosition: "before" | "after"
   allowMultiple: boolean
   options: DraftOption[]
   correctTrue: boolean
@@ -44,6 +62,15 @@ type DraftQuestion = {
   orderEntries: DraftLine[]
   categories: DraftCategory[]
   categoryItems: DraftCategoryItem[]
+  intro: DraftBlock[]
+  promptBlocks: DraftBlock[]
+  feedbackBlocks: DraftBlock[]
+  feedbackMessages: string
+  topics: string
+  difficulty: string
+  requireExplanation: boolean
+  explanationMinLength: number
+  explanationPrompt: string
 }
 
 function newLine(text = ""): DraftLine {
@@ -80,6 +107,7 @@ function newQuestion(kind: ItemKind = "multiple_choice"): DraftQuestion {
     prompt: "",
     explanation: "",
     timeLimitSeconds: 30,
+    imagePosition: "after",
     allowMultiple: false,
     options: [newOption(true), newOption(), newOption(), newOption()],
     correctTrue: true,
@@ -92,6 +120,15 @@ function newQuestion(kind: ItemKind = "multiple_choice"): DraftQuestion {
       kind === "categorize"
         ? [newCategoryItem(inner.key), newCategoryItem(inner.key), newCategoryItem(outer.key)]
         : [],
+    intro: [],
+    promptBlocks: [],
+    feedbackBlocks: [],
+    feedbackMessages: "",
+    topics: "",
+    difficulty: "",
+    requireExplanation: false,
+    explanationMinLength: 20,
+    explanationPrompt: "Como você pensou sobre a resposta?",
   }
 }
 
@@ -129,6 +166,7 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
     explanation: item.explanation ?? "",
     timeLimitSeconds: item.timeLimitSeconds ?? 30,
     imageDataUrl: item.imageDataUrl ?? undefined,
+    imagePosition: item.imagePosition === "before" ? "before" : "after",
     allowMultiple: Boolean(item.allowMultiple),
     options:
       item.options && item.options.length > 0
@@ -164,6 +202,15 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
         text: member.text,
         categoryKey: member.categoryId ?? categories[0]?.key ?? "",
       })) ?? [],
+    intro: blocksFromApi(item.intro),
+    promptBlocks: blocksFromApi(item.promptBlocks),
+    feedbackBlocks: blocksFromApi(item.feedbackBlocks),
+    feedbackMessages: (item.feedbackMessages ?? []).join("\n"),
+    topics: (item.topics ?? []).join(", "),
+    difficulty: item.difficulty ?? "",
+    requireExplanation: Boolean(item.requireExplanation),
+    explanationMinLength: item.explanationMinLength ?? 20,
+    explanationPrompt: item.explanationPrompt ?? "Como você pensou sobre a resposta?",
   }
 }
 
@@ -177,13 +224,45 @@ function moveItem<T>(items: T[], index: number, delta: number): T[] {
 }
 
 function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
+  const intro = cleanContentBlocks(question.intro)
+  const promptBlocks = cleanContentBlocks(question.promptBlocks)
+  const feedbackBlocks = cleanContentBlocks(question.feedbackBlocks)
+  const feedbackMessages = question.feedbackMessages
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const topics = question.topics
+    .split(",")
+    .map((topic) => topic.trim())
+    .filter(Boolean)
+  const supportsReflection = question.kind === "multiple_choice" || question.kind === "true_false"
   const base: CreateActivityItemRequest = {
     id: question.id,
     kind: question.kind,
-    prompt: question.prompt.trim(),
-    explanation: question.explanation.trim() || undefined,
-    timeLimitSeconds: question.timeLimitSeconds || 30,
+    prompt:
+      question.prompt.trim() ||
+      flattenContentBlocks([...(question.intro ?? []), ...(question.promptBlocks ?? [])]) ||
+      undefined,
+    explanation:
+      question.explanation.trim() ||
+      flattenContentBlocks(question.feedbackBlocks) ||
+      feedbackMessages.join("\n\n") ||
+      undefined,
     imageDataUrl: question.imageDataUrl,
+    imagePosition: question.imagePosition,
+    intro,
+    promptBlocks,
+    feedbackBlocks,
+    feedbackMessages: feedbackMessages.length > 0 ? feedbackMessages : undefined,
+    topics: topics.length > 0 ? topics : undefined,
+    difficulty: question.difficulty || undefined,
+    requireExplanation: supportsReflection ? question.requireExplanation : undefined,
+    explanationMinLength:
+      supportsReflection && question.requireExplanation ? question.explanationMinLength || 20 : undefined,
+    explanationPrompt:
+      supportsReflection && question.requireExplanation
+        ? question.explanationPrompt.trim() || "Como você pensou sobre a resposta?"
+        : undefined,
   }
 
   if (question.kind === "true_false") {
@@ -247,6 +326,24 @@ function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
   }
 }
 
+function SaveQuizBar({
+  saving,
+  isEditing,
+  onSave,
+}: {
+  saving: boolean
+  isEditing: boolean
+  onSave: () => void
+}) {
+  return (
+    <div className="sticky bottom-3 z-10 pt-1">
+      <Button type="button" disabled={saving} onClick={onSave} className="w-full sm:w-auto h-12 text-lg">
+        {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar quiz"}
+      </Button>
+    </div>
+  )
+}
+
 export function ProfessorCreateQuizPage() {
   const { activityId } = useParams()
   const isEditing = Boolean(activityId)
@@ -259,7 +356,6 @@ export function ProfessorCreateQuizPage() {
   const [prepTitle, setPrepTitle] = useState("")
   const [prepBody, setPrepBody] = useState("")
   const [prepObjectives, setPrepObjectives] = useState("")
-  const [prepMinutes, setPrepMinutes] = useState("")
   const [prepTips, setPrepTips] = useState("")
   const [prepImageDataUrl, setPrepImageDataUrl] = useState<string>()
   const [feedbackTitle, setFeedbackTitle] = useState("Resultados")
@@ -267,6 +363,10 @@ export function ProfessorCreateQuizPage() {
   const [questions, setQuestions] = useState<DraftQuestion[]>([newQuestion()])
   const [loading, setLoading] = useState(isEditing)
   const [saving, setSaving] = useState(false)
+  const [editorTab, setEditorTab] = useState<"geral" | "questoes">("geral")
+  const [questionIndex, setQuestionIndex] = useState(0)
+  const [questionPanel, setQuestionPanel] = useState<"pergunta" | "conteudo" | "feedback">("pergunta")
+  const [previewQuestion, setPreviewQuestion] = useState(false)
 
   useEffect(() => {
     if (!activityId) return
@@ -289,7 +389,6 @@ export function ProfessorCreateQuizPage() {
         setPrepTitle(prep?.title ?? "")
         setPrepBody(prep?.body ?? "")
         setPrepObjectives((prep?.objectives ?? []).join("\n"))
-        setPrepMinutes(prep?.estimatedMinutes ? String(prep.estimatedMinutes) : "")
         setPrepTips((prep?.tips ?? []).join("\n"))
         setPrepImageDataUrl(prep?.imageDataUrl ?? undefined)
         setFeedbackTitle(feedback?.title ?? "Resultados")
@@ -364,21 +463,58 @@ export function ProfessorCreateQuizPage() {
     )
   }
 
+  function goToQuestion(index: number, panel: "pergunta" | "conteudo" | "feedback" = "pergunta") {
+    setEditorTab("questoes")
+    setQuestionIndex(index)
+    setQuestionPanel(panel)
+  }
+
+  function addQuestion() {
+    const next = newQuestion()
+    setQuestions((prev) => [...prev, next])
+    setEditorTab("questoes")
+    setQuestionIndex(questions.length)
+    setQuestionPanel("pergunta")
+  }
+
+  function removeActiveQuestion() {
+    if (questions.length <= 1) return
+    const index = Math.min(questionIndex, questions.length - 1)
+    setQuestions((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+    setQuestionIndex(Math.max(0, index - 1))
+  }
+
   function buildPayload(): CreateActivityRequest | null {
     if (!title.trim()) {
       toast.error("Informe o título do quiz.")
+      setEditorTab("geral")
       return null
     }
 
     for (const [index, question] of questions.entries()) {
       const n = index + 1
-      if (question.kind !== "flashcard" && !question.prompt.trim()) {
-        toast.error(`A questão ${n} precisa de um enunciado.`)
+      const hasPrompt =
+        question.prompt.trim() ||
+        question.intro.some((block) => block.content.trim()) ||
+        question.promptBlocks.some((block) => block.content.trim())
+      if (question.kind !== "flashcard" && !hasPrompt) {
+        toast.error(`A questão ${n} precisa de um enunciado ou de blocos de conteúdo.`)
+        goToQuestion(index)
+        return null
+      }
+      if (
+        (question.kind === "multiple_choice" || question.kind === "true_false") &&
+        question.requireExplanation &&
+        (question.explanationMinLength < 1 || question.explanationMinLength > 2000)
+      ) {
+        toast.error(`O mínimo da reflexão da questão ${n} deve ficar entre 1 e 2000 caracteres.`)
+        goToQuestion(index, "feedback")
         return null
       }
       if (question.kind === "multiple_choice") {
         if (question.options.some((option) => !option.text.trim())) {
           toast.error(`Preencha todas as alternativas da questão ${n}.`)
+          goToQuestion(index)
           return null
         }
         const correctCount = question.options.filter((option) => option.isCorrect).length
@@ -388,6 +524,7 @@ export function ProfessorCreateQuizPage() {
               ? `Marque ao menos uma alternativa correta na questão ${n}.`
               : `Marque exatamente uma alternativa correta na questão ${n}.`
           )
+          goToQuestion(index)
           return null
         }
       }
@@ -398,36 +535,43 @@ export function ProfessorCreateQuizPage() {
           .filter(Boolean)
         if (answers.length === 0) {
           toast.error(`Informe ao menos uma resposta aceita na questão ${n}.`)
+          goToQuestion(index)
           return null
         }
       }
       if (question.kind === "matching") {
         if (question.pairs.length < 2) {
           toast.error(`A questão ${n} precisa de pelo menos dois pares.`)
+          goToQuestion(index)
           return null
         }
         if (question.pairs.some((pair) => !pair.left.trim() || !pair.right.trim())) {
           toast.error(`Preencha os dois lados de cada par na questão ${n}.`)
+          goToQuestion(index)
           return null
         }
       }
       if (question.kind === "ordering") {
         if (question.orderEntries.length < 3 || question.orderEntries.some((entry) => !entry.text.trim())) {
           toast.error(`A questão ${n} precisa de pelo menos três itens preenchidos, na ordem correta.`)
+          goToQuestion(index)
           return null
         }
       }
       if (question.kind === "cloze" && !/\{\{[^}]+\}\}/.test(question.prompt)) {
         toast.error(`A questão ${n} precisa de lacunas no formato {{resposta}}.`)
+        goToQuestion(index)
         return null
       }
       if (question.kind === "categorize") {
         if (question.categories.length < 2 || question.categories.some((category) => !category.label.trim())) {
           toast.error(`A questão ${n} precisa de pelo menos duas categorias nomeadas.`)
+          goToQuestion(index)
           return null
         }
         if (question.categoryItems.length < 3 || question.categoryItems.some((item) => !item.text.trim())) {
           toast.error(`A questão ${n} precisa de pelo menos três itens classificados.`)
+          goToQuestion(index)
           return null
         }
       }
@@ -454,7 +598,6 @@ export function ProfessorCreateQuizPage() {
           title: prepTitle.trim() || undefined,
           body: prepBody.trim() || undefined,
           objectives: lines(prepObjectives),
-          estimatedMinutes: Number(prepMinutes) || undefined,
           tips: lines(prepTips),
           imageDataUrl: prepImageDataUrl,
         },
@@ -474,7 +617,7 @@ export function ProfessorCreateQuizPage() {
     }
   }
 
-  async function saveQuiz(importCards: boolean) {
+  async function saveQuiz() {
     const payload = buildPayload()
     if (!payload) return
 
@@ -484,16 +627,7 @@ export function ProfessorCreateQuizPage() {
         isEditing && activityId
           ? await api.updateActivity(activityId, payload)
           : await api.createActivity(payload)
-      if (importCards) {
-        const deck = await api.importFlashcards(quiz.id)
-        toast.success(
-          isEditing
-            ? `Quiz atualizado. ${deck.itemCount} flashcard(s) sincronizados a partir das respostas corretas.`
-            : `Quiz criado. ${deck.itemCount} flashcard(s) importados a partir das respostas corretas.`
-        )
-      } else {
-        toast.success(isEditing ? "Quiz atualizado." : "Quiz criado. Vincule-o às turmas quando quiser.")
-      }
+      toast.success(isEditing ? "Quiz atualizado." : "Quiz criado. Vincule-o às turmas quando quiser.")
       navigate(`/professor/atividades/${quiz.id}`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar quiz")
@@ -507,7 +641,7 @@ export function ProfessorCreateQuizPage() {
       {loading ? (
         <p className="text-muted-foreground">Carregando...</p>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-4">
           <div>
             <p className="text-sm text-muted-foreground">
               <Link to="/professor/atividades" className="hover:text-primary">
@@ -524,74 +658,224 @@ export function ProfessorCreateQuizPage() {
               ) : null}{" "}
               / {isEditing ? "Editar quiz" : "Novo quiz"}
             </p>
-            <h1 className="mt-2 font-display text-3xl font-semibold">
+            <h1 className="mt-1 font-display text-2xl font-semibold">
               {isEditing ? "Editar quiz" : "Criar quiz"}
             </h1>
-            <p className="mt-2 text-muted-foreground">
-              Combine múltipla escolha, V/F, resposta curta, associação, ordenação, lacunas e
-              categorias. A preparação e o feedback aparecem no estudo do aluno.
-            </p>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="quiz-title">Título</Label>
-            <Input
-              id="quiz-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Ex: Sistema Solar"
-              required
+          <nav className="grid gap-2 sm:grid-cols-2" aria-label="Etapas do quiz">
+            <button
+              type="button"
+              onClick={() => setEditorTab("geral")}
+              className={cn(
+                "flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                editorTab === "geral"
+                  ? "border-primary bg-primary/8 shadow-[var(--shadow-soft)]"
+                  : "border-border/70 bg-card hover:border-primary/40"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+                  editorTab === "geral"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                <SlidersHorizontal className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold">1. Atividade</span>
+                <span className="block text-xs text-muted-foreground">
+                  Título, visibilidade, pré e pós-seção
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditorTab("questoes")}
+              className={cn(
+                "flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                editorTab === "questoes"
+                  ? "border-primary bg-primary/8 shadow-[var(--shadow-soft)]"
+                  : "border-border/70 bg-card hover:border-primary/40"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+                  editorTab === "questoes"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                <ListChecks className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold">
+                  2. Questões
+                  <span className="ml-1.5 font-normal text-muted-foreground">
+                    ({questions.length})
+                  </span>
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Enunciado, alternativas e gabarito
+                </span>
+              </span>
+            </button>
+          </nav>
+
+          {editorTab === "geral" ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="quiz-title">Título</Label>
+                  <Input
+                    id="quiz-title"
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="Ex: Sistema Solar"
+                    required
+                    className="h-12 text-lg"
+                  />
+                </div>
+                <VisibilityCheckbox id="quiz-public" checked={isPublic} onChange={setIsPublic} />
+              </div>
+
+              <PrepFeedbackFields
+                prepTitle={prepTitle}
+                prepBody={prepBody}
+                prepObjectives={prepObjectives}
+                prepTips={prepTips}
+                prepImageDataUrl={prepImageDataUrl}
+                feedbackTitle={feedbackTitle}
+                feedbackBody={feedbackBody}
+                onPrepTitle={setPrepTitle}
+                onPrepBody={setPrepBody}
+                onPrepObjectives={setPrepObjectives}
+                onPrepTips={setPrepTips}
+                onPrepImageDataUrl={setPrepImageDataUrl}
+                onFeedbackTitle={setFeedbackTitle}
+                onFeedbackBody={setFeedbackBody}
+              />
+              <SaveQuizBar saving={saving} isEditing={isEditing} onSave={() => void saveQuiz()} />
+            </div>
+          ) : (
+            <QuestionCarousel
+              questions={questions}
+              activeIndex={Math.min(questionIndex, questions.length - 1)}
+              onSelect={setQuestionIndex}
+              onAdd={addQuestion}
+              onRemove={removeActiveQuestion}
+              onReorder={(delta) => {
+                const index = Math.min(questionIndex, questions.length - 1)
+                const next = index + delta
+                if (next < 0 || next >= questions.length) return
+                setQuestions((prev) => moveItem(prev, index, delta))
+                setQuestionIndex(next)
+              }}
             />
-          </div>
+          )}
 
-          <VisibilityCheckbox id="quiz-public" checked={isPublic} onChange={setIsPublic} />
-
-          <PrepFeedbackFields
-            prepTitle={prepTitle}
-            prepBody={prepBody}
-            prepObjectives={prepObjectives}
-            prepMinutes={prepMinutes}
-            prepTips={prepTips}
-            prepImageDataUrl={prepImageDataUrl}
-            feedbackTitle={feedbackTitle}
-            feedbackBody={feedbackBody}
-            onPrepTitle={setPrepTitle}
-            onPrepBody={setPrepBody}
-            onPrepObjectives={setPrepObjectives}
-            onPrepMinutes={setPrepMinutes}
-            onPrepTips={setPrepTips}
-            onPrepImageDataUrl={setPrepImageDataUrl}
-            onFeedbackTitle={setFeedbackTitle}
-            onFeedbackBody={setFeedbackBody}
-          />
-
-          <div className="space-y-6">
-            {questions.map((question, index) => (
-              <section key={question.key} className="surface-card overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 bg-muted/40 px-4 py-3 sm:px-6">
-                  <h2 className="flex items-center gap-2.5 font-display text-lg font-semibold">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground">
+          {editorTab === "questoes" ? (
+          <>
+          <section className="surface-card overflow-hidden">
+            {(() => {
+              const index = Math.min(questionIndex, questions.length - 1)
+              const question = questions[index]
+              if (!question) return null
+              return (
+                <>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 bg-muted/40 px-3 py-2 sm:px-4">
+                  <h2 className="flex items-center gap-2 font-display text-base font-semibold">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                       {index + 1}
                     </span>
                     Questão {index + 1}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      · {ITEM_KIND_LABELS[question.kind]}
+                    </span>
                   </h2>
-                  {questions.length > 1 ? (
+                  <div className="flex flex-wrap items-center gap-1">
+                    <div className="inline-flex rounded-lg bg-card p-0.5">
+                      {(
+                        [
+                          ["pergunta", "Pergunta"],
+                          ["conteudo", "Conteúdo"],
+                          ["feedback", "Gabarito"],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setQuestionPanel(key)}
+                          className={cn(
+                            "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                            questionPanel === key
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant={previewQuestion ? "default" : "outline"}
                       size="sm"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() =>
-                        setQuestions((prev) => prev.filter((item) => item.key !== question.key))
-                      }
+                      className="h-8"
+                      onClick={() => setPreviewQuestion((value) => !value)}
                     >
-                      <Trash2 className="h-4 w-4" />
-                      Remover
+                      <Eye className="h-4 w-4" />
+                      {previewQuestion ? "Editar" : "Visualizar"}
                     </Button>
-                  ) : null}
+                    {questions.length > 1 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-muted-foreground hover:text-destructive"
+                        onClick={removeActiveQuestion}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remover
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
 
-                <div className="space-y-5 p-4 sm:p-6">
+                <div key={question.key} className="animate-enter space-y-3 p-3 sm:p-4">
+                {previewQuestion ? (
+                  <QuestionPreview
+                    kind={question.kind}
+                    prompt={question.prompt}
+                    intro={question.intro}
+                    promptBlocks={question.promptBlocks}
+                    imageDataUrl={question.imageDataUrl}
+                    imagePosition={question.imagePosition}
+                    topics={question.topics
+                      .split(",")
+                      .map((topic) => topic.trim())
+                      .filter(Boolean)}
+                    difficulty={question.difficulty}
+                    options={
+                      question.kind === "multiple_choice" || question.kind === "true_false"
+                        ? question.kind === "true_false"
+                          ? [
+                              { key: "true", text: "Verdadeiro", isCorrect: question.correctTrue },
+                              { key: "false", text: "Falso", isCorrect: !question.correctTrue },
+                            ]
+                          : question.options
+                        : undefined
+                    }
+                    allowMultiple={question.allowMultiple}
+                    requireExplanation={question.requireExplanation}
+                    explanationPrompt={question.explanationPrompt}
+                  />
+                ) : (
+                <>
+                {questionPanel === "pergunta" ? (
                 <div className="grid gap-2 sm:max-w-xs">
                   <Label htmlFor={`kind-${question.key}`}>Tipo</Label>
                   <select
@@ -624,8 +908,70 @@ export function ProfessorCreateQuizPage() {
                     ))}
                   </select>
                 </div>
+                ) : null}
 
-                {question.kind === "cloze" ? (
+                {questionPanel === "conteudo" ? (
+                <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor={`topics-${question.key}`}>Tópicos</Label>
+                    <Input
+                      id={`topics-${question.key}`}
+                      value={question.topics}
+                      onChange={(event) => updateQuestion(question.key, { topics: event.target.value })}
+                      placeholder="HTML, CSS, seletores"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`difficulty-${question.key}`}>Dificuldade</Label>
+                    <select
+                      id={`difficulty-${question.key}`}
+                      className="flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm"
+                      value={question.difficulty}
+                      onChange={(event) =>
+                        updateQuestion(question.key, { difficulty: event.target.value })
+                      }
+                    >
+                      <option value="">Não informar</option>
+                      {QUESTION_DIFFICULTIES.map((entry) => (
+                        <option key={entry.value} value={entry.value}>
+                          {entry.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <ContentBlockFields
+                  id={`intro-${question.key}`}
+                  label="Introdução"
+                  hint="Contexto antes do enunciado."
+                  blocks={question.intro}
+                  allowedTypes={["markdown"]}
+                  compact
+                  onChange={(intro) => updateQuestion(question.key, { intro })}
+                />
+
+                <ContentBlockFields
+                  id={`prompt-blocks-${question.key}`}
+                  label="Enunciado em blocos"
+                  hint="Texto, código e a frase da questão. Se vazio, use o enunciado simples em Pergunta."
+                  blocks={question.promptBlocks}
+                  compact
+                  onChange={(promptBlocks) => updateQuestion(question.key, { promptBlocks })}
+                />
+
+                <ItemImageField
+                  id={`image-${question.key}`}
+                  imageDataUrl={question.imageDataUrl}
+                  onChange={(imageDataUrl) => updateQuestion(question.key, { imageDataUrl })}
+                  position={question.imagePosition}
+                  onPositionChange={(imagePosition) => updateQuestion(question.key, { imagePosition })}
+                />
+                </>
+                ) : null}
+
+                {questionPanel === "pergunta" && question.kind === "cloze" ? (
                   <div className="grid gap-2">
                     <Label htmlFor={`prompt-${question.key}`}>Enunciado</Label>
                     <Textarea
@@ -640,25 +986,20 @@ export function ProfessorCreateQuizPage() {
                       Lacunas usam texto simples para que o aluno digite a resposta.
                     </p>
                   </div>
-                ) : (
+                ) : questionPanel === "pergunta" &&
+                  !question.promptBlocks.some((block) => block.content.trim()) ? (
                   <RichTextEditor
                     id={`prompt-${question.key}`}
                     label="Enunciado"
                     value={question.prompt}
                     onChange={(prompt) => updateQuestion(question.key, { prompt })}
-                    rows={4}
+                    rows={3}
                     placeholder={"Qual é a saída do programa abaixo?\n\n```python\nprint(sum(range(5)))\n```"}
                     hint="Você pode inserir blocos de código, listas e destaques no enunciado."
                   />
-                )}
+                ) : null}
 
-                <ItemImageField
-                  id={`image-${question.key}`}
-                  imageDataUrl={question.imageDataUrl}
-                  onChange={(imageDataUrl) => updateQuestion(question.key, { imageDataUrl })}
-                />
-
-                {question.kind === "multiple_choice" ? (
+                {questionPanel === "pergunta" && question.kind === "multiple_choice" ? (
                   <div className="grid gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-medium">Alternativas</p>
@@ -674,10 +1015,6 @@ export function ProfessorCreateQuizPage() {
                         Permitir várias corretas
                       </label>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Marque a alternativa correta à esquerda. Use crases para código:{" "}
-                      <code className="rounded bg-muted px-1 py-0.5 font-mono">`for i in x`</code>.
-                    </p>
                     {question.options.map((option, optionIndex) => (
                       <div
                         key={option.key}
@@ -736,7 +1073,7 @@ export function ProfessorCreateQuizPage() {
                   </div>
                 ) : null}
 
-                {question.kind === "true_false" ? (
+                {questionPanel === "pergunta" && question.kind === "true_false" ? (
                   <fieldset className="grid gap-2">
                     <legend className="text-sm font-medium">Resposta correta</legend>
                     <label className="flex items-center gap-2 text-sm">
@@ -760,7 +1097,7 @@ export function ProfessorCreateQuizPage() {
                   </fieldset>
                 ) : null}
 
-                {question.kind === "short_answer" ? (
+                {questionPanel === "pergunta" && question.kind === "short_answer" ? (
                   <div className="grid gap-3">
                     <div className="grid gap-2">
                       <Label htmlFor={`answers-${question.key}`}>
@@ -788,7 +1125,7 @@ export function ProfessorCreateQuizPage() {
                   </div>
                 ) : null}
 
-                {question.kind === "matching" ? (
+                {questionPanel === "pergunta" && question.kind === "matching" ? (
                   <div className="grid gap-3">
                     {question.pairs.map((pair, pairIndex) => (
                       <div key={pair.key} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
@@ -847,7 +1184,7 @@ export function ProfessorCreateQuizPage() {
                   </div>
                 ) : null}
 
-                {question.kind === "ordering" ? (
+                {questionPanel === "pergunta" && question.kind === "ordering" ? (
                   <div className="grid gap-3">
                     <p className="text-sm text-muted-foreground">
                       Liste os itens na ordem correta. O aluno verá a lista embaralhada.
@@ -927,7 +1264,7 @@ export function ProfessorCreateQuizPage() {
                   </div>
                 ) : null}
 
-                {question.kind === "cloze" ? (
+                {questionPanel === "pergunta" && question.kind === "cloze" ? (
                   <div className="grid gap-3">
                     <p className="text-sm text-muted-foreground">
                       Marque cada lacuna com chaves duplas. Alternativas: {"{{Terra|planeta Terra}}"}.
@@ -945,7 +1282,7 @@ export function ProfessorCreateQuizPage() {
                   </div>
                 ) : null}
 
-                {question.kind === "categorize" ? (
+                {questionPanel === "pergunta" && question.kind === "categorize" ? (
                   <div className="grid gap-4">
                     <div className="grid gap-3">
                       <p className="text-sm font-medium">Categorias</p>
@@ -1071,71 +1408,242 @@ export function ProfessorCreateQuizPage() {
                   </div>
                 ) : null}
 
-                <div className="grid gap-4 border-t border-border/70 pt-4">
-                  <div className="grid max-w-56 gap-2">
-                    <Label htmlFor={`time-${question.key}`}>Tempo sugerido (segundos)</Label>
-                    <Input
-                      id={`time-${question.key}`}
-                      type="number"
-                      min={5}
-                      max={300}
-                      value={question.timeLimitSeconds}
+                {questionPanel === "feedback" &&
+                (question.kind === "multiple_choice" || question.kind === "true_false") ? (
+                  <div className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+                    <label className="flex cursor-pointer items-start gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 accent-[var(--color-primary)]"
+                        checked={question.requireExplanation}
+                        onChange={(event) =>
+                          updateQuestion(question.key, { requireExplanation: event.target.checked })
+                        }
+                      />
+                      <span>
+                        <span className="font-medium">Pedir reflexão escrita</span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          O aluno escolhe a alternativa e explica o raciocínio. Só a escolha entra na nota.
+                        </span>
+                      </span>
+                    </label>
+                    {question.requireExplanation ? (
+                      <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+                        <div className="grid gap-2">
+                          <Label htmlFor={`expl-prompt-${question.key}`}>Pergunta da reflexão</Label>
+                          <Input
+                            id={`expl-prompt-${question.key}`}
+                            value={question.explanationPrompt}
+                            onChange={(event) =>
+                              updateQuestion(question.key, { explanationPrompt: event.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor={`expl-min-${question.key}`}>Mínimo</Label>
+                          <Input
+                            id={`expl-min-${question.key}`}
+                            type="number"
+                            min={1}
+                            max={2000}
+                            value={question.explanationMinLength}
+                            onChange={(event) =>
+                              updateQuestion(question.key, {
+                                explanationMinLength: Number(event.target.value) || 20,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {questionPanel === "feedback" ? (
+                <div className="grid gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor={`fb-msg-${question.key}`}>Mensagens de gabarito (uma por linha)</Label>
+                    <Textarea
+                      id={`fb-msg-${question.key}`}
+                      value={question.feedbackMessages}
                       onChange={(event) =>
-                        updateQuestion(question.key, {
-                          timeLimitSeconds: Number(event.target.value) || 30,
-                        })
+                        updateQuestion(question.key, { feedbackMessages: event.target.value })
                       }
+                      placeholder={"Resposta correta: C.\nO fetch envia uma requisição HTTP e o navegador atualiza o DOM."}
+                      rows={2}
                     />
                   </div>
-                  <RichTextEditor
-                    id={`expl-${question.key}`}
-                    label="Explicação da resposta (opcional)"
-                    value={question.explanation}
-                    onChange={(explanation) => updateQuestion(question.key, { explanation })}
-                    rows={3}
+                  <ContentBlockFields
+                    id={`feedback-blocks-${question.key}`}
+                    label="Feedback após o envio"
+                    hint="Explicação longa com texto e código."
+                    blocks={question.feedbackBlocks}
+                    allowedTypes={["markdown", "code"]}
                     compact
-                    placeholder="Explique por que essa é a resposta correta. Use `código` quando fizer sentido."
-                    hint="Aparece no gabarito e na revisão item a item da pós-seção."
+                    onChange={(feedbackBlocks) => updateQuestion(question.key, { feedbackBlocks })}
                   />
+                  {question.feedbackMessages.trim() ||
+                  question.feedbackBlocks.some((block) => block.content.trim()) ? null : (
+                    <RichTextEditor
+                      id={`expl-${question.key}`}
+                      label="Explicação da resposta (opcional)"
+                      value={question.explanation}
+                      onChange={(explanation) => updateQuestion(question.key, { explanation })}
+                      rows={2}
+                      compact
+                      placeholder="Explique por que essa é a resposta correta."
+                      hint="Aparece no gabarito e na revisão da pós-seção."
+                    />
+                  )}
+                </div>
+                ) : null}
+                </>
+                )}
+
+                <div className="flex items-center justify-between border-t border-border/70 pt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={index === 0}
+                    onClick={() => setQuestionIndex(index - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {index + 1} / {questions.length}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={index >= questions.length - 1}
+                    onClick={() => setQuestionIndex(index + 1)}
+                  >
+                    Próxima
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
                 </div>
-              </section>
-            ))}
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            className="w-full border-dashed"
-            onClick={() => setQuestions((prev) => [...prev, newQuestion()])}
-          >
-            <Plus className="h-4 w-4" />
-            Nova questão
-          </Button>
-
-          <div className="sticky bottom-4 z-10">
-            <div className="surface-raised flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button type="button" disabled={saving} onClick={() => void saveQuiz(false)}>
-                  {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar quiz"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={saving}
-                  onClick={() => void saveQuiz(true)}
-                >
-                  {isEditing ? "Salvar e sincronizar flashcards" : "Importar flashcards"}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground sm:ml-auto sm:max-w-xs">
-                Importar flashcards usa questões de múltipla escolha ou V/F com alternativa correta.
-              </p>
-            </div>
-          </div>
+                </>
+              )
+            })()}
+          </section>
+          <SaveQuizBar saving={saving} isEditing={isEditing} onSave={() => void saveQuiz()} />
+          </>
+          ) : null}
         </div>
       )}
     </AppShell>
+  )
+}
+
+function QuestionCarousel({
+  questions,
+  activeIndex,
+  onSelect,
+  onAdd,
+  onRemove,
+  onReorder,
+}: {
+  questions: DraftQuestion[]
+  activeIndex: number
+  onSelect: (index: number) => void
+  onAdd: () => void
+  onRemove: () => void
+  onReorder: (delta: number) => void
+}) {
+  return (
+    <div className="surface-card space-y-2 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          disabled={activeIndex === 0}
+          onClick={() => onSelect(activeIndex - 1)}
+          aria-label="Questão anterior"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5">
+          {questions.map((question, index) => (
+            <button
+              key={question.key}
+              type="button"
+              onClick={() => onSelect(index)}
+              className={cn(
+                "flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors",
+                index === activeIndex
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              )}
+            >
+              {index + 1}
+              <span className="hidden max-w-24 truncate sm:inline">
+                {ITEM_KIND_LABELS[question.kind]}
+              </span>
+            </button>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          disabled={activeIndex >= questions.length - 1}
+          onClick={() => onSelect(activeIndex + 1)}
+          aria-label="Próxima questão"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+      <Button
+        type="button"
+        className="h-11 w-full text-sm font-semibold"
+        onClick={onAdd}
+      >
+        <Plus className="h-5 w-5" />
+        Nova questão
+      </Button>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8"
+          disabled={activeIndex === 0}
+          onClick={() => onReorder(-1)}
+        >
+          <ArrowUp className="h-4 w-4" />
+          Subir
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8"
+          disabled={activeIndex >= questions.length - 1}
+          onClick={() => onReorder(1)}
+        >
+          <ArrowDown className="h-4 w-4" />
+          Descer
+        </Button>
+        {questions.length > 1 ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 text-muted-foreground hover:text-destructive"
+            onClick={onRemove}
+          >
+            <Trash2 className="h-4 w-4" />
+            Remover
+          </Button>
+        ) : null}
+      </div>
+    </div>
   )
 }

@@ -205,18 +205,38 @@ public static class ActivityContentBuilder
                 return (null, validationError);
             }
 
+            var intro = ContentBlocks.Normalize(item.Intro);
+            var promptBlocks = ContentBlocks.Normalize(item.PromptBlocks);
+            var feedbackBlocks = ContentBlocks.Normalize(item.FeedbackBlocks);
             var mappedItem = new ActivityItem
             {
                 Id = existing?.Id ?? Guid.NewGuid(),
                 Kind = kind,
-                Prompt = TrimToNull(item.Prompt),
-                Explanation = TrimToNull(item.Explanation),
+                Prompt = TrimToNull(item.Prompt) ?? ContentBlocks.Flatten(intro, promptBlocks),
+                Explanation = TrimToNull(item.Explanation)
+                    ?? ContentBlocks.Flatten(feedbackBlocks)
+                    ?? TrimToNull(string.Join("\n\n", item.FeedbackMessages ?? [])),
                 TimeLimitSeconds = kind == ItemKinds.Flashcard ? null : item.TimeLimitSeconds ?? 30,
                 Position = positionOffset + index,
                 AllowMultiple = kind == ItemKinds.MultipleChoice && item.AllowMultiple == true,
                 CaseSensitive = kind is ItemKinds.ShortAnswer or ItemKinds.Cloze && item.CaseSensitive == true,
                 Front = TrimToNull(item.Front),
-                Back = TrimToNull(item.Back)
+                Back = TrimToNull(item.Back),
+                Intro = intro,
+                PromptBlocks = promptBlocks,
+                FeedbackBlocks = feedbackBlocks,
+                FeedbackMessages = ContentBlocks.CleanList(item.FeedbackMessages),
+                Topics = ContentBlocks.CleanList(item.Topics),
+                Difficulty = ContentBlocks.NormalizeDifficulty(item.Difficulty),
+                ChallengeId = TrimToNull(item.ChallengeId),
+                RequireExplanation = ContentBlocks.SupportsReflection(kind) && item.RequireExplanation == true,
+                ExplanationMinLength = ContentBlocks.SupportsReflection(kind) && item.RequireExplanation == true
+                    ? NormalizeExplanationMin(item.ExplanationMinLength)
+                    : null,
+                ExplanationPrompt = ContentBlocks.SupportsReflection(kind) && item.RequireExplanation == true
+                    ? (TrimToNull(item.ExplanationPrompt) ?? "Como você pensou sobre a resposta?")
+                    : null,
+                ImagePosition = NormalizeImagePosition(item.ImagePosition)
             };
 
             var payloadError = ApplyKindPayload(mappedItem, item, existing);
@@ -346,6 +366,24 @@ public static class ActivityContentBuilder
             return "O tempo por questão deve ficar entre 5 e 300 segundos.";
         }
 
+        var blockError = ContentBlocks.Validate(item.Intro)
+            ?? ContentBlocks.Validate(item.PromptBlocks)
+            ?? ContentBlocks.Validate(item.FeedbackBlocks);
+        if (blockError is not null)
+        {
+            return blockError;
+        }
+
+        if (item.RequireExplanation == true && !ContentBlocks.SupportsReflection(kind))
+        {
+            return "A reflexão escrita só pode ser exigida em múltipla escolha ou verdadeiro/falso.";
+        }
+
+        if (item.RequireExplanation == true && item.ExplanationMinLength is < 1 or > 2000)
+        {
+            return "O mínimo da reflexão deve ficar entre 1 e 2000 caracteres.";
+        }
+
         return kind switch
         {
             ItemKinds.MultipleChoice => ValidateMultipleChoice(item),
@@ -362,7 +400,7 @@ public static class ActivityContentBuilder
 
     private static string? ValidateMultipleChoice(CreateActivityItemRequest item)
     {
-        if (string.IsNullOrWhiteSpace(item.Prompt))
+        if (!HasAuthoredPrompt(item))
         {
             return "Cada questão precisa de um enunciado.";
         }
@@ -393,7 +431,7 @@ public static class ActivityContentBuilder
 
     private static string? ValidateTrueFalse(CreateActivityItemRequest item)
     {
-        if (string.IsNullOrWhiteSpace(item.Prompt))
+        if (!HasAuthoredPrompt(item))
         {
             return "Cada questão precisa de um enunciado.";
         }
@@ -423,7 +461,7 @@ public static class ActivityContentBuilder
 
     private static string? ValidateShortAnswer(CreateActivityItemRequest item)
     {
-        if (string.IsNullOrWhiteSpace(item.Prompt))
+        if (!HasAuthoredPrompt(item))
         {
             return "Cada questão precisa de um enunciado.";
         }
@@ -452,7 +490,7 @@ public static class ActivityContentBuilder
 
     private static string? ValidateOrdering(CreateActivityItemRequest item)
     {
-        if (string.IsNullOrWhiteSpace(item.Prompt))
+        if (!HasAuthoredPrompt(item))
         {
             return "Cada questão precisa de um enunciado.";
         }
@@ -488,7 +526,7 @@ public static class ActivityContentBuilder
 
     private static string? ValidateCategorize(CreateActivityItemRequest item)
     {
-        if (string.IsNullOrWhiteSpace(item.Prompt))
+        if (!HasAuthoredPrompt(item))
         {
             return "Cada questão precisa de um enunciado.";
         }
@@ -702,4 +740,16 @@ public static class ActivityContentBuilder
 
     private static string? TrimToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static bool HasAuthoredPrompt(CreateActivityItemRequest item) =>
+        ContentBlocks.HasPrompt(
+            item.Prompt,
+            ContentBlocks.Normalize(item.Intro),
+            ContentBlocks.Normalize(item.PromptBlocks));
+
+    private static int NormalizeExplanationMin(int? value) =>
+        value is >= 1 and <= 2000 ? value.Value : 20;
+
+    private static string NormalizeImagePosition(string? value) =>
+        value?.Trim().ToLowerInvariant() == "before" ? "before" : "after";
 }

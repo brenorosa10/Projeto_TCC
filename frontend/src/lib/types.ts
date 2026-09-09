@@ -69,6 +69,18 @@ export type SectionRole = "prep" | "practice" | "feedback"
 
 export type StudySessionStatus = "prep" | "practice" | "feedback" | "completed"
 
+export type ContentBlockType = "markdown" | "code" | "question"
+
+export type QuestionDifficulty = "iniciante" | "intermediario" | "avancado"
+
+export type ImagePosition = "before" | "after"
+
+export interface ContentBlock {
+  type: ContentBlockType | string
+  content: string
+  language?: string | null
+}
+
 export interface ActivitySummary {
   id: string
   professorId: string
@@ -144,6 +156,17 @@ export interface ActivityItem {
   clozeBlanks?: ClozeBlank[] | null
   categories?: CategoryBucket[] | null
   categoryItems?: CategoryItem[] | null
+  intro?: ContentBlock[] | null
+  promptBlocks?: ContentBlock[] | null
+  feedbackBlocks?: ContentBlock[] | null
+  feedbackMessages?: string[] | null
+  topics?: string[] | null
+  difficulty?: QuestionDifficulty | string | null
+  challengeId?: string | null
+  requireExplanation?: boolean | null
+  explanationMinLength?: number | null
+  explanationPrompt?: string | null
+  imagePosition?: ImagePosition | string | null
 }
 
 export interface ActivitySection {
@@ -197,6 +220,17 @@ export interface CreateActivityItemRequest {
   front?: string
   back?: string
   imageDataUrl?: string
+  intro?: ContentBlock[]
+  promptBlocks?: ContentBlock[]
+  feedbackBlocks?: ContentBlock[]
+  feedbackMessages?: string[]
+  topics?: string[]
+  difficulty?: QuestionDifficulty | string
+  challengeId?: string
+  requireExplanation?: boolean
+  explanationMinLength?: number
+  explanationPrompt?: string
+  imagePosition?: ImagePosition | string
 }
 
 export interface CreateOrderEntryRequest {
@@ -301,6 +335,8 @@ export interface StudyAnswerFeedback {
   score?: number | null
   boxLevel?: number | null
   nextReviewAt?: string | null
+  feedbackBlocks?: ContentBlock[] | null
+  feedbackMessages?: string[] | null
 }
 
 export interface StudyFlashcardSummary {
@@ -369,6 +405,14 @@ export interface StudySessionItem {
   categories?: MatchingEntry[] | null
   categoryItems?: MatchingEntry[] | null
   clozeBlanks?: MatchingEntry[] | null
+  intro?: ContentBlock[] | null
+  promptBlocks?: ContentBlock[] | null
+  topics?: string[] | null
+  difficulty?: QuestionDifficulty | string | null
+  requireExplanation?: boolean | null
+  explanationMinLength?: number | null
+  explanationPrompt?: string | null
+  imagePosition?: ImagePosition | string | null
 }
 
 export interface StudySessionFeedbackItem {
@@ -413,6 +457,121 @@ export interface StudySession {
 export interface CreateStudySessionRequest {
   activityId: string
   forceNew?: boolean
+}
+
+export type LiveSessionStatus = "lobby" | "running" | "ended"
+export type LiveSessionPhase = "lobby" | "question" | "reveal" | "ended"
+export type LiveSessionMode = "quiz" | "prova"
+
+export interface LiveParticipant {
+  studentId: string
+  name: string
+  joinedAt: string
+  isConnected: boolean
+}
+
+export interface LiveRankingEntry {
+  studentId: string
+  name: string
+  score: number
+  correctCount: number
+}
+
+export interface LiveAnswerTally {
+  answeredCount: number
+  participantCount: number
+}
+
+export interface LivePersonalResult {
+  hasAnswered: boolean
+  isCorrect?: boolean | null
+  score: number
+  correctCount: number
+  totalAnswered: number
+}
+
+export interface LiveQuestionReveal {
+  itemId: string
+  correctCount: number
+  incorrectCount: number
+  unansweredCount: number
+  accuracyPercent: number
+  correctOptionIds?: string[] | null
+  explanation?: string | null
+  feedbackBlocks?: ContentBlock[] | null
+  feedbackMessages?: string[] | null
+}
+
+export interface LiveSessionState {
+  id: string
+  activityId: string
+  classId: string
+  activityTitle: string
+  className: string
+  pin: string
+  status: LiveSessionStatus | string
+  phase: LiveSessionPhase | string
+  mode: LiveSessionMode | string
+  itemIndex: number
+  itemCount: number
+  questionStartedAt?: string | null
+  timeLimitSeconds?: number | null
+  questionEndsAt?: string | null
+  currentItem?: StudySessionItem | null
+  tally: LiveAnswerTally
+  participants: LiveParticipant[]
+  ranking?: LiveRankingEntry[] | null
+  reveal?: LiveQuestionReveal | null
+  personal?: LivePersonalResult | null
+  showAnswerKey: boolean
+}
+
+export interface CreateLiveSessionRequest {
+  activityId: string
+  classId: string
+}
+
+export interface AnalyticsActivitySummary {
+  id: string
+  title: string
+  type: string
+  sessionCount: number
+  participantCount: number
+}
+
+export interface AnalyticsSessionSummary {
+  id: string
+  activityId: string
+  pin: string
+  className: string
+  title: string
+  mode: string
+  status: string
+  startedAt: string
+  endedAt?: string | null
+  participants: LiveParticipant[]
+}
+
+export interface AnalyticsQuestion {
+  itemId: string
+  prompt: string
+  kind: string
+  attempts: number
+  correctCount: number
+  incorrectCount: number
+  accuracyPercent: number
+  errorPercent: number
+  highError: boolean
+  correctNames: string[]
+  incorrectNames: string[]
+}
+
+export interface AnalyticsOverview {
+  activities: AnalyticsActivitySummary[]
+  selectedActivityId?: string | null
+  selectedSessionId?: string | null
+  sessions: AnalyticsSessionSummary[]
+  questions: AnalyticsQuestion[]
 }
 
 export interface ApiErrorBody {

@@ -96,6 +96,20 @@ public record CreateMatchingPairRequest(
     string Right
 );
 
+public record ContentBlockRequest(
+    string? Type,
+    [MaxLength(20000)]
+    string? Content,
+    [MaxLength(40)]
+    string? Language = null
+);
+
+public record ContentBlockResponse(
+    string Type,
+    string Content,
+    string? Language
+);
+
 public record CreateActivityItemRequest(
     Guid? Id,
     string? Kind,
@@ -114,7 +128,18 @@ public record CreateActivityItemRequest(
     List<CreateOrderEntryRequest>? OrderEntries = null,
     List<CreateClozeBlankRequest>? ClozeBlanks = null,
     List<CreateCategoryRequest>? Categories = null,
-    List<CreateCategoryItemRequest>? CategoryItems = null
+    List<CreateCategoryItemRequest>? CategoryItems = null,
+    List<ContentBlockRequest>? Intro = null,
+    List<ContentBlockRequest>? PromptBlocks = null,
+    List<ContentBlockRequest>? FeedbackBlocks = null,
+    List<string>? FeedbackMessages = null,
+    List<string>? Topics = null,
+    string? Difficulty = null,
+    string? ChallengeId = null,
+    bool? RequireExplanation = null,
+    int? ExplanationMinLength = null,
+    string? ExplanationPrompt = null,
+    string? ImagePosition = null
 );
 
 public record CreateOrderEntryRequest(
@@ -221,7 +246,18 @@ public record ActivityItemResponse(
     IReadOnlyList<OrderEntryResponse>? OrderEntries = null,
     IReadOnlyList<ClozeBlankResponse>? ClozeBlanks = null,
     IReadOnlyList<CategoryResponse>? Categories = null,
-    IReadOnlyList<CategoryItemResponse>? CategoryItems = null
+    IReadOnlyList<CategoryItemResponse>? CategoryItems = null,
+    IReadOnlyList<ContentBlockResponse>? Intro = null,
+    IReadOnlyList<ContentBlockResponse>? PromptBlocks = null,
+    IReadOnlyList<ContentBlockResponse>? FeedbackBlocks = null,
+    IReadOnlyList<string>? FeedbackMessages = null,
+    IReadOnlyList<string>? Topics = null,
+    string? Difficulty = null,
+    string? ChallengeId = null,
+    bool? RequireExplanation = null,
+    int? ExplanationMinLength = null,
+    string? ExplanationPrompt = null,
+    string? ImagePosition = null
 );
 
 public record OrderEntryResponse(
@@ -350,7 +386,9 @@ public record StudyAnswerResponse(
     string? Back = null,
     int? Score = null,
     int? BoxLevel = null,
-    DateTimeOffset? NextReviewAt = null
+    DateTimeOffset? NextReviewAt = null,
+    IReadOnlyList<ContentBlockResponse>? FeedbackBlocks = null,
+    IReadOnlyList<string>? FeedbackMessages = null
 );
 
 public record StudyFlashcardSummaryResponse(
@@ -430,7 +468,15 @@ public record StudySessionItemResponse(
     IReadOnlyList<MatchingEntryResponse>? OrderItems = null,
     IReadOnlyList<MatchingEntryResponse>? Categories = null,
     IReadOnlyList<MatchingEntryResponse>? CategoryItems = null,
-    IReadOnlyList<MatchingEntryResponse>? ClozeBlanks = null
+    IReadOnlyList<MatchingEntryResponse>? ClozeBlanks = null,
+    IReadOnlyList<ContentBlockResponse>? Intro = null,
+    IReadOnlyList<ContentBlockResponse>? PromptBlocks = null,
+    IReadOnlyList<string>? Topics = null,
+    string? Difficulty = null,
+    bool? RequireExplanation = null,
+    int? ExplanationMinLength = null,
+    string? ExplanationPrompt = null,
+    string? ImagePosition = null
 );
 
 public record StudySessionFeedbackItemResponse(
@@ -471,3 +517,117 @@ public record StudySessionResponse(
     StudySessionFeedbackResponse? Feedback,
     StudySessionSectionViewResponse? PrepSection = null
 );
+
+public record CreateLiveSessionRequest(
+    [Required]
+    Guid ActivityId,
+    [Required]
+    Guid ClassId
+);
+
+public record LiveParticipantResponse(
+    Guid StudentId,
+    string Name,
+    DateTimeOffset JoinedAt,
+    bool IsConnected
+);
+
+public record LiveRankingEntryResponse(
+    Guid StudentId,
+    string Name,
+    int Score,
+    int CorrectCount
+);
+
+public record LiveAnswerTallyResponse(
+    int AnsweredCount,
+    int ParticipantCount
+);
+
+public record LivePersonalResultResponse(
+    bool HasAnswered,
+    bool? IsCorrect,
+    int Score,
+    int CorrectCount,
+    int TotalAnswered
+);
+
+public record LiveQuestionRevealResponse(
+    Guid ItemId,
+    int CorrectCount,
+    int IncorrectCount,
+    int UnansweredCount,
+    double AccuracyPercent,
+    IReadOnlyList<Guid>? CorrectOptionIds,
+    string? Explanation,
+    IReadOnlyList<ContentBlockResponse>? FeedbackBlocks,
+    IReadOnlyList<string>? FeedbackMessages
+);
+
+public record LiveSessionStateResponse(
+    Guid Id,
+    Guid ActivityId,
+    Guid ClassId,
+    string ActivityTitle,
+    string ClassName,
+    string Pin,
+    string Status,
+    string Phase,
+    string Mode,
+    int ItemIndex,
+    int ItemCount,
+    DateTimeOffset? QuestionStartedAt,
+    int? TimeLimitSeconds,
+    DateTimeOffset? QuestionEndsAt,
+    StudySessionItemResponse? CurrentItem,
+    LiveAnswerTallyResponse Tally,
+    IReadOnlyList<LiveParticipantResponse> Participants,
+    IReadOnlyList<LiveRankingEntryResponse>? Ranking,
+    LiveQuestionRevealResponse? Reveal,
+    LivePersonalResultResponse? Personal,
+    bool ShowAnswerKey
+);
+
+public record AnalyticsActivitySummaryResponse(
+    Guid Id,
+    string Title,
+    string Type,
+    int SessionCount,
+    int ParticipantCount
+);
+
+public record AnalyticsSessionSummaryResponse(
+    Guid Id,
+    Guid ActivityId,
+    string Pin,
+    string ClassName,
+    string Title,
+    string Mode,
+    string Status,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? EndedAt,
+    IReadOnlyList<LiveParticipantResponse> Participants
+);
+
+public record AnalyticsQuestionResponse(
+    Guid ItemId,
+    string Prompt,
+    string Kind,
+    int Attempts,
+    int CorrectCount,
+    int IncorrectCount,
+    double AccuracyPercent,
+    double ErrorPercent,
+    bool HighError,
+    IReadOnlyList<string> CorrectNames,
+    IReadOnlyList<string> IncorrectNames
+);
+
+public record AnalyticsOverviewResponse(
+    IReadOnlyList<AnalyticsActivitySummaryResponse> Activities,
+    Guid? SelectedActivityId,
+    Guid? SelectedSessionId,
+    IReadOnlyList<AnalyticsSessionSummaryResponse> Sessions,
+    IReadOnlyList<AnalyticsQuestionResponse> Questions
+);
+

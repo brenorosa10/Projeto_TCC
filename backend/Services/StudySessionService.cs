@@ -508,7 +508,7 @@ public class StudySessionService(
                 : null;
             if (item is not null)
             {
-                currentItem = ToSessionItem(item, session.Id);
+                currentItem = ActivityItemPresenter.ToStudentItem(item, session.Id);
             }
 
             if (justGraded is not null && gradedItemId is Guid gradedId && gradedId == itemId)
@@ -562,7 +562,9 @@ public class StudySessionService(
             grade.Back,
             grade.Score,
             boxLevel,
-            nextReviewAt);
+            nextReviewAt,
+            grade.FeedbackBlocks,
+            grade.FeedbackMessages);
 
     private static StudyAnswerResponse StoredToAnswer(StudySessionAnswer answer, ActivityItem? item)
     {
@@ -572,7 +574,7 @@ public class StudySessionService(
             answer.SelectedOptionId,
             correct is { Count: 1 } ? correct[0] : null,
             answer.IsCorrect == true,
-            item?.Explanation,
+            item is null ? null : ContentBlocks.CombinedExplanation(item),
             answer.Kind,
             answer.SelectedOptionIds,
             correct,
@@ -581,83 +583,9 @@ public class StudySessionService(
             item?.Kind == ItemKinds.Flashcard ? item.Back : null,
             answer.Score,
             answer.BoxLevel,
-            answer.NextReviewAt);
-    }
-
-    private static StudySessionItemResponse ToSessionItem(ActivityItem item, Guid sessionId)
-    {
-        IReadOnlyList<MatchingEntryResponse>? left = null;
-        IReadOnlyList<MatchingEntryResponse>? right = null;
-        IReadOnlyList<MatchingEntryResponse>? orderItems = null;
-        IReadOnlyList<MatchingEntryResponse>? categories = null;
-        IReadOnlyList<MatchingEntryResponse>? categoryItems = null;
-        IReadOnlyList<MatchingEntryResponse>? clozeBlanks = null;
-        var prompt = item.Prompt;
-
-        if (item.Kind == ItemKinds.Matching && item.Pairs is { Count: > 0 })
-        {
-            left = item.Pairs
-                .Select(pair => new MatchingEntryResponse(pair.LeftId, pair.Left))
-                .ToList();
-            right = Shuffle(
-                item.Pairs.Select(pair => new MatchingEntryResponse(pair.RightId, pair.Right)).ToList(),
-                sessionId,
-                item.Id);
-        }
-
-        if (item.Kind == ItemKinds.Ordering && item.OrderEntries is { Count: > 0 })
-        {
-            orderItems = Shuffle(
-                item.OrderEntries
-                    .OrderBy(entry => entry.Position)
-                    .Select(entry => new MatchingEntryResponse(entry.Id, entry.Text))
-                    .ToList(),
-                sessionId,
-                item.Id);
-        }
-
-        if (item.Kind == ItemKinds.Categorize)
-        {
-            categories = (item.Categories ?? [])
-                .OrderBy(category => category.Position)
-                .Select(category => new MatchingEntryResponse(category.Id, category.Label))
-                .ToList();
-            categoryItems = Shuffle(
-                (item.CategoryItems ?? [])
-                    .Select(member => new MatchingEntryResponse(member.Id, member.Text))
-                    .ToList(),
-                sessionId,
-                item.Id);
-        }
-
-        if (item.Kind == ItemKinds.Cloze && item.ClozeBlanks is { Count: > 0 })
-        {
-            prompt = ClozeMarkup.ToStudentPrompt(item.Prompt, item.ClozeBlanks);
-            clozeBlanks = item.ClozeBlanks
-                .OrderBy(blank => blank.Position)
-                .Select(blank => new MatchingEntryResponse(blank.Id, string.Empty))
-                .ToList();
-        }
-
-        return new StudySessionItemResponse(
-            item.Id,
-            item.Kind,
-            prompt,
-            item.TimeLimitSeconds,
-            item.Options?
-                .OrderBy(option => option.Position)
-                .Select(option => new QuestionOptionResponse(option.Id, option.Text, null, option.Position))
-                .ToList(),
-            item.Front,
-            item.Kind == ItemKinds.Flashcard ? item.Back : null,
-            ActivityImage.ToDataUrl(item),
-            item.Kind == ItemKinds.MultipleChoice ? item.AllowMultiple : null,
-            left,
-            right,
-            orderItems,
-            categories,
-            categoryItems,
-            clozeBlanks);
+            answer.NextReviewAt,
+            ContentBlocks.ToResponse(item?.FeedbackBlocks),
+            item?.FeedbackMessages);
     }
 
     private static StudySessionFeedbackResponse BuildFeedback(
@@ -676,7 +604,7 @@ public class StudySessionService(
                     answer.Kind,
                     item?.Prompt ?? item?.Front,
                     answer.IsCorrect,
-                    item?.Explanation,
+                    item is null ? null : ContentBlocks.CombinedExplanation(item),
                     answer.SelectedOptionId,
                     correct?.Id,
                     answer.TextAnswer,
@@ -697,22 +625,5 @@ public class StudySessionService(
             session.Answers.Count(answer => answer.IsCorrect == true),
             session.Answers.Count(answer => answer.IsCorrect == false),
             items);
-    }
-
-    private static List<MatchingEntryResponse> Shuffle(
-        List<MatchingEntryResponse> entries,
-        Guid sessionId,
-        Guid itemId)
-    {
-        var seed = BitConverter.ToInt32(sessionId.ToByteArray(), 0)
-            ^ BitConverter.ToInt32(itemId.ToByteArray(), 0);
-        var rng = new Random(seed);
-        for (var i = entries.Count - 1; i > 0; i--)
-        {
-            var j = rng.Next(i + 1);
-            (entries[i], entries[j]) = (entries[j], entries[i]);
-        }
-
-        return entries;
     }
 }

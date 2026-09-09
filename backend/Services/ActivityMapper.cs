@@ -111,6 +111,17 @@ public static class ActivityMapper
                         member.Text,
                         includeAnswers ? member.CategoryId : null))
                     .ToList()
-                : null);
+                : null,
+            ContentBlocks.ToResponse(item.Intro),
+            ContentBlocks.ToResponse(item.PromptBlocks),
+            includeAnswers ? ContentBlocks.ToResponse(item.FeedbackBlocks) : null,
+            includeAnswers ? item.FeedbackMessages : null,
+            item.Topics,
+            item.Difficulty,
+            item.ChallengeId,
+            item.RequireExplanation ? true : null,
+            item.RequireExplanation ? item.ExplanationMinLength : null,
+            item.RequireExplanation ? item.ExplanationPrompt : null,
+            string.IsNullOrWhiteSpace(item.ImagePosition) ? "after" : item.ImagePosition);
     }
 }

@@ -229,7 +229,7 @@ export function RichTextEditor({
             onKeyDown={handleKeyDown}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder}
-            className="block w-full resize-y bg-transparent px-3.5 py-3 text-base leading-relaxed outline-none placeholder:text-muted-foreground/70 md:text-sm"
+            className="block w-full resize-y bg-transparent px-3.5 py-3 text-base leading-relaxed outline-none placeholder:text-muted-foreground/70 md:text-sm min-h-40"
           />
         ) : (
           <div className="min-h-[7rem] px-3.5 py-3">
@@ -242,15 +242,6 @@ export function RichTextEditor({
           </div>
         )}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        {hint ?? (
-          <>
-            Use a barra de ferramentas para formatar. Aceita Markdown: <code>**negrito**</code>,{" "}
-            <code>- listas</code> e blocos de código com destaque de sintaxe.
-          </>
-        )}
-      </p>
     </div>
   )
 }

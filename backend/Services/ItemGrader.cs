@@ -18,6 +18,8 @@ public sealed class GradeResult
     public bool? Remembered { get; init; }
     public string? Explanation { get; init; }
     public string? Back { get; init; }
+    public IReadOnlyList<ContentBlockResponse>? FeedbackBlocks { get; init; }
+    public IReadOnlyList<string>? FeedbackMessages { get; init; }
 
     public static GradeResult Fail(string error) => new() { Success = false, Error = error };
 }
@@ -26,7 +28,7 @@ public static class ItemGrader
 {
     public static GradeResult Grade(ActivityItem item, SubmitStudyAnswerRequest request)
     {
-        return item.Kind switch
+        var result = item.Kind switch
         {
             ItemKinds.MultipleChoice => GradeOptions(item, request, allowMultiple: item.AllowMultiple),
             ItemKinds.TrueFalse => GradeOptions(item, request, allowMultiple: false),
@@ -38,6 +40,19 @@ public static class ItemGrader
             ItemKinds.Flashcard => GradeFlashcard(item, request),
             _ => GradeResult.Fail("Este tipo de questão ainda não pode ser corrigido.")
         };
+
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        var reflectionError = ContentBlocks.CheckReflection(item, request.TextAnswer);
+        if (reflectionError is not null)
+        {
+            return GradeResult.Fail(reflectionError);
+        }
+
+        return WithFeedback(result, item, request.TextAnswer);
     }
 
     public static StudyAnswerResponse ToResponse(GradeResult grade, Guid itemId) =>
@@ -53,7 +68,11 @@ public static class ItemGrader
             grade.TextAnswer,
             grade.Remembered,
             grade.Back,
-            grade.Score);
+            grade.Score,
+            null,
+            null,
+            grade.FeedbackBlocks,
+            grade.FeedbackMessages);
 
     private static GradeResult GradeOptions(ActivityItem item, SubmitStudyAnswerRequest request, bool allowMultiple)
     {
@@ -293,6 +312,27 @@ public static class ItemGrader
             Explanation = item.Explanation
         };
     }
+
+    private static GradeResult WithFeedback(GradeResult grade, ActivityItem item, string? textAnswer) =>
+        new()
+        {
+            Success = true,
+            Kind = grade.Kind,
+            IsCorrect = grade.IsCorrect,
+            Score = grade.Score,
+            SelectedOptionId = grade.SelectedOptionId,
+            SelectedOptionIds = grade.SelectedOptionIds,
+            CorrectOptionId = grade.CorrectOptionId,
+            CorrectOptionIds = grade.CorrectOptionIds,
+            TextAnswer = item.RequireExplanation
+                ? textAnswer?.Trim()
+                : grade.TextAnswer,
+            Remembered = grade.Remembered,
+            Explanation = ContentBlocks.CombinedExplanation(item),
+            Back = grade.Back,
+            FeedbackBlocks = ContentBlocks.ToResponse(item.FeedbackBlocks),
+            FeedbackMessages = item.FeedbackMessages
+        };
 
     private static List<Guid> NormalizeSelected(SubmitStudyAnswerRequest request)
     {

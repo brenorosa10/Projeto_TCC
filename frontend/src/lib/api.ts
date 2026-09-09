@@ -21,6 +21,9 @@ import type {
   StudySession,
   SubmitStudyAnswerRequest,
   FlashcardReviewFeedback,
+  CreateLiveSessionRequest,
+  LiveSessionState,
+  AnalyticsOverview,
 } from "@/lib/types"
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5080"
@@ -182,6 +185,25 @@ export const api = {
     request<StudySession>(`/api/study/sessions/${sessionId}/complete`, {
       method: "POST",
     }),
+  createLiveSession: (body: CreateLiveSessionRequest) =>
+    request<LiveSessionState>("/api/live/sessions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getLiveSession: (id: string) => request<LiveSessionState>(`/api/live/sessions/${id}`),
+  getLiveSessionByPin: (pin: string) =>
+    request<LiveSessionState>(`/api/live/sessions/by-pin/${pin}`),
+  endLiveSession: (id: string) =>
+    request<LiveSessionState>(`/api/live/sessions/${id}/end`, {
+      method: "POST",
+    }),
+  getAnalytics: (activityId?: string, sessionId?: string) => {
+    const params = new URLSearchParams()
+    if (activityId) params.set("activityId", activityId)
+    if (sessionId) params.set("sessionId", sessionId)
+    const query = params.toString()
+    return request<AnalyticsOverview>(`/api/analytics${query ? `?${query}` : ""}`)
+  },
 }
 
 export function getApiBaseUrl() {

@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { Clock, Eye, Flag, Lightbulb, Rocket, Target } from "lucide-react"
+import { Eye, Flag, Lightbulb, Rocket, Target } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
 import { ItemImageField } from "@/components/activity/item-image-field"
 import { ListField } from "@/components/activity/list-field"
 import { PrepPanel } from "@/components/activity/prep-panel"
@@ -38,7 +39,7 @@ export function PrepFeedbackFields({
   prepTitle: string
   prepBody: string
   prepObjectives: string
-  prepMinutes: string
+  prepMinutes?: string
   prepTips: string
   prepImageDataUrl?: string
   feedbackTitle: string
@@ -46,7 +47,7 @@ export function PrepFeedbackFields({
   onPrepTitle: (value: string) => void
   onPrepBody: (value: string) => void
   onPrepObjectives: (value: string) => void
-  onPrepMinutes: (value: string) => void
+  onPrepMinutes?: (value: string) => void
   onPrepTips: (value: string) => void
   onPrepImageDataUrl: (value?: string) => void
   onFeedbackTitle: (value: string) => void
@@ -57,11 +58,11 @@ export function PrepFeedbackFields({
 
   return (
     <section className="surface-card overflow-hidden">
-      <header className="flex flex-col gap-4 border-b border-border/70 bg-muted/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <header className="flex flex-col gap-3 border-b border-border/70 bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div>
-          <h2 className="font-display text-lg font-semibold">Estrutura da atividade</h2>
-          <p className="text-sm text-muted-foreground">
-            O que o aluno vê antes de praticar e o que ele encontra ao terminar.
+          <h2 className="font-display text-base font-semibold">Pré e pós-seção</h2>
+          <p className="text-xs text-muted-foreground">
+            O que o aluno vê antes de praticar e ao terminar.
           </p>
         </div>
         <Button
@@ -92,7 +93,7 @@ export function PrepFeedbackFields({
         />
       </div>
 
-      <div className="p-4 sm:p-6">
+      <div className="p-3 sm:p-4">
         {preview ? (
           tab === "prep" ? (
             <PrepPanel
@@ -120,8 +121,8 @@ export function PrepFeedbackFields({
             />
           )
         ) : tab === "prep" ? (
-          <div className="grid gap-5">
-            <div className="grid gap-2">
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
               <Label htmlFor="prep-title">Título da pré-seção</Label>
               <Input
                 id="prep-title"
@@ -136,39 +137,34 @@ export function PrepFeedbackFields({
               label="Texto de abertura"
               value={prepBody}
               onChange={onPrepBody}
-              rows={7}
+              rows={4}
               placeholder={"Explique o contexto da atividade.\n\nVocê pode usar títulos, listas, tabelas e blocos de código."}
-              hint="Dica: use o botão de bloco de código para colar trechos de programação com destaque de sintaxe."
             />
 
-            <div className="grid gap-5 lg:grid-cols-2">
-              <ListField
-                label="Objetivos de aprendizagem"
-                description="Aparecem como uma checklist numerada para o aluno."
-                icon={<Target className="h-4 w-4 text-primary" />}
-                value={prepObjectives}
-                onChange={onPrepObjectives}
-                placeholder="Identificar os planetas interiores"
-                addLabel="Objetivo"
-              />
-              <ListField
-                label="Dicas de estudo"
-                description="Mostradas em destaque, logo antes do botão de começar."
-                icon={<Lightbulb className="h-4 w-4 text-astro-amber" />}
-                value={prepTips}
-                onChange={onPrepTips}
-                placeholder="Leia o enunciado até o fim antes de responder"
-                addLabel="Dica"
-              />
-            </div>
+            <ListField
+              label="Objetivos de aprendizagem"
+              description="Aparecem como uma checklist numerada para o aluno."
+              icon={<Target className="h-4 w-4 text-primary" />}
+              value={prepObjectives}
+              onChange={onPrepObjectives}
+              placeholder="Identificar os planetas interiores"
+              addLabel="Objetivo"
+            />
+            <Separator />
+            <ListField
+              label="Dicas de estudo"
+              description="Mostradas em destaque, logo antes do botão de começar."
+              icon={<Lightbulb className="h-4 w-4 text-astro-amber" />}
+              value={prepTips}
+              onChange={onPrepTips}
+              placeholder="Leia o enunciado até o fim antes de responder"
+              addLabel="Dica"
+            />
 
-            <div className="grid gap-5 sm:grid-cols-[12rem_1fr] sm:items-start">
+            {onPrepMinutes ? (
               <div className="grid gap-2">
-                <Label htmlFor="prep-minutes" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  Tempo estimado
-                </Label>
-                <div className="relative">
+                <Label htmlFor="prep-minutes">Tempo estimado</Label>
+                <div className="relative max-w-40">
                   <Input
                     id="prep-minutes"
                     type="number"
@@ -184,16 +180,17 @@ export function PrepFeedbackFields({
                   </span>
                 </div>
               </div>
-              <ItemImageField
-                id="prep-image"
-                imageDataUrl={prepImageDataUrl}
-                onChange={onPrepImageDataUrl}
-              />
-            </div>
+            ) : null}
+
+            <ItemImageField
+              id="prep-image"
+              imageDataUrl={prepImageDataUrl}
+              onChange={onPrepImageDataUrl}
+            />
           </div>
         ) : (
-          <div className="grid gap-5">
-            <div className="rounded-xl border border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+          <div className="grid gap-3">
+            <div className="rounded-lg border border-border/70 bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
               O placar de acertos e a revisão item a item são montados automaticamente. Use os campos
               abaixo para a mensagem de encerramento.
             </div>
@@ -211,7 +208,7 @@ export function PrepFeedbackFields({
               label="Mensagem de encerramento"
               value={feedbackBody}
               onChange={onFeedbackBody}
-              rows={7}
+              rows={4}
               placeholder={"Parabéns por concluir!\n\n- Reveja os itens em vermelho\n- Refaça a atividade amanhã"}
               hint="Você pode incluir links de leitura, listas de revisão e exemplos de código comentados."
             />

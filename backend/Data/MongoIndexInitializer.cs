@@ -69,7 +69,19 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
                 new CreateIndexModel<LiveSession>(
                     Builders<LiveSession>.IndexKeys.Ascending(x => x.Pin)),
                 new CreateIndexModel<LiveSession>(
-                    Builders<LiveSession>.IndexKeys.Ascending(x => x.ActivityId))
+                    Builders<LiveSession>.IndexKeys.Ascending(x => x.Pin),
+                    new CreateIndexOptions<LiveSession>
+                    {
+                        Name = "pin_active_unique",
+                        Unique = true,
+                        PartialFilterExpression = Builders<LiveSession>.Filter.In(
+                            x => x.Status,
+                            new[] { LiveSessionStatuses.Lobby, LiveSessionStatuses.Running })
+                    }),
+                new CreateIndexModel<LiveSession>(
+                    Builders<LiveSession>.IndexKeys.Ascending(x => x.ActivityId)),
+                new CreateIndexModel<LiveSession>(
+                    Builders<LiveSession>.IndexKeys.Ascending(x => x.ProfessorId).Descending(x => x.StartedAt))
             ],
             cancellationToken);
 
@@ -78,7 +90,9 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
                 new CreateIndexModel<AnswerAttempt>(
                     Builders<AnswerAttempt>.IndexKeys.Ascending(x => x.StudentId).Ascending(x => x.ActivityId)),
                 new CreateIndexModel<AnswerAttempt>(
-                    Builders<AnswerAttempt>.IndexKeys.Ascending(x => x.ActivityId).Ascending(x => x.ItemId))
+                    Builders<AnswerAttempt>.IndexKeys.Ascending(x => x.ActivityId).Ascending(x => x.ItemId)),
+                new CreateIndexModel<AnswerAttempt>(
+                    Builders<AnswerAttempt>.IndexKeys.Ascending(x => x.LiveSessionId))
             ],
             cancellationToken);
 

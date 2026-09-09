@@ -2,12 +2,15 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Flag, Rocket } from "lucide-react"
+import { ContentBlockList } from "@/components/activity/content-block-list"
+import { PromptMedia } from "@/components/activity/question-preview"
 import { DeleteActivityButton } from "@/components/activity/delete-activity-button"
 import { RichText } from "@/components/rich-text/rich-text"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
+import { hasContentBlocks } from "@/lib/content-blocks"
 import { findSection, hasSectionCopy, itemKindLabel } from "@/lib/item-kinds"
 import { cn } from "@/lib/utils"
 import type { Activity, ActivityItem, ActivitySection, ClassRoom } from "@/lib/types"
@@ -114,6 +117,29 @@ export function ProfessorActivityDetailPage() {
                   Editar
                 </Link>
               </Button>
+              {activity.type === "quiz" ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={importing}
+                  onClick={() => void handleImport()}
+                >
+                  {importing ? "Importando..." : "Importar flashcards"}
+                </Button>
+              ) : null}
+              {activity.type === "quiz" || activity.type === "prova" ? (
+                <Button asChild>
+                  <Link
+                    to={
+                      selectedClassIds[0]
+                        ? `/professor/ao-vivo?classId=${selectedClassIds[0]}&activityId=${activity.id}`
+                        : "/professor/ao-vivo"
+                    }
+                  >
+                    Iniciar ao vivo
+                  </Link>
+                </Button>
+              ) : null}
               <DeleteActivityButton
                 activityId={activity.id}
                 title={activity.title}
@@ -159,12 +185,6 @@ export function ProfessorActivityDetailPage() {
               </Button>
             ) : null}
           </section>
-
-          {activity.type === "quiz" ? (
-            <Button type="button" variant="secondary" disabled={importing} onClick={() => void handleImport()}>
-              {importing ? "Importando..." : "Importar flashcards"}
-            </Button>
-          ) : null}
 
           <SectionCopy heading="Pré-seção" section={findSection(activity.sections, "prep")} />
 
@@ -280,19 +300,37 @@ function ActivityItemPreview({
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {isCard ? `Cartão ${index + 1}` : `Questão ${index + 1}`}
         {item.kind ? ` · ${itemKindLabel(item.kind)}` : null}
-        {item.timeLimitSeconds && !isCard ? ` · ${item.timeLimitSeconds}s` : null}
+        {item.difficulty ? ` · ${item.difficulty}` : null}
+        {item.requireExplanation ? " · reflexão" : null}
       </p>
-      <RichText
-        value={isCard ? item.front : item.prompt}
-        className="rich-text-prompt mt-2 font-medium"
-      />
-      {item.imageDataUrl ? (
-        <img
-          src={item.imageDataUrl}
-          alt=""
-          className="mt-3 max-h-56 w-full rounded-md border border-border object-contain bg-muted/30"
-        />
+      {item.topics && item.topics.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {item.topics.map((topic) => (
+            <Badge key={topic} variant="outline" className="text-xs font-normal">
+              {topic}
+            </Badge>
+          ))}
+        </div>
       ) : null}
+      <div className="mt-2">
+        <PromptMedia
+          imageDataUrl={item.imageDataUrl}
+          imagePosition={item.imagePosition}
+          className="max-h-56"
+        >
+          {hasContentBlocks(item.intro) || hasContentBlocks(item.promptBlocks) ? (
+            <div className="space-y-3">
+              <ContentBlockList blocks={item.intro} className="text-muted-foreground" />
+              <ContentBlockList blocks={item.promptBlocks} questionClassName="text-lg sm:text-xl" />
+            </div>
+          ) : (
+            <RichText
+              value={isCard ? item.front : item.prompt}
+              className="rich-text-prompt font-medium"
+            />
+          )}
+        </PromptMedia>
+      </div>
       {isCard ? <RichText value={item.back} className="mt-2 text-sm" /> : null}
       {item.kind === "short_answer" && item.acceptedAnswers?.length ? (
         <p className="mt-3 text-sm text-muted-foreground">
@@ -358,7 +396,17 @@ function ActivityItemPreview({
           ))}
         </ul>
       ) : null}
-      {item.explanation ? (
+      {item.feedbackMessages && item.feedbackMessages.length > 0 ? (
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+          {item.feedbackMessages.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
+      ) : null}
+      <ContentBlockList blocks={item.feedbackBlocks} className="mt-3" />
+      {!hasContentBlocks(item.feedbackBlocks) &&
+      !(item.feedbackMessages && item.feedbackMessages.length > 0) &&
+      item.explanation ? (
         <div className="mt-3 rounded-lg border border-border/60 bg-secondary/40 px-3 py-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Explicação

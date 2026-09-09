@@ -8,22 +8,16 @@ interface VisibilityCheckboxProps {
 
 export function VisibilityCheckbox({ id, checked, onChange }: VisibilityCheckboxProps) {
   return (
-    <div className="surface-card space-y-2 p-4">
-      <label htmlFor={id} className="flex cursor-pointer items-start gap-3 text-sm">
+    <div className="flex h-12 items-center rounded-xl border border-border/70 bg-card px-3.5">
+      <label htmlFor={id} className="flex cursor-pointer items-center gap-2.5 text-sm whitespace-nowrap">
         <input
           id={id}
           type="checkbox"
-          className="mt-1 h-4 w-4 accent-[var(--color-primary)]"
+          className="h-4 w-4 accent-[var(--color-primary)]"
           checked={checked}
           onChange={(event) => onChange(event.target.checked)}
         />
-        <span>
-          <span className="font-medium">Tornar público</span>
-          <span className="mt-1 block text-muted-foreground">
-            Público: qualquer pessoa estuda na página inicial, mesmo sem login. Privado: só alunos
-            das turmas vinculadas.
-          </span>
-        </span>
+        <span className="font-medium">Tornar público</span>
       </label>
       <Label className="sr-only" htmlFor={id}>
         Visibilidade

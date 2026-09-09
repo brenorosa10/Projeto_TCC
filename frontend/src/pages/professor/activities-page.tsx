@@ -18,6 +18,21 @@ function typeLabel(type: string) {
 export function ProfessorActivitiesPage() {
   const [activities, setActivities] = useState<ActivitySummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [importingId, setImportingId] = useState<string | null>(null)
+
+  async function handleImport(activity: ActivitySummary) {
+    setImportingId(activity.id)
+    try {
+      const deck = await api.importFlashcards(activity.id)
+      toast.success(
+        `Deck "${deck.title}" com ${deck.itemCount} cartão(ões) a partir das respostas corretas.`
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao importar flashcards")
+    } finally {
+      setImportingId(null)
+    }
+  }
 
   useEffect(() => {
     api
@@ -94,6 +109,17 @@ export function ProfessorActivitiesPage() {
                 <Button asChild variant="outline" size="sm">
                   <Link to={`/professor/atividades/${item.id}`}>Abrir</Link>
                 </Button>
+                {item.type === "quiz" ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={importingId === item.id}
+                    onClick={() => void handleImport(item)}
+                  >
+                    {importingId === item.id ? "Importando..." : "Importar flashcards"}
+                  </Button>
+                ) : null}
                 <DeleteActivityButton
                   activityId={item.id}
                   title={item.title}
