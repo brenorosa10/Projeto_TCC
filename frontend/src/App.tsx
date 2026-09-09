@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
+import { BrowserRouter, Route, Routes } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
 import { RequireRole } from "@/components/auth/require-role"
 import { AuthProvider } from "@/contexts/auth-context"
@@ -21,6 +21,7 @@ import { AlunoStudyPage } from "@/pages/aluno/study-page"
 import { AlunoQuizStudyPage } from "@/pages/aluno/quiz-study-page"
 import { AlunoFlashcardStudyPage } from "@/pages/aluno/flashcard-study-page"
 import { AlunoLiveJoinPage } from "@/pages/aluno/live-join-page"
+import { NotFoundPage } from "@/pages/not-found-page"
 
 export default function App() {
   return (
@@ -192,7 +193,7 @@ export default function App() {
             }
           />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
       <Toaster richColors position="top-right" />
