@@ -2,9 +2,22 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import type * as signalR from "@microsoft/signalr"
 import { toast } from "sonner"
-import { BarChart3, Copy, Radio, Users } from "lucide-react"
+import {
+  BarChart3,
+  Check,
+  Copy,
+  Eye,
+  MinusCircle,
+  Play,
+  Radio,
+  SkipForward,
+  Sparkles,
+  Square,
+  Trophy,
+  Users,
+  X,
+} from "lucide-react"
 import { ItemPrompt } from "@/components/activity/item-prompt"
-import { LiveCountdown } from "@/components/activity/live-countdown"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,7 +47,6 @@ export function ProfessorLivePage() {
   const [state, setState] = useState<LiveSessionState | null>(null)
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null)
   const connectionRef = useRef<signalR.HubConnection | null>(null)
-  const autoAdvanceKey = useRef<string | null>(null)
   const advancingRef = useRef(false)
 
   useEffect(() => {
@@ -65,26 +77,6 @@ export function ProfessorLivePage() {
       void connectionRef.current?.stop()
     }
   }, [])
-
-  useEffect(() => {
-    if (!state || state.phase !== "question" || !state.questionEndsAt || !connection) return
-    const key = `${state.id}:${state.itemIndex}:${state.questionEndsAt}`
-    if (autoAdvanceKey.current === key) return
-    autoAdvanceKey.current = key
-    const delay = new Date(state.questionEndsAt).getTime() - Date.now() + 250
-    const timer = window.setTimeout(() => {
-      if (advancingRef.current) return
-      advancingRef.current = true
-      void liveAdvance(connection)
-        .catch((error: unknown) => {
-          toast.error(error instanceof Error ? error.message : "Não foi possível avançar")
-        })
-        .finally(() => {
-          advancingRef.current = false
-        })
-    }, Math.max(0, delay))
-    return () => window.clearTimeout(timer)
-  }, [connection, state])
 
   const linkedActivities = useMemo(
     () => activities.filter((item) => !classId || item.classIds?.includes(classId)),
@@ -140,7 +132,6 @@ export function ProfessorLivePage() {
 
   async function resetSession() {
     advancingRef.current = false
-    autoAdvanceKey.current = null
     await connectionRef.current?.stop()
     connectionRef.current = null
     setConnection(null)
@@ -211,19 +202,29 @@ function SetupForm({
   onCreate: () => void
 }) {
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-semibold">Iniciar ao vivo</h1>
-        <p className="mt-2 text-muted-foreground">
-          Gere um PIN de 6 dígitos, aguarde os alunos na sala e avance as questões em sincronia.
-        </p>
-      </div>
-      <div className="surface-card space-y-4 p-5">
+    <div className="mx-auto max-w-xl space-y-6 animate-fade-up">
+      <section className="surface-card relative overflow-hidden px-6 py-7">
+        <div className="pattern-grid absolute inset-0 opacity-40" aria-hidden />
+        <div className="relative space-y-3">
+          <span className="inline-flex items-center gap-2 rounded-full bg-astro-violet/12 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-astro-violet">
+            <Sparkles className="h-3.5 w-3.5" />
+            Tempo real
+          </span>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-balance">
+            Iniciar ao vivo
+          </h1>
+          <p className="text-muted-foreground text-pretty">
+            Gere um PIN de 6 dígitos, aguarde os alunos na sala e avance as questões no seu ritmo.
+          </p>
+        </div>
+      </section>
+
+      <div className="surface-card space-y-5 p-5 sm:p-6">
         <div className="grid gap-2">
           <Label htmlFor="live-class">Turma</Label>
           <select
             id="live-class"
-            className="flex h-11 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm"
+            className="flex h-11 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm transition-colors focus-visible:border-ring"
             value={classId}
             onChange={(event) => onClassId(event.target.value)}
           >
@@ -239,7 +240,7 @@ function SetupForm({
           <Label htmlFor="live-activity">Quiz ou prova</Label>
           <select
             id="live-activity"
-            className="flex h-11 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm"
+            className="flex h-11 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm transition-colors focus-visible:border-ring"
             value={activityId}
             onChange={(event) => onActivityId(event.target.value)}
           >
@@ -251,24 +252,30 @@ function SetupForm({
             ))}
           </select>
         </div>
-          {classes.length === 0 ? (
-            <EmptyState
-              title="Nenhuma turma ainda"
-              description="Crie uma turma e vincule um quiz antes de iniciar uma sessão ao vivo."
-            >
-              <Button asChild>
-                <Link to="/professor/turmas">Ir para turmas</Link>
-              </Button>
-            </EmptyState>
-          ) : null}
-          {classes.length > 0 && activities.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhum quiz vinculado a esta turma. Vincule uma atividade na página da turma.
-            </p>
-          ) : null}
-          <Button type="button" disabled={creating || !classId || !activityId} onClick={onCreate}>
-            {creating ? "Criando sala..." : "Criar sala"}
-          </Button>
+        {classes.length === 0 ? (
+          <EmptyState
+            title="Nenhuma turma ainda"
+            description="Crie uma turma e vincule um quiz antes de iniciar uma sessão ao vivo."
+          >
+            <Button asChild>
+              <Link to="/professor/turmas">Ir para turmas</Link>
+            </Button>
+          </EmptyState>
+        ) : null}
+        {classes.length > 0 && activities.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+            Nenhum quiz vinculado a esta turma. Vincule uma atividade na página da turma.
+          </p>
+        ) : null}
+        <Button
+          type="button"
+          className="w-full sm:w-auto"
+          disabled={creating || !classId || !activityId}
+          onClick={onCreate}
+        >
+          <Radio className="h-4 w-4" />
+          {creating ? "Criando sala..." : "Criar sala"}
+        </Button>
       </div>
     </div>
   )
@@ -289,47 +296,35 @@ function HostRoom({
   onEnd: () => void
   onReset: () => void
 }) {
+  const isLastItem = state.itemIndex + 1 >= state.itemCount
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {state.className} · {state.mode === "prova" ? "Prova" : "Quiz"}
-          </p>
-          <h1 className="mt-1 font-display text-3xl font-semibold">{state.activityTitle}</h1>
-        </div>
-        <div className="rounded-2xl border border-primary/30 bg-primary/8 px-5 py-3 text-center">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">PIN</p>
-          <p className="font-mono text-3xl font-semibold tracking-[0.3em]">{state.pin}</p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="mt-1 h-8"
-            onClick={() => {
-              void navigator.clipboard.writeText(state.pin).then(
-                () => toast.success("PIN copiado."),
-                () => toast.error("Não foi possível copiar o PIN.")
-              )
-            }}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            Copiar
-          </Button>
-        </div>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-6 animate-fade-up">
+      <SessionHeader state={state} />
 
       {state.phase === "lobby" ? (
         <div className="space-y-5">
+          <div className="surface-card flex flex-col items-center gap-3 px-6 py-10 text-center">
+            <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-astro-sky/20 text-astro-navy">
+              <span className="absolute inset-0 animate-soft-pulse rounded-full bg-astro-sky/30" aria-hidden />
+              <Radio className="relative h-6 w-6" />
+            </span>
+            <p className="font-display text-xl font-semibold">Sala aberta</p>
+            <p className="max-w-md text-sm text-muted-foreground text-pretty">
+              Projete o PIN para a turma. Os nomes aparecem aqui assim que os alunos entram.
+            </p>
+          </div>
           <ParticipantList participants={state.participants} />
-          <div className="flex flex-wrap gap-2">
+          <ActionBar>
             <Button type="button" disabled={busy} onClick={onStart}>
+              <Play className="h-4 w-4" />
               Começar
             </Button>
             <Button type="button" variant="outline" disabled={busy} onClick={onEnd}>
+              <Square className="h-4 w-4" />
               Encerrar
             </Button>
-          </div>
+          </ActionBar>
         </div>
       ) : null}
 
@@ -344,38 +339,60 @@ function HostRoom({
                   <li
                     key={option.id}
                     className={cn(
-                      "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm",
+                      "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm transition-colors",
                       option.isCorrect
                         ? "border-success/40 bg-success/8"
                         : "border-border/70 bg-muted/30"
                     )}
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                    <span
+                      className={cn(
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                        option.isCorrect
+                          ? "bg-success/15 text-success"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
                       {String.fromCharCode(65 + index)}
                     </span>
                     <RichText value={option.text} className="min-w-0 flex-1" />
                     {option.isCorrect ? (
-                      <span className="text-xs font-medium text-success">correta</span>
+                      <Badge variant="success" className="shrink-0">
+                        correta
+                      </Badge>
                     ) : null}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">Os alunos estão respondendo esta questão.</p>
+              <p className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                Os alunos estão respondendo esta questão.
+              </p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <ActionBar>
             <Button type="button" disabled={busy} onClick={onAdvance}>
-              {state.mode === "quiz"
-                ? "Revelar respostas"
-                : state.itemIndex + 1 >= state.itemCount
-                  ? "Encerrar sessão"
-                  : "Próxima questão"}
+              {state.mode === "quiz" ? (
+                <>
+                  <Eye className="h-4 w-4" />
+                  Revelar respostas
+                </>
+              ) : isLastItem ? (
+                <>
+                  <Square className="h-4 w-4" />
+                  Encerrar sessão
+                </>
+              ) : (
+                <>
+                  <SkipForward className="h-4 w-4" />
+                  Próxima questão
+                </>
+              )}
             </Button>
             <Button type="button" variant="outline" disabled={busy} onClick={onEnd}>
               Encerrar
             </Button>
-          </div>
+          </ActionBar>
         </div>
       ) : null}
 
@@ -384,55 +401,178 @@ function HostRoom({
           <QuestionMeta state={state} />
           {state.reveal ? <RevealCard state={state} /> : null}
           {state.ranking ? <RankingList ranking={state.ranking} /> : null}
-          <div className="flex flex-wrap gap-2">
+          <ActionBar>
             <Button type="button" disabled={busy} onClick={onAdvance}>
-              {state.itemIndex + 1 >= state.itemCount ? "Encerrar sessão" : "Próxima questão"}
+              {isLastItem ? (
+                <>
+                  <Square className="h-4 w-4" />
+                  Encerrar sessão
+                </>
+              ) : (
+                <>
+                  <SkipForward className="h-4 w-4" />
+                  Próxima questão
+                </>
+              )}
             </Button>
             <Button type="button" variant="outline" disabled={busy} onClick={onEnd}>
               Encerrar agora
             </Button>
-          </div>
+          </ActionBar>
         </div>
       ) : null}
 
       {state.phase === "ended" ? (
         <div className="space-y-5">
-          <div className="surface-card space-y-3 p-5">
-            <h2 className="font-display text-2xl font-semibold">Sessão encerrada</h2>
-            <p className="text-muted-foreground">
-              Os nomes dos participantes e os acertos/erros foram salvos no analytics.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild>
-                <Link to={`/professor/analytics?activityId=${state.activityId}&sessionId=${state.id}`}>
-                  <BarChart3 className="h-4 w-4" />
-                  Ver analytics
-                </Link>
-              </Button>
-              <Button type="button" variant="outline" onClick={onReset}>
-                Nova sessão
-              </Button>
+          <div className="surface-card relative overflow-hidden px-6 py-8 text-center">
+            <div className="pattern-grid absolute inset-0 opacity-40" aria-hidden />
+            <div className="relative space-y-3">
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/12 text-success">
+                <Check className="h-7 w-7" />
+              </span>
+              <h2 className="font-display text-2xl font-semibold">Sessão encerrada</h2>
+              <p className="mx-auto max-w-md text-muted-foreground text-pretty">
+                Os nomes dos participantes e os acertos/erros foram salvos no analytics.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 pt-1">
+                <Button asChild>
+                  <Link to={`/professor/analytics?activityId=${state.activityId}&sessionId=${state.id}`}>
+                    <BarChart3 className="h-4 w-4" />
+                    Ver analytics
+                  </Link>
+                </Button>
+                <Button type="button" variant="outline" onClick={onReset}>
+                  Nova sessão
+                </Button>
+              </div>
             </div>
           </div>
-          <ParticipantList participants={state.participants} />
           {state.mode === "quiz" && state.ranking ? <RankingList ranking={state.ranking} /> : null}
+          <ParticipantList participants={state.participants} />
         </div>
       ) : null}
     </div>
   )
 }
 
-function QuestionMeta({ state }: { state: LiveSessionState }) {
+function SessionHeader({ state }: { state: LiveSessionState }) {
+  const isEnded = state.phase === "ended"
+  const progress = state.itemCount > 0 ? ((state.itemIndex + 1) / state.itemCount) * 100 : 0
+
   return (
-    <div className="surface-card flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-      <Badge variant="outline">
-        Questão {state.itemIndex + 1} de {state.itemCount}
-      </Badge>
-      <span className="flex items-center gap-1.5 text-muted-foreground">
-        <Users className="h-4 w-4" />
-        {state.tally.answeredCount}/{state.tally.participantCount} responderam
-      </span>
-      <LiveCountdown endsAt={state.questionEndsAt} active={state.phase === "question"} />
+    <section className="surface-card relative overflow-hidden px-5 py-5 sm:px-7 sm:py-6">
+      <div className="pattern-grid absolute inset-0 opacity-40" aria-hidden />
+      <div className="relative flex flex-wrap items-start justify-between gap-5">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider",
+                isEnded ? "bg-muted text-muted-foreground" : "bg-destructive/10 text-destructive"
+              )}
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  isEnded ? "bg-muted-foreground" : "animate-soft-pulse bg-destructive"
+                )}
+                aria-hidden
+              />
+              {isEnded ? "Encerrada" : "Ao vivo"}
+            </span>
+            <Badge variant={state.mode === "prova" ? "warning" : "aluno"}>
+              {state.mode === "prova" ? "Prova" : "Quiz"}
+            </Badge>
+            <span className="text-sm text-muted-foreground">{state.className}</span>
+          </div>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+            {state.activityTitle}
+          </h1>
+          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            {state.participants.length} participante(s) na sala
+          </p>
+        </div>
+        <PinCard pin={state.pin} />
+      </div>
+
+      {state.phase !== "lobby" ? (
+        <div className="relative mt-5 space-y-1.5">
+          <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+            <span>
+              Questão {state.itemIndex + 1} de {state.itemCount}
+            </span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-astro-sky to-primary transition-[width] duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function PinCard({ pin }: { pin: string }) {
+  return (
+    <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-astro-mint/15 to-transparent px-5 py-3 text-center shadow-[var(--shadow-soft)]">
+      <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        PIN
+      </p>
+      <p className="font-mono text-3xl font-semibold tracking-[0.28em] text-primary sm:text-4xl">
+        {pin}
+      </p>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 h-8"
+        onClick={() => {
+          void navigator.clipboard.writeText(pin).then(
+            () => toast.success("PIN copiado."),
+            () => toast.error("Não foi possível copiar o PIN.")
+          )
+        }}
+      >
+        <Copy className="h-3.5 w-3.5" />
+        Copiar
+      </Button>
+    </div>
+  )
+}
+
+function ActionBar({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="surface-card flex flex-wrap gap-2 p-3 sm:p-4">{children}</div>
+  )
+}
+
+function QuestionMeta({ state }: { state: LiveSessionState }) {
+  const { answeredCount, participantCount } = state.tally
+  const percent = participantCount > 0 ? (answeredCount / participantCount) * 100 : 0
+
+  return (
+    <div className="surface-card space-y-3 px-4 py-3.5 sm:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <span className="flex items-center gap-1.5 font-medium">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          {answeredCount}/{participantCount} responderam
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {state.phase === "question"
+            ? "A questão fica aberta até você avançar."
+            : "Respostas reveladas para a turma."}
+        </span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-astro-mint to-success transition-[width] duration-500 ease-out"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
     </div>
   )
 }
@@ -440,39 +580,153 @@ function QuestionMeta({ state }: { state: LiveSessionState }) {
 function RevealCard({ state }: { state: LiveSessionState }) {
   const reveal = state.reveal
   if (!reveal) return null
+
   return (
-    <div className="surface-card space-y-3 p-5">
+    <div className="surface-card space-y-5 p-5 sm:p-6">
       {state.currentItem ? <ItemPrompt item={state.currentItem} /> : null}
-      <p className="text-sm">
-        <span className="font-semibold text-success">{reveal.accuracyPercent}% de acerto</span>
-        <span className="text-muted-foreground">
-          {" "}
-          · {reveal.correctCount} acertos, {reveal.incorrectCount} erros, {reveal.unansweredCount}{" "}
-          sem resposta
-        </span>
-      </p>
-      {reveal.explanation ? <RichText value={reveal.explanation} className="text-sm" /> : null}
+
+      <div className="flex flex-wrap items-center gap-5">
+        <AccuracyDonut percent={reveal.accuracyPercent} />
+        <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-3">
+          <RevealStat
+            icon={<Check className="h-4 w-4" />}
+            label="Acertos"
+            value={reveal.correctCount}
+            tone="success"
+          />
+          <RevealStat
+            icon={<X className="h-4 w-4" />}
+            label="Erros"
+            value={reveal.incorrectCount}
+            tone="destructive"
+          />
+          <RevealStat
+            icon={<MinusCircle className="h-4 w-4" />}
+            label="Sem resposta"
+            value={reveal.unansweredCount}
+            tone="muted"
+          />
+        </div>
+      </div>
+
+      {reveal.explanation ? (
+        <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
+          <RichText value={reveal.explanation} className="text-sm" />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function AccuracyDonut({ percent }: { percent: number }) {
+  const radius = 34
+  const circumference = 2 * Math.PI * radius
+  const clamped = Math.max(0, Math.min(100, percent))
+
+  return (
+    <div className="relative h-24 w-24 shrink-0">
+      <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90">
+        <circle
+          cx="40"
+          cy="40"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="7"
+          className="text-muted"
+        />
+        <circle
+          cx="40"
+          cy="40"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - clamped / 100)}
+          className="text-success transition-[stroke-dashoffset] duration-700 ease-out"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-display text-xl font-semibold">{Math.round(clamped)}%</span>
+        <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">acerto</span>
+      </div>
+    </div>
+  )
+}
+
+function RevealStat({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: number
+  tone: "success" | "destructive" | "muted"
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border px-3 py-2.5",
+        tone === "success" && "border-success/30 bg-success/8",
+        tone === "destructive" && "border-destructive/25 bg-destructive/8",
+        tone === "muted" && "border-border/70 bg-muted/30"
+      )}
+    >
+      <span
+        className={cn(
+          "flex items-center gap-1.5 text-xs font-medium",
+          tone === "success" && "text-success",
+          tone === "destructive" && "text-destructive",
+          tone === "muted" && "text-muted-foreground"
+        )}
+      >
+        {icon}
+        {label}
+      </span>
+      <p className="mt-0.5 font-display text-2xl font-semibold">{value}</p>
     </div>
   )
 }
 
 function RankingList({ ranking }: { ranking: LiveSessionState["ranking"] }) {
   if (!ranking?.length) return null
+
   return (
     <section className="surface-card p-5">
-      <h2 className="font-display text-lg font-semibold">Ranking</h2>
+      <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+        <Trophy className="h-4 w-4 text-astro-amber" />
+        Ranking
+      </h2>
       <ol className="mt-3 grid gap-2">
         {ranking.map((entry, index) => (
           <li
             key={entry.studentId}
-            className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2 text-sm"
+            className={cn(
+              "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
+              index === 0
+                ? "border-astro-amber/35 bg-astro-amber/8"
+                : "border-border/70 bg-card"
+            )}
           >
-            <span>
-              <span className="mr-2 font-semibold text-muted-foreground">{index + 1}.</span>
-              {entry.name}
+            <span
+              className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                index === 0 && "bg-astro-amber/20 text-astro-amber",
+                index === 1 && "bg-astro-sky/25 text-astro-navy",
+                index === 2 && "bg-astro-violet/12 text-astro-violet",
+                index > 2 && "bg-muted text-muted-foreground"
+              )}
+            >
+              {index + 1}
             </span>
-            <span className="text-muted-foreground">
-              {entry.score} pts · {entry.correctCount} acerto(s)
+            <span className="min-w-0 flex-1 truncate font-medium">{entry.name}</span>
+            <span className="shrink-0 text-right text-xs text-muted-foreground">
+              <span className="font-mono text-sm font-semibold text-foreground">{entry.score}</span>{" "}
+              pts · {entry.correctCount} acerto(s)
             </span>
           </li>
         ))}
@@ -485,20 +739,37 @@ function ParticipantList({ participants }: { participants: LiveSessionState["par
   return (
     <section className="surface-card p-5">
       <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
-        <Radio className="h-4 w-4" />
+        <Users className="h-4 w-4 text-muted-foreground" />
         Participantes ({participants.length})
       </h2>
       {participants.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">Aguardando alunos com o PIN.</p>
+        <p className="mt-3 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+          Aguardando alunos com o PIN.
+        </p>
       ) : (
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
           {participants.map((participant) => (
             <li
               key={participant.studentId}
-              className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2 text-sm"
+              className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-3 py-2 text-sm animate-pop-in"
             >
-              <span>{participant.name}</span>
-              <span className={participant.isConnected ? "text-success" : "text-muted-foreground"}>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-astro-sky/20 text-xs font-bold text-astro-navy">
+                {initials(participant.name)}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{participant.name}</span>
+              <span
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 text-xs font-medium",
+                  participant.isConnected ? "text-success" : "text-muted-foreground"
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    participant.isConnected ? "bg-success" : "bg-muted-foreground"
+                  )}
+                  aria-hidden
+                />
                 {participant.isConnected ? "conectado" : "saiu"}
               </span>
             </li>
@@ -509,3 +780,9 @@ function ParticipantList({ participants }: { participants: LiveSessionState["par
   )
 }
 
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+}

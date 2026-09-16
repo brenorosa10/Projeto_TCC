@@ -21,8 +21,6 @@ public class LiveSessionService(
     MongoDbContext db,
     CurrentUserService currentUser)
 {
-    public const int AnswerGraceMs = 2000;
-
     public async Task<LiveOperationResult> CreateAsync(CreateLiveSessionRequest request, CancellationToken cancellationToken)
     {
         var profile = await GetProfileAsync(cancellationToken);
@@ -316,7 +314,7 @@ public class LiveSessionService(
             return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "A sessão já foi iniciada.");
         }
 
-        OpenQuestion(session, host.Activity!, 0);
+        OpenQuestion(session, 0);
         if (!await TryReplaceExpectedAsync(session, LiveSessionStatuses.Lobby, LiveSessionPhases.Lobby, cancellationToken))
         {
             return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "A sessão já foi iniciada.");
@@ -354,7 +352,7 @@ public class LiveSessionService(
             }
             else
             {
-                OpenQuestion(session, host.Activity!, nextIndex);
+                OpenQuestion(session, nextIndex);
             }
         }
 
@@ -433,11 +431,6 @@ public class LiveSessionService(
             return LiveOperationResult.Fail(StatusCodes.Status404NotFound, "Questão não encontrada.");
         }
 
-        if (!IsWithinAnswerWindow(session))
-        {
-            return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "O tempo desta questão acabou.");
-        }
-
         var already = await db.AnswerAttempts
             .Find(attempt =>
                 attempt.LiveSessionId == session.Id
@@ -458,14 +451,10 @@ public class LiveSessionService(
         var responseTimeMs = 0;
         if (session.QuestionStartedAt is DateTimeOffset started)
         {
-            var elapsed = (int)Math.Clamp(
-                (DateTimeOffset.UtcNow - started).TotalMilliseconds,
-                0,
-                (session.TimeLimitSeconds ?? 30) * 1000 + AnswerGraceMs);
-            responseTimeMs = elapsed;
+            responseTimeMs = (int)Math.Max(0, (DateTimeOffset.UtcNow - started).TotalMilliseconds);
         }
 
-        var score = ComputeScore(session, grade.IsCorrect, responseTimeMs);
+        var score = ComputeScore(session, grade.IsCorrect);
         try
         {
             await db.AnswerAttempts.InsertOneAsync(
@@ -632,12 +621,6 @@ public class LiveSessionService(
                 mine.Count);
         }
 
-        DateTimeOffset? questionEndsAt = null;
-        if (session.Phase == LiveSessionPhases.Question && session.QuestionStartedAt is DateTimeOffset started)
-        {
-            questionEndsAt = started.AddSeconds(session.TimeLimitSeconds ?? 30);
-        }
-
         return new LiveSessionStateResponse(
             session.Id,
             session.ActivityId,
@@ -652,7 +635,7 @@ public class LiveSessionService(
             session.ItemIds.Count,
             session.QuestionStartedAt,
             session.TimeLimitSeconds,
-            questionEndsAt,
+            null,
             currentItem,
             tally,
             session.Participants
@@ -687,34 +670,14 @@ public class LiveSessionService(
             .ToList();
     }
 
-    private static int ComputeScore(LiveSession session, bool isCorrect, int responseTimeMs)
+    private static int ComputeScore(LiveSession session, bool isCorrect)
     {
         if (!isCorrect)
         {
             return 0;
         }
 
-        if (session.Mode == ActivityTypes.Prova)
-        {
-            return 1;
-        }
-
-        var limitMs = Math.Max(1, (session.TimeLimitSeconds ?? 30) * 1000);
-        var clamped = Math.Clamp(responseTimeMs, 0, limitMs);
-        return (int)Math.Round(1000 * (1 - 0.5 * clamped / limitMs));
-    }
-
-    private static bool IsWithinAnswerWindow(LiveSession session)
-    {
-        if (session.QuestionStartedAt is null)
-        {
-            return false;
-        }
-
-        var deadline = session.QuestionStartedAt.Value
-            .AddSeconds(session.TimeLimitSeconds ?? 30)
-            .AddMilliseconds(AnswerGraceMs);
-        return DateTimeOffset.UtcNow <= deadline;
+        return session.Mode == ActivityTypes.Prova ? 1 : 1000;
     }
 
     private static Guid? CurrentItemId(LiveSession session)
@@ -727,17 +690,13 @@ public class LiveSessionService(
         return session.ItemIds[session.ItemIndex];
     }
 
-    private static void OpenQuestion(LiveSession session, Activity activity, int index)
+    private static void OpenQuestion(LiveSession session, int index)
     {
         session.Status = LiveSessionStatuses.Running;
         session.Phase = LiveSessionPhases.Question;
         session.ItemIndex = index;
         session.QuestionStartedAt = DateTimeOffset.UtcNow;
-        var itemId = session.ItemIds[index];
-        var item = activity.Items.FirstOrDefault(entry => entry.Id == itemId);
-        session.TimeLimitSeconds = item?.TimeLimitSeconds is >= 5 and <= 300
-            ? item.TimeLimitSeconds
-            : 30;
+        session.TimeLimitSeconds = null;
     }
 
     private static void EndSession(LiveSession session)
