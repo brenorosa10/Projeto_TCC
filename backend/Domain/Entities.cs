@@ -8,10 +8,14 @@ public class Profile
     [BsonId]
     public Guid Id { get; set; }
 
+    [BsonIgnoreIfNull]
     public string? GoogleId { get; set; }
     public string Email { get; set; } = string.Empty;
+    [BsonIgnoreIfNull]
     public string? Username { get; set; }
+    [BsonIgnoreIfNull]
     public string? UsernameNormalized { get; set; }
+    [BsonIgnoreIfNull]
     public string? PasswordHash { get; set; }
     public string? FullName { get; set; }
     public string? AvatarUrl { get; set; }

@@ -34,7 +34,7 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
         }
 
         await MergeDuplicateEmailsAsync(cancellationToken);
-
+        await UnsetNullProfileIdentityFieldsAsync(cancellationToken);
         await EnsureProfileIndexesAsync(cancellationToken);
 
         await db.Classes.Indexes.CreateManyAsync(
@@ -289,6 +289,23 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
             cancellationToken: cancellationToken);
     }
 
+    private async Task UnsetNullProfileIdentityFieldsAsync(CancellationToken cancellationToken)
+    {
+        // Índice unique trata null como valor: só um perfil com googleId:null podia existir.
+        // Cadastro por senha não usa Google, então o campo precisa ficar ausente.
+        await db.Profiles.UpdateManyAsync(
+            Builders<Profile>.Filter.Eq(profile => profile.GoogleId, null),
+            Builders<Profile>.Update.Unset(profile => profile.GoogleId),
+            cancellationToken: cancellationToken);
+
+        await db.Profiles.UpdateManyAsync(
+            Builders<Profile>.Filter.Eq(profile => profile.UsernameNormalized, null),
+            Builders<Profile>.Update.Combine(
+                Builders<Profile>.Update.Unset(profile => profile.Username),
+                Builders<Profile>.Update.Unset(profile => profile.UsernameNormalized)),
+            cancellationToken: cancellationToken);
+    }
+
     private async Task EnsureProfileIndexesAsync(CancellationToken cancellationToken)
     {
         await CreateIndexSafelyAsync(
@@ -299,21 +316,50 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
                     new CreateIndexOptions { Unique = true, Name = "email_unique" }),
                 cancellationToken: cancellationToken));
 
-        await CreateIndexSafelyAsync(
+        await CreateOrRepairIndexAsync(
             "usernameNormalized_unique",
             () => db.Profiles.Indexes.CreateOneAsync(
                 new CreateIndexModel<Profile>(
                     Builders<Profile>.IndexKeys.Ascending(x => x.UsernameNormalized),
                     new CreateIndexOptions { Unique = true, Sparse = true, Name = "usernameNormalized_unique" }),
-                cancellationToken: cancellationToken));
+                cancellationToken: cancellationToken),
+            cancellationToken);
 
-        await CreateIndexSafelyAsync(
+        await CreateOrRepairIndexAsync(
             "googleId_1",
             () => db.Profiles.Indexes.CreateOneAsync(
                 new CreateIndexModel<Profile>(
                     Builders<Profile>.IndexKeys.Ascending(x => x.GoogleId),
-                    new CreateIndexOptions { Unique = true, Sparse = true }),
-                cancellationToken: cancellationToken));
+                    new CreateIndexOptions { Unique = true, Sparse = true, Name = "googleId_1" }),
+                cancellationToken: cancellationToken),
+            cancellationToken);
+    }
+
+    private async Task CreateOrRepairIndexAsync(string name, Func<Task> create, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await create();
+            return;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Índice {IndexName} incompatível; recriando com as opções atuais.",
+                name);
+        }
+
+        try
+        {
+            await db.Profiles.Indexes.DropOneAsync(name, cancellationToken);
+        }
+        catch (Exception)
+        {
+            // Índice pode não existir ainda.
+        }
+
+        await CreateIndexSafelyAsync(name, create);
     }
 
     private async Task CreateIndexSafelyAsync(string name, Func<Task> create)
