@@ -171,10 +171,6 @@ export function ProfessorActivityDetailPage() {
           <section className="surface-card space-y-4 p-4 sm:p-6">
             <div>
               <h2 className="font-display text-lg font-semibold">Turmas</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                O mesmo conteúdo pode aparecer em várias turmas. A aplicação ao vivo é feita depois,
-                quando você iniciar a sessão.
-              </p>
             </div>
             {classes.length === 0 ? (
               <p className="text-sm text-muted-foreground">

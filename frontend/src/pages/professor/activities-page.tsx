@@ -45,9 +45,6 @@ export function ProfessorActivitiesPage() {
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-semibold">Minhas atividades</h1>
-          <p className="mt-2 text-muted-foreground">
-            Quizzes e flashcards ficam na sua biblioteca e podem ser vinculados a várias turmas.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild>

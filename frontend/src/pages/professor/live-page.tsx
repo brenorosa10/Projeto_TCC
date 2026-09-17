@@ -213,9 +213,6 @@ function SetupForm({
           <h1 className="font-display text-3xl font-semibold tracking-tight text-balance">
             Iniciar ao vivo
           </h1>
-          <p className="text-muted-foreground text-pretty">
-            Gere um PIN de 6 dígitos, aguarde os alunos na sala e avance as questões no seu ritmo.
-          </p>
         </div>
       </section>
 
@@ -310,9 +307,6 @@ function HostRoom({
               <Radio className="relative h-6 w-6" />
             </span>
             <p className="font-display text-xl font-semibold">Sala aberta</p>
-            <p className="max-w-md text-sm text-muted-foreground text-pretty">
-              Projete o PIN para a turma. Os nomes aparecem aqui assim que os alunos entram.
-            </p>
           </div>
           <ParticipantList participants={state.participants} />
           <ActionBar>
@@ -431,9 +425,6 @@ function HostRoom({
                 <Check className="h-7 w-7" />
               </span>
               <h2 className="font-display text-2xl font-semibold">Sessão encerrada</h2>
-              <p className="mx-auto max-w-md text-muted-foreground text-pretty">
-                Os nomes dos participantes e os acertos/erros foram salvos no analytics.
-              </p>
               <div className="flex flex-wrap justify-center gap-2 pt-1">
                 <Button asChild>
                   <Link to={`/professor/analytics?activityId=${state.activityId}&sessionId=${state.id}`}>
@@ -560,11 +551,6 @@ function QuestionMeta({ state }: { state: LiveSessionState }) {
         <span className="flex items-center gap-1.5 font-medium">
           <Users className="h-4 w-4 text-muted-foreground" />
           {answeredCount}/{participantCount} responderam
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {state.phase === "question"
-            ? "A questão fica aberta até você avançar."
-            : "Respostas reveladas para a turma."}
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">

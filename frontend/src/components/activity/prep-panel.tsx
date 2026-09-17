@@ -117,10 +117,7 @@ export function PrepPanel({
         ) : null}
       </div>
 
-      <footer className="flex flex-col gap-3 border-t border-border/70 bg-muted/40 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <p className="text-xs text-muted-foreground">
-          Leia com calma. Você pode voltar a esta atividade quando quiser.
-        </p>
+      <footer className="flex justify-end border-t border-border/70 bg-muted/40 px-6 py-4 sm:px-8">
         <Button type="button" size="lg" disabled={disabled} onClick={onContinue} className="group">
           {actionLabel}
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

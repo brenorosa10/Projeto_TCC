@@ -8,7 +8,6 @@ import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -107,9 +106,6 @@ export function ProfessorClassDetailPage() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Vincular da biblioteca</DialogTitle>
-                  <DialogDescription>
-                    Use o mesmo quiz ou deck em várias turmas. Crie novos em Atividades.
-                  </DialogDescription>
                 </DialogHeader>
                 {available.length === 0 ? (
                   <p className="text-sm text-muted-foreground">

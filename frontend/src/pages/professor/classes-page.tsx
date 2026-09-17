@@ -7,7 +7,6 @@ import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -63,9 +62,6 @@ export function ProfessorClassesPage() {
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-semibold">Minhas turmas</h1>
-          <p className="mt-2 text-muted-foreground">
-            Cada turma gera um código único de 8 caracteres para os alunos.
-          </p>
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
@@ -76,9 +72,6 @@ export function ProfessorClassesPage() {
             <form onSubmit={(e) => void handleCreate(e)}>
               <DialogHeader>
                 <DialogTitle>Criar turma</DialogTitle>
-                <DialogDescription>
-                  Informe um nome. O código de acesso será gerado automaticamente.
-                </DialogDescription>
               </DialogHeader>
               <div className="grid gap-2 py-4">
                 <Label htmlFor="class-name">Nome da turma</Label>

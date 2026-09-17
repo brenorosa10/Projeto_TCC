@@ -83,11 +83,6 @@ export function AlunoClassDetailPage() {
                           {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
                         </span>
                       </div>
-                      {item.type === "prova" ? (
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          Prova é ao vivo: entre na sessão quando o professor liberar o PIN.
-                        </p>
-                      ) : null}
                     </div>
                     {item.type === "prova" ? (
                       <Button asChild size="sm">

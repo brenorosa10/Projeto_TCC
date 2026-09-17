@@ -61,9 +61,6 @@ export function PrepFeedbackFields({
       <header className="flex flex-col gap-3 border-b border-border/70 bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div>
           <h2 className="font-display text-base font-semibold">Pré e pós-seção</h2>
-          <p className="text-xs text-muted-foreground">
-            O que o aluno vê antes de praticar e ao terminar.
-          </p>
         </div>
         <Button
           type="button"
@@ -82,14 +79,12 @@ export function PrepFeedbackFields({
           onClick={() => setTab("prep")}
           icon={<Rocket className="h-4 w-4" />}
           title="Pré-seção"
-          subtitle="Antes de começar"
         />
         <TabButton
           active={tab === "feedback"}
           onClick={() => setTab("feedback")}
           icon={<Flag className="h-4 w-4" />}
           title="Pós-seção"
-          subtitle="Depois de terminar"
         />
       </div>
 
@@ -103,7 +98,7 @@ export function PrepFeedbackFields({
               estimatedMinutes={Number(prepMinutes) || undefined}
               tips={lines(prepTips)}
               imageDataUrl={prepImageDataUrl}
-              fallbackBody="Revise o que você já sabe e, quando estiver pronto, comece as questões."
+              fallbackBody="Comece as questões quando estiver pronto."
               actionLabel="Começar"
               onContinue={() => setTab("feedback")}
             />
@@ -113,11 +108,6 @@ export function PrepFeedbackFields({
               body={feedbackBody}
               correctCount={7}
               total={10}
-              summary={
-                <p className="text-sm text-muted-foreground">
-                  Pré-visualização com dados de exemplo. O resumo real usa o desempenho do aluno.
-                </p>
-              }
             />
           )
         ) : tab === "prep" ? (
@@ -138,12 +128,11 @@ export function PrepFeedbackFields({
               value={prepBody}
               onChange={onPrepBody}
               rows={4}
-              placeholder={"Explique o contexto da atividade.\n\nVocê pode usar títulos, listas, tabelas e blocos de código."}
+              placeholder="Explique o contexto da atividade."
             />
 
             <ListField
               label="Objetivos de aprendizagem"
-              description="Aparecem como uma checklist numerada para o aluno."
               icon={<Target className="h-4 w-4 text-primary" />}
               value={prepObjectives}
               onChange={onPrepObjectives}
@@ -153,7 +142,6 @@ export function PrepFeedbackFields({
             <Separator />
             <ListField
               label="Dicas de estudo"
-              description="Mostradas em destaque, logo antes do botão de começar."
               icon={<Lightbulb className="h-4 w-4 text-astro-amber" />}
               value={prepTips}
               onChange={onPrepTips}
@@ -190,10 +178,6 @@ export function PrepFeedbackFields({
           </div>
         ) : (
           <div className="grid gap-3">
-            <div className="rounded-lg border border-border/70 bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-              O placar de acertos e a revisão item a item são montados automaticamente. Use os campos
-              abaixo para a mensagem de encerramento.
-            </div>
             <div className="grid gap-2">
               <Label htmlFor="feedback-title">Título da pós-seção</Label>
               <Input
@@ -210,7 +194,6 @@ export function PrepFeedbackFields({
               onChange={onFeedbackBody}
               rows={4}
               placeholder={"Parabéns por concluir!\n\n- Reveja os itens em vermelho\n- Refaça a atividade amanhã"}
-              hint="Você pode incluir links de leitura, listas de revisão e exemplos de código comentados."
             />
           </div>
         )}
@@ -224,13 +207,11 @@ function TabButton({
   onClick,
   icon,
   title,
-  subtitle,
 }: {
   active: boolean
   onClick: () => void
   icon: React.ReactNode
   title: string
-  subtitle: string
 }) {
   return (
     <button
@@ -254,7 +235,6 @@ function TabButton({
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold">{title}</span>
-        <span className="block text-xs text-muted-foreground">{subtitle}</span>
       </span>
     </button>
   )

@@ -29,7 +29,6 @@ export function blocksFromApi(blocks?: ContentBlock[] | null): DraftBlock[] {
 export function ContentBlockFields({
   id,
   label,
-  hint,
   blocks,
   allowedTypes = ["markdown", "code", "question"],
   compact = false,
@@ -37,7 +36,6 @@ export function ContentBlockFields({
 }: {
   id: string
   label: string
-  hint?: string
   blocks: DraftBlock[]
   allowedTypes?: ContentBlockType[]
   compact?: boolean
@@ -54,7 +52,6 @@ export function ContentBlockFields({
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <p className="text-sm font-medium">{label}</p>
-          {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {types.map((type) => (
@@ -71,12 +68,6 @@ export function ContentBlockFields({
           ))}
         </div>
       </div>
-
-      {blocks.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border/80 px-3 py-2 text-xs text-muted-foreground">
-          Nenhum bloco. Use os botões acima.
-        </p>
-      ) : null}
 
       {blocks.map((block, index) => (
         <div key={block.key} className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-2.5">

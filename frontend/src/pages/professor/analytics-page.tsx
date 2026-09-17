@@ -44,10 +44,6 @@ export function ProfessorAnalyticsPage() {
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-3xl font-semibold">Painel analítico</h1>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            Acerto geral por questão nas sessões ao vivo, com os nomes de quem acertou e quem errou.
-            Questões com mais de 50% de erro ficam em destaque.
-          </p>
         </div>
 
         {loading ? (

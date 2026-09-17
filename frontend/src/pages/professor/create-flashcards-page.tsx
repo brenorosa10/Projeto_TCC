@@ -194,10 +194,6 @@ export function ProfessorCreateFlashcardsPage() {
           <h1 className="mt-2 font-display text-3xl font-semibold">
             {isEditing ? "Editar flashcards" : "Criar flashcards"}
           </h1>
-          <p className="mt-2 text-muted-foreground">
-            Frente com o conceito ou pergunta; verso com a resposta. A preparação e o feedback
-            aparecem no estudo do aluno.
-          </p>
         </div>
 
         <div className="grid gap-2">
@@ -265,7 +261,6 @@ export function ProfessorCreateFlashcardsPage() {
                     rows={4}
                     compact
                     placeholder="Fotossíntese"
-                    hint="Pergunta ou conceito. Aceita código em linha e blocos de código."
                   />
                   <RichTextEditor
                     id={`back-${card.key}`}
@@ -275,7 +270,6 @@ export function ProfessorCreateFlashcardsPage() {
                     rows={4}
                     compact
                     placeholder="Conversão de luz em energia química"
-                    hint="Resposta que o aluno vê ao virar o cartão."
                   />
                 </div>
                 <ItemImageField
@@ -304,9 +298,6 @@ export function ProfessorCreateFlashcardsPage() {
             <Button type="submit" disabled={saving}>
               {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar flashcards"}
             </Button>
-            <p className="text-xs text-muted-foreground">
-              Os cartões voltam a aparecer conforme a repetição espaçada.
-            </p>
           </div>
         </div>
       </form>

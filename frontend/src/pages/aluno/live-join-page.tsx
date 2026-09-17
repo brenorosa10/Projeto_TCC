@@ -133,9 +133,6 @@ function JoinForm({
             <Radio className="relative h-6 w-6" />
           </span>
           <h1 className="font-display text-3xl font-semibold tracking-tight">Entrar com PIN</h1>
-          <p className="mx-auto max-w-sm text-muted-foreground text-pretty">
-            Digite o código de 6 dígitos que o professor mostrou na sala.
-          </p>
         </div>
       </section>
 
@@ -152,9 +149,6 @@ function JoinForm({
             maxLength={6}
             className="h-16 text-center font-mono text-3xl font-semibold tracking-[0.35em]"
           />
-          <p className="text-xs text-muted-foreground">
-            Você precisa estar matriculado na turma da sessão.
-          </p>
         </div>
         <Button type="submit" className="w-full" disabled={joining || pin.length !== 6}>
           {joining ? "Entrando..." : "Entrar na sessão"}
@@ -188,9 +182,6 @@ function StudentRoom({
             <Hourglass className="relative h-6 w-6" />
           </span>
           <p className="font-display text-xl font-semibold">Você está na sala</p>
-          <p className="max-w-sm text-sm text-muted-foreground text-pretty">
-            Aguarde o professor iniciar a sessão.
-          </p>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
             <Users className="h-3.5 w-3.5" />
             {state.participants.length} participante(s) na lista
@@ -204,9 +195,6 @@ function StudentRoom({
             <Badge variant="outline">
               Questão {state.itemIndex + 1} de {state.itemCount}
             </Badge>
-            <span className="text-xs text-muted-foreground">
-              O professor controla o ritmo da questão.
-            </span>
           </div>
           <div className="surface-card space-y-5 p-5 sm:p-6">
             <ItemPrompt item={state.currentItem} />
@@ -215,9 +203,6 @@ function StudentRoom({
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-astro-navy" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Resposta enviada</p>
-                  <p className="text-xs text-muted-foreground">
-                    Aguarde o restante da turma responder.
-                  </p>
                 </div>
               </div>
             ) : (

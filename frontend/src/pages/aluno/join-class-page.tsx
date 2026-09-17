@@ -37,9 +37,6 @@ export function AlunoJoinClassPage() {
       <form onSubmit={(e) => void handleJoin(e)} className="max-w-md space-y-6">
         <div>
           <h1 className="font-display text-3xl font-semibold">Ingressar com código</h1>
-          <p className="mt-2 text-muted-foreground">
-            Peça ao professor o código alfanumérico da turma.
-          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="code">Código da turma</Label>

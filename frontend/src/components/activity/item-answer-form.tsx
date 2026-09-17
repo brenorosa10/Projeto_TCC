@@ -37,33 +37,11 @@ export function ItemAnswerForm({
     setClozeAnswers({})
     setPlacements({})
     setFlipped(false)
-  }, [item.id, item.orderItems])
+  }, [item.id])
 
   const elapsed = () => Date.now() - startedAtRef.current
   const reflectionMin = item.explanationMinLength ?? 20
   const reflectionReady = !item.requireExplanation || textAnswer.trim().length >= reflectionMin
-
-  function ReflectionField() {
-    if (!item.requireExplanation) return null
-    return (
-      <div className="grid gap-2">
-        <Label htmlFor={`reflection-${item.id}`}>
-          {item.explanationPrompt || "Como você pensou sobre a resposta?"}
-        </Label>
-        <Textarea
-          id={`reflection-${item.id}`}
-          value={textAnswer}
-          onChange={(event) => setTextAnswer(event.target.value)}
-          minLength={reflectionMin}
-          rows={4}
-          placeholder="Explique o que pensou, indique sua confiança ou dúvidas..."
-        />
-        <p className="text-xs text-muted-foreground">
-          {textAnswer.trim().length}/{reflectionMin} caracteres mínimos. Não entra na nota.
-        </p>
-      </div>
-    )
-  }
 
   if (item.kind === "flashcard") {
     return (
@@ -189,7 +167,6 @@ export function ItemAnswerForm({
     const entries = item.orderItems ?? []
     return (
       <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">Coloque os itens na ordem correta.</p>
         <ul className="grid gap-2">
           {orderIds.map((id, index) => {
             const entry = entries.find((item) => item.id === id)
@@ -287,9 +264,6 @@ export function ItemAnswerForm({
     const complete = members.length > 0 && members.every((member) => placements[member.id])
     return (
       <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Arraste cada item para uma categoria, ou escolha no menu.
-        </p>
         <div className="grid gap-3 md:grid-cols-2">
           {categories.map((category) => (
             <div
@@ -381,9 +355,6 @@ export function ItemAnswerForm({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {allowMultiple ? "Selecione todas as alternativas corretas." : "Escolha uma alternativa."}
-      </p>
       <ul className="grid gap-2.5">
         {options.map((option, index) => {
           const selected = selectedIds.includes(option.id)
@@ -419,7 +390,14 @@ export function ItemAnswerForm({
           )
         })}
       </ul>
-      <ReflectionField />
+      <ReflectionField
+        itemId={item.id}
+        prompt={item.explanationPrompt}
+        required={Boolean(item.requireExplanation)}
+        minLength={reflectionMin}
+        value={textAnswer}
+        onChange={setTextAnswer}
+      />
       <Button
         type="button"
         size="lg"
@@ -436,6 +414,39 @@ export function ItemAnswerForm({
       >
         {busy ? "Enviando..." : submitLabel}
       </Button>
+    </div>
+  )
+}
+
+function ReflectionField({
+  itemId,
+  prompt,
+  required,
+  minLength,
+  value,
+  onChange,
+}: {
+  itemId: string
+  prompt?: string | null
+  required: boolean
+  minLength: number
+  value: string
+  onChange: (value: string) => void
+}) {
+  if (!required) return null
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={`reflection-${itemId}`}>
+        {prompt || "Como você pensou sobre a resposta?"}
+      </Label>
+      <Textarea
+        id={`reflection-${itemId}`}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        minLength={minLength}
+        rows={4}
+        placeholder="Explique o que pensou, indique sua confiança ou dúvidas..."
+      />
     </div>
   )
 }

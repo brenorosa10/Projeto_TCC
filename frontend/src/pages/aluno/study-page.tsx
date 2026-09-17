@@ -31,10 +31,6 @@ export function AlunoStudyPage() {
     <AppShell title="Estudar">
       <div className="mb-8 space-y-2">
         <h1 className="font-display text-3xl font-semibold">Estudo individual</h1>
-        <p className="max-w-2xl text-muted-foreground">
-          Quizzes com preparação, ordenação, lacunas, categorias e feedback ao terminar. Flashcards
-          continuam com repetição espaçada (Leitner, caixas 1 a 5).
-        </p>
       </div>
 
       {loading ? (

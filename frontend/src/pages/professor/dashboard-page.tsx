@@ -66,10 +66,6 @@ export function ProfessorDashboardPage() {
             <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
               Olá, {profile?.fullName?.split(" ")[0] ?? "professor"}
             </h1>
-            <p className="text-muted-foreground text-pretty">
-              Organize suas turmas, escreva atividades com texto formatado e blocos de código, e
-              acompanhe o desempenho da sala.
-            </p>
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild>
                 <Link to="/professor/quiz/novo">

@@ -66,10 +66,6 @@ export function AlunoDashboardPage() {
             <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
               Olá, {profile?.fullName?.split(" ")[0] ?? "aluno"}
             </h1>
-            <p className="text-muted-foreground text-pretty">
-              Cada atividade começa com uma preparação, segue com as questões e termina com um
-              retorno sobre o que você acertou.
-            </p>
             <div className="pt-1">
               <Button asChild>
                 <Link to="/aluno/estudar">

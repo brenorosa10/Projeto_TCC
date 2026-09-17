@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import {
@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  FileUp,
   ListChecks,
   Plus,
   SlidersHorizontal,
@@ -32,6 +33,7 @@ import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
 import { cleanContentBlocks, flattenContentBlocks, QUESTION_DIFFICULTIES } from "@/lib/content-blocks"
 import { findSection, ITEM_KIND_LABELS, QUIZ_ITEM_KINDS } from "@/lib/item-kinds"
+import { parseQuizCsv, type ImportedQuizQuestion } from "@/lib/quiz-csv-import"
 import { cn } from "@/lib/utils"
 import type {
   ActivityItem,
@@ -215,6 +217,42 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
   }
 }
 
+function questionFromCsv(imported: ImportedQuizQuestion): DraftQuestion {
+  const question = newQuestion("multiple_choice")
+  return {
+    ...question,
+    kind: imported.kind,
+    prompt: imported.prompt,
+    allowMultiple: imported.allowMultiple,
+    options: imported.options.map((option) => ({
+      key: crypto.randomUUID(),
+      text: option.text,
+      isCorrect: option.isCorrect,
+    })),
+    intro: blocksFromApi(imported.intro),
+    promptBlocks: blocksFromApi(imported.promptBlocks),
+    feedbackBlocks: blocksFromApi(imported.feedbackBlocks),
+    feedbackMessages: imported.feedbackMessages,
+    topics: imported.topics,
+    difficulty: imported.difficulty,
+    requireExplanation: imported.requireExplanation,
+    explanationMinLength: imported.explanationMinLength,
+    explanationPrompt: imported.explanationPrompt,
+  }
+}
+
+function isBlankQuestion(question: DraftQuestion) {
+  return (
+    !question.prompt.trim() &&
+    !question.topics.trim() &&
+    !question.feedbackMessages.trim() &&
+    question.intro.every((block) => !block.content.trim()) &&
+    question.promptBlocks.every((block) => !block.content.trim()) &&
+    question.feedbackBlocks.every((block) => !block.content.trim()) &&
+    question.options.every((option) => !option.text.trim())
+  )
+}
+
 function moveItem<T>(items: T[], index: number, delta: number): T[] {
   const next = index + delta
   if (next < 0 || next >= items.length) return items
@@ -370,6 +408,7 @@ export function ProfessorCreateQuizPage() {
   const [questionIndex, setQuestionIndex] = useState(0)
   const [questionPanel, setQuestionPanel] = useState<"pergunta" | "conteudo" | "feedback">("pergunta")
   const [previewQuestion, setPreviewQuestion] = useState(false)
+  const csvInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!activityId) return
@@ -486,6 +525,31 @@ export function ProfessorCreateQuizPage() {
     const index = Math.min(questionIndex, questions.length - 1)
     setQuestions((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
     setQuestionIndex(Math.max(0, index - 1))
+  }
+
+  async function importCsvFile(file: File) {
+    try {
+      const imported = parseQuizCsv(await file.text())
+      if (imported.length === 0) {
+        toast.error("Nenhuma questão compatível encontrada no CSV.")
+        return
+      }
+      const mapped = imported.map(questionFromCsv)
+      setQuestions((current) =>
+        current.length === 1 && isBlankQuestion(current[0]) ? mapped : [...current, ...mapped]
+      )
+      if (!title.trim() && imported[0]?.title) {
+        setTitle(imported[0].title)
+      }
+      setEditorTab("questoes")
+      setQuestionIndex(0)
+      setQuestionPanel("pergunta")
+      toast.success(
+        mapped.length === 1 ? "1 questão importada." : `${mapped.length} questões importadas.`
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível importar o CSV.")
+    }
   }
 
   function buildPayload(): CreateActivityRequest | null {
@@ -666,6 +730,17 @@ export function ProfessorCreateQuizPage() {
             <h1 className="mt-1 font-display text-2xl font-semibold">
               {isEditing ? "Editar quiz" : "Criar quiz"}
             </h1>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ""
+                if (file) void importCsvFile(file)
+              }}
+            />
           </div>
 
           <nav className="grid gap-2 sm:grid-cols-2" aria-label="Etapas do quiz">
@@ -691,9 +766,6 @@ export function ProfessorCreateQuizPage() {
               </span>
               <span>
                 <span className="block text-sm font-semibold">1. Atividade</span>
-                <span className="block text-xs text-muted-foreground">
-                  Título, visibilidade, pré e pós-seção
-                </span>
               </span>
             </button>
             <button
@@ -722,9 +794,6 @@ export function ProfessorCreateQuizPage() {
                   <span className="ml-1.5 font-normal text-muted-foreground">
                     ({questions.length})
                   </span>
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  Enunciado, alternativas e gabarito
                 </span>
               </span>
             </button>
@@ -773,6 +842,7 @@ export function ProfessorCreateQuizPage() {
               activeIndex={Math.min(questionIndex, questions.length - 1)}
               onSelect={setQuestionIndex}
               onAdd={addQuestion}
+              onImportCsv={() => csvInputRef.current?.click()}
               onRemove={removeActiveQuestion}
               onReorder={(delta) => {
                 const index = Math.min(questionIndex, questions.length - 1)
@@ -967,7 +1037,6 @@ export function ProfessorCreateQuizPage() {
                 <ContentBlockFields
                   id={`intro-${question.key}`}
                   label="Introdução"
-                  hint="Contexto antes do enunciado."
                   blocks={question.intro}
                   allowedTypes={["markdown"]}
                   compact
@@ -977,7 +1046,6 @@ export function ProfessorCreateQuizPage() {
                 <ContentBlockFields
                   id={`prompt-blocks-${question.key}`}
                   label="Enunciado em blocos"
-                  hint="Texto, código e a frase da questão. Se vazio, use o enunciado simples em Pergunta."
                   blocks={question.promptBlocks}
                   compact
                   onChange={(promptBlocks) => updateQuestion(question.key, { promptBlocks })}
@@ -1004,9 +1072,6 @@ export function ProfessorCreateQuizPage() {
                       }
                       placeholder="Júpiter é o {{maior}} planeta do {{Sistema Solar}}"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Lacunas usam texto simples para que o aluno digite a resposta.
-                    </p>
                   </div>
                 ) : questionPanel === "pergunta" &&
                   !question.promptBlocks.some((block) => block.content.trim()) ? (
@@ -1017,7 +1082,6 @@ export function ProfessorCreateQuizPage() {
                     onChange={(prompt) => updateQuestion(question.key, { prompt })}
                     rows={3}
                     placeholder={"Qual é a saída do programa abaixo?\n\n```python\nprint(sum(range(5)))\n```"}
-                    hint="Você pode inserir blocos de código, listas e destaques no enunciado."
                   />
                 ) : null}
 
@@ -1208,9 +1272,6 @@ export function ProfessorCreateQuizPage() {
 
                 {questionPanel === "pergunta" && question.kind === "ordering" ? (
                   <div className="grid gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      Liste os itens na ordem correta. O aluno verá a lista embaralhada.
-                    </p>
                     {question.orderEntries.map((entry, entryIndex) => (
                       <div key={entry.key} className="flex items-center gap-2">
                         <span className="w-6 text-sm text-muted-foreground">{entryIndex + 1}.</span>
@@ -1288,9 +1349,6 @@ export function ProfessorCreateQuizPage() {
 
                 {questionPanel === "pergunta" && question.kind === "cloze" ? (
                   <div className="grid gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      Marque cada lacuna com chaves duplas. Alternativas: {"{{Terra|planeta Terra}}"}.
-                    </p>
                     <label className="flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
@@ -1444,9 +1502,6 @@ export function ProfessorCreateQuizPage() {
                       />
                       <span>
                         <span className="font-medium">Pedir reflexão escrita</span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
-                          O aluno escolhe a alternativa e explica o raciocínio. Só a escolha entra na nota.
-                        </span>
                       </span>
                     </label>
                     {question.requireExplanation ? (
@@ -1498,7 +1553,6 @@ export function ProfessorCreateQuizPage() {
                   <ContentBlockFields
                     id={`feedback-blocks-${question.key}`}
                     label="Feedback após o envio"
-                    hint="Explicação longa com texto e código."
                     blocks={question.feedbackBlocks}
                     allowedTypes={["markdown", "code"]}
                     compact
@@ -1514,7 +1568,6 @@ export function ProfessorCreateQuizPage() {
                       rows={2}
                       compact
                       placeholder="Explique por que essa é a resposta correta."
-                      hint="Aparece no gabarito e na revisão da pós-seção."
                     />
                   )}
                 </div>
@@ -1566,6 +1619,7 @@ function QuestionCarousel({
   activeIndex,
   onSelect,
   onAdd,
+  onImportCsv,
   onRemove,
   onReorder,
 }: {
@@ -1573,6 +1627,7 @@ function QuestionCarousel({
   activeIndex: number
   onSelect: (index: number) => void
   onAdd: () => void
+  onImportCsv: () => void
   onRemove: () => void
   onReorder: (delta: number) => void
 }) {
@@ -1622,14 +1677,25 @@ function QuestionCarousel({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-      <Button
-        type="button"
-        className="h-11 w-full text-sm font-semibold"
-        onClick={onAdd}
-      >
-        <Plus className="h-5 w-5" />
-        Nova questão
-      </Button>
+      <div className="grid gap-1.5 sm:grid-cols-2">
+        <Button
+          type="button"
+          className="h-11 w-full text-sm font-semibold"
+          onClick={onAdd}
+        >
+          <Plus className="h-5 w-5" />
+          Nova questão
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 w-full text-sm font-semibold"
+          onClick={onImportCsv}
+        >
+          <FileUp className="h-5 w-5" />
+          Importar CSV
+        </Button>
+      </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <Button
           type="button"

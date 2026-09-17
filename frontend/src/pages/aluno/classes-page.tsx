@@ -26,9 +26,6 @@ export function AlunoClassesPage() {
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-semibold">Minhas turmas</h1>
-          <p className="mt-2 text-muted-foreground">
-            Turmas em que você já ingressou com código.
-          </p>
         </div>
         <Button asChild>
           <Link to="/aluno/entrar">Entrar com código</Link>
