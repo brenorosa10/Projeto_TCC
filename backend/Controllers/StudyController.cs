@@ -33,27 +33,25 @@ public class StudyController(
         var classes = await EnrolledClassesAsync(profile.Id, cancellationToken);
         var classIds = classes.Select(c => c.Id).ToList();
         var nameById = classes.ToDictionary(c => c.Id, c => c.Name);
-
-        var filter = Builders<Activity>.Filter.Eq(a => a.Type, ActivityTypes.Quiz)
-            & (Builders<Activity>.Filter.Eq(a => a.IsPublic, true)
-                | Builders<Activity>.Filter.AnyIn(a => a.ClassIds, classIds)
-                | Builders<Activity>.Filter.In(a => a.ClassId, classIds));
-
-        var quizzes = await db.Activities
-            .Find(filter)
-            .SortByDescending(a => a.CreatedAt)
-            .Limit(200)
-            .ToListAsync(cancellationToken);
+        var quizzes = await FindStudyActivitiesAsync(profile.Id, classIds, ActivityTypes.Quiz, cancellationToken);
 
         var summaries = quizzes.Select(quiz =>
         {
-            var names = quiz.LinkedClassIds()
+            var linked = quiz.LinkedClassIds();
+            var names = linked
                 .Where(nameById.ContainsKey)
                 .Select(id => nameById[id])
                 .Distinct()
                 .ToList();
 
-            return new StudyQuizSummaryResponse(quiz.Id, quiz.Title, quiz.Items.Count, names, quiz.IsPublic);
+            return new StudyQuizSummaryResponse(
+                quiz.Id,
+                quiz.Title,
+                quiz.Items.Count,
+                names,
+                quiz.IsPublic,
+                linked,
+                quiz.ProfessorId == profile.Id);
         });
 
         return Ok(summaries);
@@ -72,7 +70,7 @@ public class StudyController(
         var classes = await EnrolledClassesAsync(access.Profile!.Id, cancellationToken);
         var classIds = classes.Select(c => c.Id).ToList();
         var nameById = classes.ToDictionary(c => c.Id, c => c.Name);
-        var decks = await FindStudyActivitiesAsync(classIds, ActivityTypes.Flashcards, cancellationToken);
+        var decks = await FindStudyActivitiesAsync(access.Profile!.Id, classIds, ActivityTypes.Flashcards, cancellationToken);
         var now = DateTimeOffset.UtcNow;
         var deckIds = decks.Select(deck => deck.Id).ToList();
         var allProgress = deckIds.Count == 0
@@ -97,7 +95,15 @@ public class StudyController(
                 .Distinct()
                 .ToList();
 
-            summaries.Add(new StudyFlashcardSummaryResponse(deck.Id, deck.Title, deck.Items.Count, dueCount, names, deck.IsPublic));
+            summaries.Add(new StudyFlashcardSummaryResponse(
+                deck.Id,
+                deck.Title,
+                deck.Items.Count,
+                dueCount,
+                names,
+                deck.IsPublic,
+                deck.LinkedClassIds(),
+                deck.ProfessorId == access.Profile!.Id));
         }
 
         return Ok(summaries);
@@ -125,7 +131,7 @@ public class StudyController(
 
         if (!await StudentCanAccessAsync(access.Profile!.Id, deck, cancellationToken))
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Este deck não está vinculado às suas turmas." });
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você não tem acesso a este deck." });
         }
 
         var progress = await db.ReviewProgress
@@ -182,7 +188,7 @@ public class StudyController(
 
         if (!await StudentCanAccessAsync(access.Profile!.Id, deck, cancellationToken))
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Este deck não está vinculado às suas turmas." });
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você não tem acesso a este deck." });
         }
 
         var item = deck.Items.FirstOrDefault(i => i.Id == request.ItemId);
@@ -244,14 +250,21 @@ public class StudyController(
     }
 
     private Task<List<Activity>> FindStudyActivitiesAsync(
+        Guid studentId,
         List<Guid> classIds,
         string type,
         CancellationToken cancellationToken)
     {
-        var filter = Builders<Activity>.Filter.Eq(a => a.Type, type)
-            & (Builders<Activity>.Filter.Eq(a => a.IsPublic, true)
-                | Builders<Activity>.Filter.AnyIn(a => a.ClassIds, classIds)
-                | Builders<Activity>.Filter.In(a => a.ClassId, classIds));
+        var access = Builders<Activity>.Filter.Eq(a => a.IsPublic, true)
+            | Builders<Activity>.Filter.Eq(a => a.ProfessorId, studentId);
+
+        if (classIds.Count > 0)
+        {
+            access |= Builders<Activity>.Filter.AnyIn(a => a.ClassIds, classIds)
+                | Builders<Activity>.Filter.In(a => a.ClassId, classIds);
+        }
+
+        var filter = Builders<Activity>.Filter.Eq(a => a.Type, type) & access;
 
         return db.Activities
             .Find(filter)
@@ -292,7 +305,7 @@ public class StudyController(
 
         if (!await StudentCanAccessAsync(profile.Id, quiz, cancellationToken))
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Este quiz não está vinculado às suas turmas." });
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você não tem acesso a este quiz." });
         }
 
         var item = quiz.Items.FirstOrDefault(i => i.Id == request.ItemId);
@@ -330,7 +343,7 @@ public class StudyController(
 
     private async Task<bool> StudentCanAccessAsync(Guid studentId, Activity activity, CancellationToken cancellationToken)
     {
-        if (activity.IsPublic)
+        if (activity.IsPublic || activity.ProfessorId == studentId)
         {
             return true;
         }

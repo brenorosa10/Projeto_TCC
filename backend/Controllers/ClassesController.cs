@@ -141,6 +141,33 @@ public class ClassesController(
         return Ok(ToResponse(current));
     }
 
+    [HttpPost("{id:guid}/leave")]
+    public async Task<IActionResult> Leave(Guid id, CancellationToken cancellationToken)
+    {
+        var profile = await GetCurrentProfileAsync(cancellationToken);
+        if (profile is null)
+        {
+            return Unauthorized(new { detail = "Perfil não encontrado." });
+        }
+
+        if (profile.Role != UserRoles.Aluno)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Apenas alunos podem sair de turmas." });
+        }
+
+        var result = await db.Classes.UpdateOneAsync(
+            c => c.Id == id && c.Enrollments.Any(e => e.StudentId == profile.Id),
+            Builders<ClassRoom>.Update.PullFilter(c => c.Enrollments, e => e.StudentId == profile.Id),
+            cancellationToken: cancellationToken);
+
+        if (result.MatchedCount == 0)
+        {
+            return NotFound(new { detail = "Você não está nesta turma." });
+        }
+
+        return NoContent();
+    }
+
     private async Task<Profile?> GetCurrentProfileAsync(CancellationToken cancellationToken)
     {
         var userId = currentUser.UserId;

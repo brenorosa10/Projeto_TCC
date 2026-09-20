@@ -36,6 +36,11 @@ public class StudyAccessService(MongoDbContext db)
                 .AnyAsync(cancellationToken);
         }
 
+        if (activity.ProfessorId == profile.Id)
+        {
+            return true;
+        }
+
         var linked = activity.LinkedClassIds();
         if (linked.Count == 0)
         {

@@ -59,9 +59,9 @@ public class ActivitiesController(
             return Unauthorized(new { detail = "Perfil não encontrado." });
         }
 
-        if (profile.Role != UserRoles.Professor)
+        if (profile.Role is not (UserRoles.Professor or UserRoles.Aluno))
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Apenas professores podem criar atividades." });
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você não pode criar atividades." });
         }
 
         var type = request.Type.Trim().ToLowerInvariant();
@@ -77,7 +77,7 @@ public class ActivitiesController(
             ProfessorId = profile.Id,
             Title = request.Title.Trim(),
             Type = type,
-            IsPublic = request.IsPublic,
+            IsPublic = profile.Role == UserRoles.Professor && request.IsPublic,
             CreatedAt = DateTimeOffset.UtcNow,
             Sections = built.Sections!,
             Items = built.Items!
@@ -133,7 +133,7 @@ public class ActivitiesController(
         }
 
         activity.Title = request.Title.Trim();
-        activity.IsPublic = request.IsPublic;
+        activity.IsPublic = profile.Role == UserRoles.Professor && request.IsPublic;
         activity.Sections = built.Sections!;
         activity.Items = built.Items!;
 
@@ -486,7 +486,7 @@ public class ActivitiesController(
     }
 
     private static bool IsActivityAuthor(Profile profile, Activity activity) =>
-        profile.Role == UserRoles.Professor && activity.ProfessorId == profile.Id;
+        activity.ProfessorId == profile.Id;
 
     private async Task<bool> TeachesLinkedClassAsync(Profile profile, Activity activity, CancellationToken cancellationToken)
     {

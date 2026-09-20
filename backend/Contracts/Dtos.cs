@@ -337,7 +337,9 @@ public record StudyQuizSummaryResponse(
     string Title,
     int ItemCount,
     IReadOnlyList<string> ClassNames,
-    bool IsPublic
+    bool IsPublic,
+    IReadOnlyList<Guid> ClassIds,
+    bool OwnedByMe
 );
 
 public record MatchingAnswerRequest(
@@ -397,7 +399,9 @@ public record StudyFlashcardSummaryResponse(
     int ItemCount,
     int DueCount,
     IReadOnlyList<string> ClassNames,
-    bool IsPublic
+    bool IsPublic,
+    IReadOnlyList<Guid> ClassIds,
+    bool OwnedByMe
 );
 
 public record StudyFlashcardCardResponse(
