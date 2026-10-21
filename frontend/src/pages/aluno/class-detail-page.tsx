@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
 import { activityTypeLabel } from "@/lib/item-kinds"
@@ -11,9 +19,12 @@ import type { ActivitySummary, ClassRoom } from "@/lib/types"
 
 export function AlunoClassDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [classroom, setClassroom] = useState<ClassRoom | null>(null)
   const [activities, setActivities] = useState<ActivitySummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [leaveOpen, setLeaveOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -27,6 +38,21 @@ export function AlunoClassDetailPage() {
       )
       .finally(() => setLoading(false))
   }, [id])
+
+  async function handleLeave() {
+    if (!id) return
+    setLeaving(true)
+    try {
+      await api.leaveClass(id)
+      toast.success("Você saiu da turma.")
+      setLeaveOpen(false)
+      navigate("/aluno/turmas")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível sair da turma")
+    } finally {
+      setLeaving(false)
+    }
+  }
 
   return (
     <AppShell title="Turma">
@@ -58,7 +84,40 @@ export function AlunoClassDetailPage() {
             <Button asChild variant="outline">
               <Link to="/aluno/sessao">Entrar em sessão ao vivo</Link>
             </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="sm:col-span-2"
+              onClick={() => setLeaveOpen(true)}
+            >
+              Sair da turma
+            </Button>
           </div>
+
+          <Dialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Sair de {classroom.name}?</DialogTitle>
+                <DialogDescription>
+                  Você deixará de ver as atividades desta turma. Poderá entrar de novo depois com o
+                  código de acesso.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setLeaveOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={leaving}
+                  onClick={() => void handleLeave()}
+                >
+                  {leaving ? "Saindo..." : "Sair da turma"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <section>
             <h2 className="font-display text-xl font-semibold">Atividades</h2>

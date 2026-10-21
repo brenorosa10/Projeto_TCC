@@ -353,7 +353,7 @@ function StudentHeader({ state }: { state: LiveSessionState }) {
       {state.phase !== "lobby" ? (
         <div className="relative mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-astro-sky to-primary transition-[width] duration-500 ease-out"
+            className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>

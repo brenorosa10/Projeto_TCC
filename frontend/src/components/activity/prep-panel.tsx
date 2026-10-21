@@ -38,7 +38,7 @@ export function PrepPanel({
 
   return (
     <section className={cn("surface-card animate-enter overflow-hidden", className)}>
-      <header className="relative overflow-hidden border-b border-border/70 bg-gradient-to-br from-primary via-astro-navy to-[#1b5a86] px-6 py-7 text-primary-foreground sm:px-8">
+      <header className="relative overflow-hidden border-b border-border/70 bg-primary px-6 py-7 text-primary-foreground sm:px-8">
         <div className="pattern-grid absolute inset-0 opacity-[0.12]" aria-hidden />
         <div className="relative space-y-4">
           <span className="inline-flex items-center gap-2 rounded-full bg-accent/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">

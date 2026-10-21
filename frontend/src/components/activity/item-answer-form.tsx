@@ -49,7 +49,7 @@ export function ItemAnswerForm({
         <button
           type="button"
           onClick={() => setFlipped((prev) => !prev)}
-          className="flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border border-border bg-gradient-to-b from-card to-secondary/30 px-6 py-8 text-center shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-lift)]"
+          className="flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-8 text-center shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-lift)]"
         >
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {flipped ? "Verso" : "Frente"}

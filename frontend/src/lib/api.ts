@@ -107,6 +107,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  leaveClass: (id: string) =>
+    request<void>(`/api/classes/${id}/leave`, {
+      method: "POST",
+    }),
   listActivities: (classId: string) =>
     request<ActivitySummary[]>(`/api/classes/${classId}/activities`),
   listMyActivities: () => request<ActivitySummary[]>("/api/activities"),

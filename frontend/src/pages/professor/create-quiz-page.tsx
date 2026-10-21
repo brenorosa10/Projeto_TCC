@@ -29,6 +29,8 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/contexts/auth-context"
+import { activityEditorNav } from "@/lib/activity-editor-paths"
 import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
 import { cleanContentBlocks, flattenContentBlocks, QUESTION_DIFFICULTIES } from "@/lib/content-blocks"
@@ -388,6 +390,8 @@ export function ProfessorCreateQuizPage() {
   const { activityId } = useParams()
   const isEditing = Boolean(activityId)
   const navigate = useNavigate()
+  const { profile } = useAuth()
+  const nav = activityEditorNav(profile?.role)
   const [title, setTitle] = useState("")
   const [isPublic, setIsPublic] = useState(false)
   const [prepId, setPrepId] = useState<string>()
@@ -417,7 +421,7 @@ export function ProfessorCreateQuizPage() {
       .then((activity) => {
         if (activity.type !== "quiz") {
           toast.error("Esta atividade não é um quiz.")
-          navigate(`/professor/atividades/${activity.id}`, { replace: true })
+          navigate(nav.fallback(activity), { replace: true })
           return
         }
         setTitle(activity.title)
@@ -442,10 +446,10 @@ export function ProfessorCreateQuizPage() {
       })
       .catch((error: unknown) => {
         toast.error(error instanceof Error ? error.message : "Erro ao carregar quiz")
-        navigate("/professor/atividades")
+        navigate(nav.home)
       })
       .finally(() => setLoading(false))
-  }, [activityId, navigate])
+  }, [activityId, navigate, profile?.role])
 
   function updateQuestion(key: string, patch: Partial<DraftQuestion>) {
     setQuestions((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)))
@@ -658,7 +662,7 @@ export function ProfessorCreateQuizPage() {
     return {
       title: title.trim(),
       type: "quiz",
-      isPublic,
+      isPublic: nav.student ? false : isPublic,
       sections: [
         {
           id: prepId,
@@ -696,8 +700,14 @@ export function ProfessorCreateQuizPage() {
         isEditing && activityId
           ? await api.updateActivity(activityId, payload)
           : await api.createActivity(payload)
-      toast.success(isEditing ? "Quiz atualizado." : "Quiz criado. Vincule-o às turmas quando quiser.")
-      navigate(`/professor/atividades/${quiz.id}`)
+      toast.success(
+        isEditing
+          ? "Quiz atualizado."
+          : nav.student
+            ? "Quiz avulso criado. Você já pode estudá-lo."
+            : "Quiz criado. Vincule-o às turmas quando quiser."
+      )
+      navigate(nav.afterSave(quiz.id, "quiz"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar quiz")
     } finally {
@@ -713,22 +723,22 @@ export function ProfessorCreateQuizPage() {
         <div className="space-y-4">
           <div>
             <p className="text-sm text-muted-foreground">
-              <Link to="/professor/atividades" className="hover:text-primary">
-                Atividades
+              <Link to={nav.home} className="hover:text-primary">
+                {nav.homeLabel}
               </Link>
-              {isEditing && activityId ? (
+              {isEditing && activityId && !nav.student ? (
                 <>
                   {" "}
                   /{" "}
-                  <Link to={`/professor/atividades/${activityId}`} className="hover:text-primary">
+                  <Link to={nav.detail(activityId)} className="hover:text-primary">
                     Detalhe
                   </Link>
                 </>
               ) : null}{" "}
-              / {isEditing ? "Editar quiz" : "Novo quiz"}
+              / {isEditing ? "Editar quiz" : nav.student ? "Novo quiz avulso" : "Novo quiz"}
             </p>
             <h1 className="mt-1 font-display text-2xl font-semibold">
-              {isEditing ? "Editar quiz" : "Criar quiz"}
+              {isEditing ? "Editar quiz" : nav.student ? "Criar quiz avulso" : "Criar quiz"}
             </h1>
             <input
               ref={csvInputRef}
@@ -813,7 +823,9 @@ export function ProfessorCreateQuizPage() {
                     className="h-12 text-lg"
                   />
                 </div>
-                <VisibilityCheckbox id="quiz-public" checked={isPublic} onChange={setIsPublic} />
+                {!nav.student ? (
+                  <VisibilityCheckbox id="quiz-public" checked={isPublic} onChange={setIsPublic} />
+                ) : null}
               </div>
 
               <PrepFeedbackFields

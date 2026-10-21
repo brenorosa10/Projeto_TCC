@@ -497,7 +497,7 @@ function SessionHeader({ state }: { state: LiveSessionState }) {
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-astro-sky to-primary transition-[width] duration-500 ease-out"
+              className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -509,7 +509,7 @@ function SessionHeader({ state }: { state: LiveSessionState }) {
 
 function PinCard({ pin }: { pin: string }) {
   return (
-    <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-astro-mint/15 to-transparent px-5 py-3 text-center shadow-[var(--shadow-soft)]">
+    <div className="rounded-2xl border border-primary/25 bg-secondary px-5 py-3 text-center shadow-[var(--shadow-soft)]">
       <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
         PIN
       </p>
@@ -555,7 +555,7 @@ function QuestionMeta({ state }: { state: LiveSessionState }) {
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-astro-mint to-success transition-[width] duration-500 ease-out"
+          className="h-full rounded-full bg-success transition-[width] duration-500 ease-out"
           style={{ width: `${percent}%` }}
         />
       </div>

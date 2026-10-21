@@ -232,7 +232,7 @@ function PracticeView({
         ) : null}
         <div className="h-2 overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-astro-sky to-primary transition-[width] duration-500 ease-out"
+            className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>

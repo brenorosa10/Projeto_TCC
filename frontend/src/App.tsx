@@ -169,6 +169,38 @@ export default function App() {
             }
           />
           <Route
+            path="/aluno/estudar/criar/quiz"
+            element={
+              <RequireRole role="aluno">
+                <ProfessorCreateQuizPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/aluno/estudar/criar/quiz/:activityId"
+            element={
+              <RequireRole role="aluno">
+                <ProfessorCreateQuizPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/aluno/estudar/criar/flashcards"
+            element={
+              <RequireRole role="aluno">
+                <ProfessorCreateFlashcardsPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/aluno/estudar/criar/flashcards/:activityId"
+            element={
+              <RequireRole role="aluno">
+                <ProfessorCreateFlashcardsPage />
+              </RequireRole>
+            }
+          />
+          <Route
             path="/aluno/estudar/flashcards/:activityId"
             element={
               <RequireRole role="aluno">

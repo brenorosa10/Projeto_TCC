@@ -179,5 +179,6 @@ function isNavActive(pathname: string, to: string, exact?: boolean) {
 function parentRoute(pathname: string) {
   const segments = pathname.replace(/\/+$/, "").split("/").filter(Boolean)
   if (segments.length <= 1) return null
+  if (pathname.startsWith("/aluno/estudar/criar")) return "/aluno/estudar"
   return `/${segments.slice(0, -1).join("/")}`
 }

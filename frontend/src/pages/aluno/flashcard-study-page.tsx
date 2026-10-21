@@ -177,7 +177,7 @@ export function AlunoFlashcardStudyPage() {
                 type="button"
                 aria-expanded={flipped}
                 onClick={() => setFlipped((prev) => !prev)}
-                className="animate-pop-in flex min-h-56 w-full flex-col items-center justify-center rounded-2xl border border-border bg-gradient-to-b from-card to-secondary/40 px-6 py-10 text-center shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-lift)]"
+                className="animate-pop-in flex min-h-56 w-full flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-10 text-center shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-lift)]"
               >
                 <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {flipped ? "Verso" : "Frente"}

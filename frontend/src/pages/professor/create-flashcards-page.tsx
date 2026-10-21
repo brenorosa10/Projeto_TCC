@@ -11,6 +11,8 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor"
+import { useAuth } from "@/contexts/auth-context"
+import { activityEditorNav } from "@/lib/activity-editor-paths"
 import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
 import { findSection } from "@/lib/item-kinds"
@@ -26,6 +28,8 @@ export function ProfessorCreateFlashcardsPage() {
   const { activityId } = useParams()
   const isEditing = Boolean(activityId)
   const navigate = useNavigate()
+  const { profile } = useAuth()
+  const nav = activityEditorNav(profile?.role)
   const [title, setTitle] = useState("")
   const [isPublic, setIsPublic] = useState(false)
   const [prepId, setPrepId] = useState<string>()
@@ -50,7 +54,7 @@ export function ProfessorCreateFlashcardsPage() {
       .then((activity) => {
         if (activity.type !== "flashcards") {
           toast.error("Esta atividade não é um deck de flashcards.")
-          navigate(`/professor/atividades/${activity.id}`, { replace: true })
+          navigate(nav.fallback(activity), { replace: true })
           return
         }
         setTitle(activity.title)
@@ -81,10 +85,10 @@ export function ProfessorCreateFlashcardsPage() {
       })
       .catch((error: unknown) => {
         toast.error(error instanceof Error ? error.message : "Erro ao carregar flashcards")
-        navigate("/professor/atividades")
+        navigate(nav.home)
       })
       .finally(() => setLoading(false))
-  }, [activityId, navigate])
+  }, [activityId, navigate, profile?.role])
 
   function updateCard(key: string, patch: Partial<DraftCard>) {
     setCards((prev) => prev.map((card) => (card.key === key ? { ...card, ...patch } : card)))
@@ -118,7 +122,7 @@ export function ProfessorCreateFlashcardsPage() {
     const payload: CreateActivityRequest = {
       title: title.trim(),
       type: "flashcards",
-      isPublic,
+      isPublic: nav.student ? false : isPublic,
       sections: [
         {
           id: prepId,
@@ -159,9 +163,11 @@ export function ProfessorCreateFlashcardsPage() {
       toast.success(
         isEditing
           ? "Deck atualizado."
-          : "Deck de flashcards criado. Vincule-o às turmas quando quiser."
+          : nav.student
+            ? "Deck avulso criado. Você já pode estudá-lo."
+            : "Deck de flashcards criado. Vincule-o às turmas quando quiser."
       )
-      navigate(`/professor/atividades/${saved.id}`)
+      navigate(nav.afterSave(saved.id, "flashcards"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar flashcards")
     } finally {
@@ -177,22 +183,22 @@ export function ProfessorCreateFlashcardsPage() {
       <form className="space-y-8" onSubmit={(event) => void handleSubmit(event)}>
         <div>
           <p className="text-sm text-muted-foreground">
-            <Link to="/professor/atividades" className="hover:text-primary">
-              Atividades
+            <Link to={nav.home} className="hover:text-primary">
+              {nav.homeLabel}
             </Link>
-            {isEditing && activityId ? (
+            {isEditing && activityId && !nav.student ? (
               <>
                 {" "}
                 /{" "}
-                <Link to={`/professor/atividades/${activityId}`} className="hover:text-primary">
+                <Link to={nav.detail(activityId)} className="hover:text-primary">
                   Detalhe
                 </Link>
               </>
             ) : null}{" "}
-            / {isEditing ? "Editar flashcards" : "Novos flashcards"}
+            / {isEditing ? "Editar flashcards" : nav.student ? "Novo deck avulso" : "Novos flashcards"}
           </p>
           <h1 className="mt-2 font-display text-3xl font-semibold">
-            {isEditing ? "Editar flashcards" : "Criar flashcards"}
+            {isEditing ? "Editar flashcards" : nav.student ? "Criar deck avulso" : "Criar flashcards"}
           </h1>
         </div>
 
@@ -207,7 +213,9 @@ export function ProfessorCreateFlashcardsPage() {
           />
         </div>
 
-        <VisibilityCheckbox id="deck-public" checked={isPublic} onChange={setIsPublic} />
+        {!nav.student ? (
+          <VisibilityCheckbox id="deck-public" checked={isPublic} onChange={setIsPublic} />
+        ) : null}
 
         <PrepFeedbackFields
           prepTitle={prepTitle}

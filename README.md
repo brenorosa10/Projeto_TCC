@@ -27,45 +27,34 @@ O nginx de borda fica num diretório próprio (`~/proxy`), não dentro do Astro 
 
 O nginx de borda encaminha o domínio do Astro para o container `astro-frontend`. O nginx interno do container encaminha `/api`, `/hubs` e `/signin-google` para a API.
 
-## Funcionalidades
+## Requisitos
 
-A plataforma combina sessões síncronas gamificadas com materiais de fixação para estudo individual. Professores criam turmas, elaboram avaliações e acompanham o desempenho; alunos entram por código, participam ao vivo e revisam no próprio ritmo.
+Requisitos principais do Astro, no recorte usado na escrita do TCC. O perfil é escolhido na primeira entrada e permanece fixo.
 
-### Perfis e autenticação
+### Requisitos funcionais
 
-- **Professor:** cria turmas, elabora e gerencia atividades (quizzes, provas e flashcards), inicia/controla sessões ao vivo e acessa o painel analítico.
-- **Aluno:** ingressa em turmas por código, participa de sessões síncronas e usa o módulo de estudo assíncrono.
-- **Login obrigatório com Google (OAuth2 no ASP.NET):** o perfil (professor ou aluno) é definido na primeira entrada e permanece fixo.
+| Código | Descrição | Perfil |
+| --- | --- | --- |
+| RF01 | Autenticar-se com conta própria ou Google e manter o perfil definido na primeira entrada. | Aluno e professor |
+| RF02 | Criar turmas identificadas por um código de ingresso. | Professor |
+| RF03 | Ingressar em uma turma informando o código. | Aluno |
+| RF04 | Elaborar quizzes, provas e flashcards e vinculá-los às turmas. | Professor |
+| RF05 | Aplicar quiz ou prova ao vivo, com PIN, avanço das questões, ranking no quiz e gabarito oculto na prova. | Professor |
+| RF06 | Entrar na sessão ao vivo pelo PIN e responder às questões. | Aluno |
+| RF07 | Estudar quizzes no próprio ritmo, com feedback após cada resposta. | Aluno |
+| RF08 | Revisar flashcards com repetição espaçada (Leitner). | Aluno |
+| RF09 | Acompanhar acertos e erros por questão, com destaque para taxa de erro acima de 50%. | Professor |
 
-### Gestão de turmas
+### Requisitos não funcionais
 
-- Código único alfanumérico de 8 caracteres por turma (ex.: `X7B9K2`).
-- Ingresso do aluno somente autenticado, mediante o código da turma.
-- Histórico de acertos, erros e tempo de resposta vinculado permanentemente ao perfil.
-
-### Atividades e questões
-
-- **Múltipla escolha:** 2 a 5 alternativas, com exatamente 1 resposta correta.
-- **Verdadeiro ou falso:** questões binárias com justificativa/gabarito.
-- **Flashcards:** cartões bifaces (frente: conceito/pergunta; verso: resposta/explicação).
-- Tempo configurável por questão em quizzes/provas (padrão: 30 segundos).
-
-### Sessões ao vivo (tempo real via SignalR)
-
-- PIN de 6 dígitos para cada sala temporária (ex.: `839201`).
-- Transição de tela automática (fim do tempo) ou manual (“Avançar” pelo professor).
-- **Modo Quiz (gamificado):** pontuação por acerto e velocidade; ranking parcial e gabarito ao fim de cada questão.
-- **Modo Prova (avaliativo):** sem ranking/gabarito durante a aplicação; pontuação apenas por acertos.
-
-### Estudo assíncrono
-
-- Quizzes off-line com feedback e explicação imediata após cada resposta.
-- Flashcards com repetição espaçada (Leitner simplificado, caixas 1–5): acerto avança o cartão; erro retorna ao nível 1.
-
-### Analytics do professor
-
-- Índice de erros consolidado por questão.
-- Destaque visual de questões com taxa de erro superior a 50%, para orientar revisão de conteúdo.
+| Código | Descrição | Perfil |
+| --- | --- | --- |
+| RNF01 | Autenticar o acesso com JWT e armazenar senha apenas como hash. | Aluno e professor |
+| RNF02 | Restringir cada função ao perfil autorizado. | Aluno e professor |
+| RNF03 | Atualizar a sessão ao vivo em tempo real. | Aluno e professor |
+| RNF04 | Persistir turmas, atividades, sessões e o desempenho dos alunos. | Aluno e professor |
+| RNF05 | Proteger a comunicação em produção com HTTPS. | Aluno e professor |
+| RNF06 | Oferecer interface web utilizável em diferentes tamanhos de tela. | Aluno e professor |
 
 <img width="925" height="364" alt="image" src="https://github.com/user-attachments/assets/e2ee022e-d513-4c46-a344-0448f4c2a0c1" />
 

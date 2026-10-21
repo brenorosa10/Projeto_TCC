@@ -290,6 +290,8 @@ export interface StudyQuizSummary {
   itemCount: number
   classNames: string[]
   isPublic?: boolean
+  classIds?: string[]
+  ownedByMe?: boolean
 }
 
 export interface MatchingAnswerRequest {
@@ -346,6 +348,8 @@ export interface StudyFlashcardSummary {
   dueCount: number
   classNames: string[]
   isPublic?: boolean
+  classIds?: string[]
+  ownedByMe?: boolean
 }
 
 export interface StudyFlashcardCard {

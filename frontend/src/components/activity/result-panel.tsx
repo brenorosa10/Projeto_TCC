@@ -47,10 +47,10 @@ export function ResultPanel({
       <header
         className={cn(
           "relative overflow-hidden border-b border-border/70 px-6 py-7 sm:px-8",
-          tone === "great" && "bg-gradient-to-br from-emerald-600 to-teal-700 text-white",
-          tone === "good" && "bg-gradient-to-br from-primary to-[#1b5a86] text-primary-foreground",
-          tone === "review" && "bg-gradient-to-br from-astro-amber to-[#a85c17] text-white",
-          tone === "neutral" && "bg-gradient-to-br from-primary to-[#1b5a86] text-primary-foreground"
+          tone === "great" && "bg-success text-white",
+          tone === "good" && "bg-primary text-primary-foreground",
+          tone === "review" && "bg-astro-amber text-white",
+          tone === "neutral" && "bg-primary text-primary-foreground"
         )}
       >
         <div className="pattern-grid absolute inset-0 opacity-[0.12]" aria-hidden />
