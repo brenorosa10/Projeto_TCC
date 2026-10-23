@@ -52,9 +52,16 @@ public record AuthResponse(
 );
 
 public record CreateClassRequest(
-    [Required]
-    [MinLength(2)]
-    [MaxLength(200)]
+    [Required(ErrorMessage = "Informe o nome da turma.")]
+    [MinLength(2, ErrorMessage = "O nome da turma deve ter pelo menos 2 caracteres.")]
+    [MaxLength(200, ErrorMessage = "O nome da turma deve ter no máximo 200 caracteres.")]
+    string Name
+);
+
+public record UpdateClassRequest(
+    [Required(ErrorMessage = "Informe o nome da turma.")]
+    [MinLength(2, ErrorMessage = "O nome da turma deve ter pelo menos 2 caracteres.")]
+    [MaxLength(200, ErrorMessage = "O nome da turma deve ter no máximo 200 caracteres.")]
     string Name
 );
 
@@ -320,7 +327,8 @@ public record ActivityResponse(
     IReadOnlyList<Guid> ClassIds,
     bool IsPublic,
     IReadOnlyList<ActivityItemResponse> Items,
-    IReadOnlyList<ActivitySectionResponse>? Sections = null
+    IReadOnlyList<ActivitySectionResponse>? Sections = null,
+    int ItemCount = 0
 );
 
 public record PublicActivitySummaryResponse(

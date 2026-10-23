@@ -180,7 +180,7 @@ export function ProfessorCreateFlashcardsPage() {
       {loading ? (
         <PageLoader />
       ) : (
-      <form className="space-y-8" onSubmit={(event) => void handleSubmit(event)}>
+      <form noValidate className="space-y-8" onSubmit={(event) => void handleSubmit(event)}>
         <div>
           <p className="text-sm text-muted-foreground">
             <Link to={nav.home} className="hover:text-primary">
@@ -209,7 +209,6 @@ export function ProfessorCreateFlashcardsPage() {
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Ex: Vocabulário — capítulo 2"
-            required
           />
         </div>
 

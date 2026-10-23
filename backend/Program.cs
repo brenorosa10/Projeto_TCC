@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -51,6 +52,37 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    })
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+            foreach (var entry in context.ModelState)
+            {
+                if (entry.Value is null || entry.Value.Errors.Count == 0)
+                {
+                    continue;
+                }
+
+                errors[entry.Key] = entry.Value.Errors
+                    .Select(error =>
+                    {
+                        var text = string.IsNullOrWhiteSpace(error.ErrorMessage)
+                            ? error.Exception?.Message
+                            : error.ErrorMessage;
+                        return PortugueseValidation.Localize(entry.Key, text);
+                    })
+                    .ToArray();
+            }
+
+            var first = errors.SelectMany(pair => pair.Value).FirstOrDefault();
+            return new BadRequestObjectResult(new ValidationProblemDetails(errors)
+            {
+                Title = "Um ou mais campos são inválidos.",
+                Detail = first
+            });
+        };
     });
 
 builder.Services.AddEndpointsApiExplorer();

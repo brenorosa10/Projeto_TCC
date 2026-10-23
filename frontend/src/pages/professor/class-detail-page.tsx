@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
@@ -8,22 +8,42 @@ import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
 import { activityTypeLabel } from "@/lib/item-kinds"
 import type { ActivitySummary, ClassRoom } from "@/lib/types"
 
+const CLASS_NAME_MAX = 200
+
+function classNameError(value: string) {
+  const name = value.trim()
+  if (!name) return "Informe o nome da turma."
+  if (name.length < 2) return "O nome da turma deve ter pelo menos 2 caracteres."
+  if (name.length > CLASS_NAME_MAX) return "O nome da turma deve ter no máximo 200 caracteres."
+  return null
+}
+
 export function ProfessorClassDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [classroom, setClassroom] = useState<ClassRoom | null>(null)
   const [activities, setActivities] = useState<ActivitySummary[]>([])
   const [library, setLibrary] = useState<ActivitySummary[]>([])
   const [loading, setLoading] = useState(true)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkingId, setLinkingId] = useState<string | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [savingName, setSavingName] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function load() {
     if (!id) return
@@ -63,6 +83,47 @@ export function ProfessorClassDetailPage() {
     }
   }
 
+  function openEdit() {
+    if (!classroom) return
+    setEditName(classroom.name)
+    setEditOpen(true)
+  }
+
+  async function handleRename(event: React.FormEvent) {
+    event.preventDefault()
+    if (!id) return
+    const validation = classNameError(editName)
+    if (validation) {
+      toast.error(validation)
+      return
+    }
+    setSavingName(true)
+    try {
+      const updated = await api.updateClass(id, { name: editName.trim() })
+      setClassroom(updated)
+      setEditOpen(false)
+      toast.success("Nome da turma atualizado.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao renomear turma")
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!id || !classroom) return
+    setDeleting(true)
+    try {
+      await api.deleteClass(id)
+      toast.success(`Turma "${classroom.name}" excluída.`)
+      navigate("/professor/turmas", { replace: true })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao excluir turma")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   async function handleUnlink(activityId: string) {
     if (!id) return
     try {
@@ -98,7 +159,7 @@ export function ProfessorClassDetailPage() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="flex flex-wrap gap-2">
             <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
               <DialogTrigger asChild>
                 <Button variant="secondary">Vincular atividade</Button>
@@ -142,7 +203,69 @@ export function ProfessorClassDetailPage() {
             <Button asChild variant="outline">
               <Link to="/professor/analytics">Ver analytics</Link>
             </Button>
+            <Button type="button" variant="outline" onClick={openEdit}>
+              Editar
+            </Button>
+            <Button type="button" variant="destructive" onClick={() => setDeleteOpen(true)}>
+              Excluir
+            </Button>
           </div>
+
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogContent>
+              <form noValidate onSubmit={(event) => void handleRename(event)}>
+                <DialogHeader>
+                  <DialogTitle>Editar turma</DialogTitle>
+                  <DialogDescription>O código de acesso permanece o mesmo.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2 py-4">
+                  <Label htmlFor="edit-class-name">Nome da turma</Label>
+                  <Input
+                    id="edit-class-name"
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                    maxLength={CLASS_NAME_MAX}
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground">{editName.trim().length}/200</p>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={savingName}>
+                    {savingName ? "Salvando..." : "Salvar"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Excluir turma?</DialogTitle>
+                <DialogDescription>
+                  “{classroom.name}” será removida. Os alunos perdem o acesso e o código deixa de
+                  funcionar. As atividades da biblioteca são mantidas, apenas desvinculadas. Sessões
+                  ao vivo em andamento desta turma serão encerradas.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={deleting}
+                  onClick={() => void handleDelete()}
+                >
+                  {deleting ? "Excluindo..." : "Excluir turma"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <section>
             <h2 className="font-display text-xl font-semibold">Atividades desta turma</h2>

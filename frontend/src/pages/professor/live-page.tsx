@@ -21,6 +21,14 @@ import { ItemPrompt } from "@/components/activity/item-prompt"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { RichText } from "@/components/rich-text/rich-text"
@@ -36,7 +44,7 @@ import { cn } from "@/lib/utils"
 import type { ActivitySummary, ClassRoom, LiveSessionState } from "@/lib/types"
 
 export function ProfessorLivePage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [classes, setClasses] = useState<ClassRoom[]>([])
   const [activities, setActivities] = useState<ActivitySummary[]>([])
   const [classId, setClassId] = useState(searchParams.get("classId") ?? "")
@@ -45,28 +53,71 @@ export function ProfessorLivePage() {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [state, setState] = useState<LiveSessionState | null>(null)
+  const [activeSessions, setActiveSessions] = useState<LiveSessionState[]>([])
+  const [resumingId, setResumingId] = useState<string | null>(null)
+  const [endingId, setEndingId] = useState<string | null>(null)
+  const [confirmEndId, setConfirmEndId] = useState<string | null>(null)
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null)
   const connectionRef = useRef<signalR.HubConnection | null>(null)
   const advancingRef = useRef(false)
+  const attachedId = useRef<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    Promise.all([api.listClasses(), api.listMyActivities()])
-      .then(([classData, activityData]) => {
-        if (cancelled) return
-        setClasses(classData)
-        setActivities(activityData.filter((item) => item.type === "quiz" || item.type === "prova"))
+  function rememberSession(session: LiveSessionState) {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev)
+        params.set("sessionId", session.id)
+        params.set("classId", session.classId)
+        params.set("activityId", session.activityId)
+        return params
+      },
+      { replace: true }
+    )
+  }
+
+  async function connectHost(
+    session: LiveSessionState,
+    failureMessage = "Não foi possível retomar a sessão"
+  ) {
+    setResumingId(session.id)
+    let hub: signalR.HubConnection | null = null
+    try {
+      await connectionRef.current?.stop()
+      connectionRef.current = null
+      setConnection(null)
+      const nextHub = createLiveHub((next) => {
+        setState(next)
+        if (next.status === "ended" || next.phase === "ended") {
+          setActiveSessions((prev) => prev.filter((item) => item.id !== next.id))
+        }
       })
-      .catch((error: unknown) =>
-        toast.error(error instanceof Error ? error.message : "Erro ao carregar turmas e atividades")
-      )
-      .finally(() => {
-        if (!cancelled) setLoading(false)
+      hub = nextHub
+      await joinLiveAsHost(nextHub, session.id)
+      nextHub.onreconnected(() => {
+        void joinLiveAsHost(nextHub, session.id).catch(() => undefined)
       })
-    return () => {
-      cancelled = true
+      connectionRef.current = nextHub
+      setConnection(nextHub)
+      setState(session)
+      attachedId.current = session.id
+      setClassId(session.classId)
+      setActivityId(session.activityId)
+      rememberSession(session)
+      setActiveSessions((prev) => [session, ...prev.filter((item) => item.id !== session.id)])
+      return true
+    } catch (error) {
+      await hub?.stop()
+      if (connectionRef.current === hub) {
+        connectionRef.current = null
+        setConnection(null)
+      }
+      attachedId.current = null
+      toast.error(error instanceof Error ? error.message : failureMessage)
+      return false
+    } finally {
+      setResumingId(null)
     }
-  }, [])
+  }
 
   useEffect(() => {
     connectionRef.current = connection
@@ -76,6 +127,66 @@ export function ProfessorLivePage() {
     return () => {
       void connectionRef.current?.stop()
     }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const requestedId = searchParams.get("sessionId")
+    const classIdQuery = searchParams.get("classId") ?? ""
+    const activityIdQuery = searchParams.get("activityId") ?? ""
+
+    async function boot() {
+      try {
+        const [classData, activityData, active] = await Promise.all([
+          api.listClasses(),
+          api.listMyActivities(),
+          api.listActiveLiveSessions(),
+        ])
+        if (cancelled) return
+        setClasses(classData)
+        setActivities(activityData.filter((item) => item.type === "quiz" || item.type === "prova"))
+        setActiveSessions(active)
+
+        let target = requestedId ? active.find((session) => session.id === requestedId) ?? null : null
+        if (requestedId && !target) {
+          try {
+            const fetched = await api.getLiveSession(requestedId)
+            if (cancelled) return
+            if (fetched.status === "ended") {
+              setState(fetched)
+              attachedId.current = fetched.id
+              return
+            }
+            target = fetched
+          } catch (error) {
+            if (!cancelled) {
+              toast.error(error instanceof Error ? error.message : "Não foi possível retomar a sessão")
+            }
+          }
+        } else if (!requestedId && classIdQuery && activityIdQuery) {
+          target =
+            active.find(
+              (session) => session.classId === classIdQuery && session.activityId === activityIdQuery
+            ) ?? null
+        }
+
+        if (cancelled || !target || attachedId.current === target.id) return
+        await connectHost(target)
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(error instanceof Error ? error.message : "Erro ao carregar turmas e atividades")
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void boot()
+    return () => {
+      cancelled = true
+    }
+    // Retoma a sessão uma vez, a partir da URL de entrada.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const linkedActivities = useMemo(
@@ -104,39 +215,77 @@ export function ProfessorLivePage() {
       toast.error("Vincule esta atividade à turma antes de iniciar ao vivo.")
       return
     }
+    const existing = activeSessions.find(
+      (session) =>
+        session.classId === classId &&
+        session.activityId === activityId &&
+        session.status !== "ended"
+    )
+    if (existing) {
+      toast.message("Já existe uma sessão em andamento. Retomando a sala.")
+      await connectHost(existing)
+      return
+    }
     setCreating(true)
+    let created: LiveSessionState | null = null
     try {
-      await connectionRef.current?.stop()
-      setConnection(null)
-      const created = await api.createLiveSession({ classId, activityId })
-      const hub = createLiveHub(setState)
-      try {
-        await joinLiveAsHost(hub, created.id)
-      } catch (error) {
-        await hub.stop()
-        await api.endLiveSession(created.id).catch(() => undefined)
-        throw error
+      created = await api.createLiveSession({ classId, activityId })
+      const joined = await connectHost(created, "Não foi possível criar a sessão")
+      const emptyLobby = created.phase === "lobby" && created.participants.length === 0
+      if (!joined && emptyLobby) {
+        const orphanId = created.id
+        await api.endLiveSession(orphanId).catch(() => undefined)
+        setActiveSessions((prev) => prev.filter((item) => item.id !== orphanId))
       }
-      hub.onreconnected(() => {
-        void joinLiveAsHost(hub, created.id).catch(() => undefined)
-      })
-      connectionRef.current = hub
-      setConnection(hub)
-      setState(created)
     } catch (error) {
+      if (created) {
+        await api.endLiveSession(created.id).catch(() => undefined)
+      }
       toast.error(error instanceof Error ? error.message : "Não foi possível criar a sessão")
     } finally {
       setCreating(false)
     }
   }
 
+  async function endActiveSession(sessionId: string) {
+    setEndingId(sessionId)
+    try {
+      await api.endLiveSession(sessionId)
+      setActiveSessions((prev) => prev.filter((item) => item.id !== sessionId))
+      if (state?.id === sessionId) {
+        setState((current) =>
+          current && current.id === sessionId ? { ...current, status: "ended", phase: "ended" } : current
+        )
+      }
+      toast.success("Sessão encerrada.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível encerrar a sessão")
+    } finally {
+      setEndingId(null)
+    }
+  }
+
   async function resetSession() {
     advancingRef.current = false
+    attachedId.current = null
     await connectionRef.current?.stop()
     connectionRef.current = null
     setConnection(null)
     setState(null)
     setBusy(false)
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev)
+        params.delete("sessionId")
+        return params
+      },
+      { replace: true }
+    )
+    try {
+      setActiveSessions(await api.listActiveLiveSessions())
+    } catch {
+      // A lista local continua utilizável se a atualização falhar.
+    }
   }
 
   async function run(action: () => Promise<void>, fallback: string) {
@@ -153,6 +302,8 @@ export function ProfessorLivePage() {
     }
   }
 
+  const pendingEnd = activeSessions.find((session) => session.id === confirmEndId)
+
   return (
     <AppShell title="Sessão ao vivo">
       {loading ? (
@@ -161,12 +312,17 @@ export function ProfessorLivePage() {
         <SetupForm
           classes={classes}
           activities={linkedActivities}
+          activeSessions={activeSessions}
           classId={classId}
           activityId={activityId}
           creating={creating}
+          resumingId={resumingId}
+          endingId={endingId}
           onClassId={handleClassId}
           onActivityId={setActivityId}
           onCreate={() => void handleCreate()}
+          onResume={(session) => void connectHost(session)}
+          onEnd={setConfirmEndId}
         />
       ) : (
         <HostRoom
@@ -178,6 +334,36 @@ export function ProfessorLivePage() {
           onReset={() => void resetSession()}
         />
       )}
+      <Dialog open={confirmEndId !== null} onOpenChange={(open) => { if (!open) setConfirmEndId(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Encerrar sessão?</DialogTitle>
+            <DialogDescription>
+              {pendingEnd
+                ? `A sala PIN ${pendingEnd.pin} (${pendingEnd.className}) será encerrada. Os alunos não poderão mais entrar.`
+                : "A sessão ao vivo será encerrada."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConfirmEndId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={endingId !== null}
+              onClick={() => {
+                if (!confirmEndId) return
+                const id = confirmEndId
+                setConfirmEndId(null)
+                void endActiveSession(id)
+              }}
+            >
+              {endingId ? "Encerrando..." : "Encerrar sessão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   )
 }
@@ -185,24 +371,76 @@ export function ProfessorLivePage() {
 function SetupForm({
   classes,
   activities,
+  activeSessions,
   classId,
   activityId,
   creating,
+  resumingId,
+  endingId,
   onClassId,
   onActivityId,
   onCreate,
+  onResume,
+  onEnd,
 }: {
   classes: ClassRoom[]
   activities: ActivitySummary[]
+  activeSessions: LiveSessionState[]
   classId: string
   activityId: string
   creating: boolean
+  resumingId: string | null
+  endingId: string | null
   onClassId: (value: string) => void
   onActivityId: (value: string) => void
   onCreate: () => void
+  onResume: (session: LiveSessionState) => void
+  onEnd: (sessionId: string) => void
 }) {
   return (
     <div className="mx-auto max-w-xl space-y-6 animate-fade-up">
+      {activeSessions.length > 0 ? (
+        <section className="surface-card space-y-3 p-5">
+          <h2 className="font-display text-lg font-semibold">Sessões em andamento</h2>
+          <p className="text-sm text-muted-foreground">
+            Estas salas continuam abertas. Retome para controlar ou encerre para liberar o PIN.
+          </p>
+          <ul className="grid gap-2">
+            {activeSessions.map((session) => (
+              <li
+                key={session.id}
+                className="flex flex-col gap-3 rounded-xl border border-border/70 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{session.activityTitle}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {session.className} · PIN {session.pin} · {session.participants.length} participante(s)
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={resumingId === session.id}
+                    onClick={() => onResume(session)}
+                  >
+                    {resumingId === session.id ? "Retomando..." : "Retomar"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={endingId === session.id}
+                    onClick={() => onEnd(session.id)}
+                  >
+                    {endingId === session.id ? "Encerrando..." : "Encerrar"}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section className="surface-card relative overflow-hidden px-6 py-7">
         <div className="pattern-grid absolute inset-0 opacity-40" aria-hidden />
         <div className="relative space-y-3">
@@ -293,7 +531,17 @@ function HostRoom({
   onEnd: () => void
   onReset: () => void
 }) {
+  const [confirmStart, setConfirmStart] = useState(false)
   const isLastItem = state.itemIndex + 1 >= state.itemCount
+  const nobodyJoined = state.participants.length === 0
+
+  function requestStart() {
+    if (nobodyJoined) {
+      setConfirmStart(true)
+      return
+    }
+    onStart()
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 animate-fade-up">
@@ -309,8 +557,13 @@ function HostRoom({
             <p className="font-display text-xl font-semibold">Sala aberta</p>
           </div>
           <ParticipantList participants={state.participants} />
+          {nobodyJoined ? (
+            <p className="rounded-xl border border-astro-amber/40 bg-astro-amber/10 px-4 py-3 text-sm text-foreground">
+              Nenhum aluno entrou ainda. Confirme antes de começar a sessão sem participantes.
+            </p>
+          ) : null}
           <ActionBar>
-            <Button type="button" disabled={busy} onClick={onStart}>
+            <Button type="button" disabled={busy} onClick={requestStart}>
               <Play className="h-4 w-4" />
               Começar
             </Button>
@@ -319,6 +572,31 @@ function HostRoom({
               Encerrar
             </Button>
           </ActionBar>
+          <Dialog open={confirmStart} onOpenChange={setConfirmStart}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Começar sem alunos?</DialogTitle>
+                <DialogDescription>
+                  Ninguém entrou com o PIN {state.pin}. A sessão vai para a primeira questão mesmo
+                  assim, e os alunos que entrarem depois acompanham a partir da questão aberta.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setConfirmStart(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setConfirmStart(false)
+                    onStart()
+                  }}
+                >
+                  Começar mesmo assim
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       ) : null}
 

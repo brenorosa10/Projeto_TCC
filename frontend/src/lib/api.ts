@@ -102,6 +102,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  updateClass: (id: string, body: CreateClassRequest) =>
+    request<ClassRoom>(`/api/classes/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteClass: (id: string) =>
+    request<void>(`/api/classes/${id}`, {
+      method: "DELETE",
+    }),
   joinClass: (body: JoinClassRequest) =>
     request<ClassRoom>("/api/classes/join", {
       method: "POST",
@@ -194,6 +203,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  listActiveLiveSessions: () => request<LiveSessionState[]>("/api/live/sessions/active"),
   getLiveSession: (id: string) => request<LiveSessionState>(`/api/live/sessions/${id}`),
   getLiveSessionByPin: (pin: string) =>
     request<LiveSessionState>(`/api/live/sessions/by-pin/${pin}`),
