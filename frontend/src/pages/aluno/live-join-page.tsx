@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
-import type * as signalR from "@microsoft/signalr"
+import * as signalR from "@microsoft/signalr"
 import { toast } from "sonner"
 import { CheckCircle2, Hourglass, PartyPopper, Radio, Trophy, Users, XCircle } from "lucide-react"
 import { ItemAnswerForm } from "@/components/activity/item-answer-form"
@@ -28,9 +28,11 @@ export function AlunoLiveJoinPage() {
   const [pin, setPin] = useState(() => readStoredLiveJoin()?.pin ?? "")
   const [joining, setJoining] = useState(() => readStoredLiveJoin() !== null)
   const [busy, setBusy] = useState(false)
+  const [liveReady, setLiveReady] = useState(false)
   const [state, setState] = useState<LiveSessionState | null>(null)
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null)
   const connectionRef = useRef<signalR.HubConnection | null>(null)
+  const queuedSubmit = useRef<SubmitStudyAnswerRequest | null>(null)
   const userIdRef = useRef(profile?.id)
   const autoJoinAttempted = useRef(false)
   userIdRef.current = profile?.id
@@ -51,14 +53,18 @@ export function AlunoLiveJoinPage() {
       return
     }
     setJoining(true)
+    setLiveReady(false)
     try {
       await connectionRef.current?.stop()
+      connectionRef.current = null
       setConnection(null)
       const hub = createLiveHub(setState)
+      connectionRef.current = hub
       let joined: LiveSessionState
       try {
         joined = await joinLiveAsStudent(hub, nextPin)
       } catch (error) {
+        connectionRef.current = null
         await hub.stop()
         throw error
       }
@@ -73,6 +79,7 @@ export function AlunoLiveJoinPage() {
       connectionRef.current = hub
       setConnection(hub)
       setState(joined)
+      setLiveReady(true)
       setPin(nextPin)
       const userId = userIdRef.current
       if (userId && joined.phase !== "ended") {
@@ -84,6 +91,7 @@ export function AlunoLiveJoinPage() {
       clearStoredLiveJoin()
       setState(null)
       setConnection(null)
+      setLiveReady(false)
       toast.error(error instanceof Error ? error.message : "Não foi possível entrar na sessão")
     } finally {
       setJoining(false)
@@ -115,21 +123,35 @@ export function AlunoLiveJoinPage() {
     connectionRef.current = null
     setConnection(null)
     setState(null)
+    setLiveReady(false)
     setBusy(false)
+    queuedSubmit.current = null
     setPin("")
   }
 
-  async function handleSubmit(payload: SubmitStudyAnswerRequest) {
-    if (!connection) return
+  const handleSubmit = useCallback(async (payload: SubmitStudyAnswerRequest) => {
+    const hub = connectionRef.current
+    if (!hub || hub.state !== signalR.HubConnectionState.Connected) {
+      queuedSubmit.current = payload
+      return
+    }
+    queuedSubmit.current = null
     setBusy(true)
     try {
-      await liveSubmitAnswer(connection, payload)
+      await liveSubmitAnswer(hub, payload)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a resposta")
     } finally {
       setBusy(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!liveReady || !queuedSubmit.current) return
+    const payload = queuedSubmit.current
+    queuedSubmit.current = null
+    void handleSubmit(payload)
+  }, [handleSubmit, liveReady])
 
   return (
     <AppShell title="Sessão ao vivo">
@@ -144,6 +166,7 @@ export function AlunoLiveJoinPage() {
         <StudentRoom
           state={state}
           busy={busy}
+          ready={liveReady}
           onSubmit={(payload) => void handleSubmit(payload)}
           onReset={() => void resetSession()}
         />
@@ -207,11 +230,13 @@ function JoinForm({
 function StudentRoom({
   state,
   busy,
+  ready,
   onSubmit,
   onReset,
 }: {
   state: LiveSessionState
   busy: boolean
+  ready: boolean
   onSubmit: (payload: SubmitStudyAnswerRequest) => void
   onReset: () => void
 }) {
@@ -256,6 +281,7 @@ function StudentRoom({
               <ItemAnswerForm
                 item={state.currentItem}
                 busy={busy}
+                ready={ready}
                 onSubmit={onSubmit}
                 submitLabel="Enviar"
               />
@@ -513,7 +539,7 @@ function PersonalBanner({ personal }: { personal?: LiveSessionState["personal"] 
           {personal.isCorrect ? "Você acertou!" : "Você errou"}
         </p>
         <p className="text-xs text-muted-foreground">
-          {personal.correctCount} acerto(s) · {personal.score} ponto(s) até agora
+          {plural(personal.correctCount, "acerto", "acertos")} · {plural(personal.score, "ponto", "pontos")} até agora
         </p>
       </div>
     </div>

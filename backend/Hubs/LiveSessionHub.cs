@@ -11,13 +11,16 @@ public class LiveSessionHub(
 {
     public const string SessionUpdatedEvent = "SessionUpdated";
 
-    public async Task JoinAsHost(Guid sessionId)
+    public async Task<LiveSessionStateResponse> JoinAsHost(Guid sessionId)
     {
         var result = await liveSessions.JoinHostAsync(sessionId, Context.ConnectionId, Context.ConnectionAborted);
         ThrowIfFailed(result);
         Remember(result.State!.Id, host: true);
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(result.State.Id));
-        await BroadcastAsync(result.State.Id);
+        // The host already receives this state as the invoke result. Sending it
+        // again on the same connection blocks the invoke until that payload is written.
+        await BroadcastAsync(result.State.Id, Context.ConnectionId);
+        return result.State;
     }
 
     public async Task<LiveSessionStateResponse> JoinSession(string pin)
@@ -76,19 +79,17 @@ public class LiveSessionHub(
         CancellationToken cancellationToken)
     {
         var states = await liveSessions.BuildConnectionStatesAsync(sessionId, cancellationToken);
-        foreach (var (connectionId, state) in states)
-        {
-            await hub.Clients.Client(connectionId).SendAsync(SessionUpdatedEvent, state, cancellationToken);
-        }
+        await Task.WhenAll(states.Select(entry =>
+            hub.Clients.Client(entry.ConnectionId).SendAsync(SessionUpdatedEvent, entry.State, cancellationToken)));
     }
 
-    private async Task BroadcastAsync(Guid sessionId)
+    private async Task BroadcastAsync(Guid sessionId, string? excludeConnectionId = null)
     {
         var states = await liveSessions.BuildConnectionStatesAsync(sessionId, Context.ConnectionAborted);
-        foreach (var (connectionId, state) in states)
-        {
-            await Clients.Client(connectionId).SendAsync(SessionUpdatedEvent, state);
-        }
+        var sends = states
+            .Where(entry => excludeConnectionId is null || entry.ConnectionId != excludeConnectionId)
+            .Select(entry => Clients.Client(entry.ConnectionId).SendAsync(SessionUpdatedEvent, entry.State));
+        await Task.WhenAll(sends);
     }
 
     private void Remember(Guid sessionId, bool host)

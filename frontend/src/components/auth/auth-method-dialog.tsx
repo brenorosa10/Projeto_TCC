@@ -157,7 +157,7 @@ export function AuthMethodDialog({ role, onClose }: AuthMethodDialogProps) {
             </TabsList>
 
             <TabsContent value="login">
-              <form className="mt-4 grid gap-3" onSubmit={(event) => void handleLogin(event)}>
+              <form noValidate className="mt-4 grid gap-3" onSubmit={(event) => void handleLogin(event)}>
                 <div className="grid gap-2">
                   <Label htmlFor="auth-login">E-mail ou nome de usuário</Label>
                   <Input
@@ -185,7 +185,7 @@ export function AuthMethodDialog({ role, onClose }: AuthMethodDialogProps) {
             </TabsContent>
 
             <TabsContent value="register">
-              <form className="mt-4 grid gap-3" onSubmit={(event) => void handleRegister(event)}>
+              <form noValidate className="mt-4 grid gap-3" onSubmit={(event) => void handleRegister(event)}>
                 <div className="grid gap-2">
                   <Label htmlFor="auth-username">Nome de usuário</Label>
                   <Input

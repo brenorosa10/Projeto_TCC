@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
+import { plural } from "@/lib/utils"
 import type { ClassRoom } from "@/lib/types"
 
 const CLASS_NAME_MAX = 200
@@ -32,6 +33,7 @@ export function ProfessorClassesPage() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
+  const [nameError, setNameError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
   async function load() {
@@ -54,9 +56,11 @@ export function ProfessorClassesPage() {
     event.preventDefault()
     const validation = classNameError(name)
     if (validation) {
+      setNameError(validation)
       toast.error(validation)
       return
     }
+    setNameError(null)
     setCreating(true)
     try {
       const created = await api.createClass({ name: name.trim() })
@@ -92,11 +96,21 @@ export function ProfessorClassesPage() {
                 <Input
                   id="class-name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    if (nameError) setNameError(null)
+                  }}
                   placeholder="Ex: Biologia 2º ano"
                   maxLength={CLASS_NAME_MAX}
                   autoComplete="off"
+                  aria-invalid={nameError ? true : undefined}
+                  aria-describedby={nameError ? "class-name-error" : undefined}
                 />
+                {nameError ? (
+                  <p id="class-name-error" className="text-sm text-destructive" role="alert">
+                    {nameError}
+                  </p>
+                ) : null}
                 <p className="text-xs text-muted-foreground">{name.trim().length}/200</p>
               </div>
               <DialogFooter>
@@ -133,7 +147,7 @@ export function ProfessorClassesPage() {
                     {item.code}
                   </span>
                   {typeof item.studentCount === "number"
-                    ? ` · ${item.studentCount} aluno(s)`
+                    ? ` · ${plural(item.studentCount, "aluno", "alunos")}`
                     : null}
                 </p>
               </div>

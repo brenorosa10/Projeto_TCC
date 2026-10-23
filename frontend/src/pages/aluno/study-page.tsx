@@ -192,7 +192,7 @@ function StudyAccordion({
           <p className="mt-1 text-xs text-muted-foreground">
             {total === 0
               ? "Nenhum material"
-              : `${counts.quizzes} quiz(zes) · ${counts.decks} deck(s)`}
+              : `${plural(counts.quizzes, "quiz", "quizzes")} · ${plural(counts.decks, "deck", "decks")}`}
           </p>
         </div>
         <ChevronDown

@@ -87,7 +87,7 @@ export function ProfessorActivitiesPage() {
                   <span>
                     {item.classIds.length === 0
                       ? "Sem turma"
-                      : `${item.classIds.length} turma(s)`}
+                      : plural(item.classIds.length, "turma", "turmas")}
                   </span>
                 </div>
               </div>

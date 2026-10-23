@@ -819,7 +819,6 @@ export function ProfessorCreateQuizPage() {
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     placeholder="Ex: Sistema Solar"
-                    required
                     className="h-12 text-lg"
                   />
                 </div>

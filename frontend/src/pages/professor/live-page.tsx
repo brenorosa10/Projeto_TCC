@@ -42,7 +42,7 @@ import {
   liveEnd,
   liveStart,
 } from "@/lib/live-hub"
-import { cn } from "@/lib/utils"
+import { cn, plural } from "@/lib/utils"
 import type { ActivitySummary, ClassRoom, LiveSessionState } from "@/lib/types"
 
 export function ProfessorLivePage() {
@@ -82,6 +82,11 @@ export function ProfessorLivePage() {
     failureMessage = "Não foi possível retomar a sessão"
   ) {
     setResumingId(session.id)
+    // The list payload is already a full session snapshot. Open the room immediately
+    // and attach the hub in the background instead of blocking on "Retomando...".
+    setState(session)
+    setClassId(session.classId)
+    setActivityId(session.activityId)
     let hub: signalR.HubConnection | null = null
     try {
       await connectionRef.current?.stop()
@@ -94,18 +99,18 @@ export function ProfessorLivePage() {
         }
       })
       hub = nextHub
-      await joinLiveAsHost(nextHub, session.id)
+      const joined = await joinLiveAsHost(nextHub, session.id)
       nextHub.onreconnected(() => {
-        void joinLiveAsHost(nextHub, session.id).catch(() => undefined)
+        void joinLiveAsHost(nextHub, session.id)
+          .then((next) => setState(next))
+          .catch(() => undefined)
       })
       connectionRef.current = nextHub
       setConnection(nextHub)
-      setState(session)
-      attachedId.current = session.id
-      setClassId(session.classId)
-      setActivityId(session.activityId)
-      rememberSession(session)
-      setActiveSessions((prev) => [session, ...prev.filter((item) => item.id !== session.id)])
+      setState(joined)
+      attachedId.current = joined.id
+      rememberSession(joined)
+      setActiveSessions((prev) => [joined, ...prev.filter((item) => item.id !== joined.id)])
       return true
     } catch (error) {
       await hub?.stop()
@@ -114,6 +119,7 @@ export function ProfessorLivePage() {
         setConnection(null)
       }
       attachedId.current = null
+      setState(null)
       toast.error(error instanceof Error ? error.message : failureMessage)
       return false
     } finally {
@@ -330,6 +336,7 @@ export function ProfessorLivePage() {
         <HostRoom
           state={state}
           busy={busy}
+          connected={connection !== null}
           onStart={() => void run(() => liveStart(connection!), "Não foi possível iniciar")}
           onAdvance={() => void run(() => liveAdvance(connection!), "Não foi possível avançar")}
           onEnd={() => void run(() => liveEnd(connection!), "Não foi possível encerrar")}
@@ -416,7 +423,7 @@ function SetupForm({
                 <div className="min-w-0">
                   <p className="truncate font-medium">{session.activityTitle}</p>
                   <p className="text-sm text-muted-foreground">
-                    {session.className} · PIN {session.pin} · {session.participants.length} participante(s)
+                    {session.className} · PIN {session.pin} · {plural(session.participants.length, "participante", "participantes")}
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -521,6 +528,7 @@ function SetupForm({
 function HostRoom({
   state,
   busy,
+  connected,
   onStart,
   onAdvance,
   onEnd,
@@ -528,6 +536,7 @@ function HostRoom({
 }: {
   state: LiveSessionState
   busy: boolean
+  connected: boolean
   onStart: () => void
   onAdvance: () => void
   onEnd: () => void
@@ -536,6 +545,8 @@ function HostRoom({
   const [confirmStart, setConfirmStart] = useState(false)
   const isLastItem = state.itemIndex + 1 >= state.itemCount
   const nobodyJoined = state.participants.length === 0
+  const sessionEnded = state.phase === "ended" || state.status === "ended"
+  const actionsLocked = busy || !connected
 
   function requestStart() {
     if (nobodyJoined) {
@@ -548,8 +559,13 @@ function HostRoom({
   return (
     <div className="mx-auto max-w-4xl space-y-6 animate-fade-up">
       <SessionHeader state={state} />
+      {!connected && !sessionEnded ? (
+        <p className="rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          Conectando à sala...
+        </p>
+      ) : null}
 
-      {state.phase === "lobby" ? (
+      {state.phase === "lobby" && !sessionEnded ? (
         <div className="space-y-5">
           <div className="surface-card flex flex-col items-center gap-3 px-6 py-10 text-center">
             <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-astro-sky/20 text-astro-navy">
@@ -565,11 +581,11 @@ function HostRoom({
             </p>
           ) : null}
           <ActionBar>
-            <Button type="button" disabled={busy} onClick={requestStart}>
+            <Button type="button" disabled={actionsLocked} onClick={requestStart}>
               <Play className="h-4 w-4" />
-              Começar
+              {connected ? "Começar" : "Conectando..."}
             </Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={onEnd}>
+            <Button type="button" variant="outline" disabled={actionsLocked} onClick={onEnd}>
               <Square className="h-4 w-4" />
               Encerrar
             </Button>
@@ -602,7 +618,7 @@ function HostRoom({
         </div>
       ) : null}
 
-      {state.phase === "question" && state.currentItem ? (
+      {state.phase === "question" && state.currentItem && !sessionEnded ? (
         <div className="space-y-5">
           <QuestionMeta state={state} />
           <div className="surface-card space-y-5 p-5 sm:p-6">
@@ -645,7 +661,7 @@ function HostRoom({
             )}
           </div>
           <ActionBar>
-            <Button type="button" disabled={busy} onClick={onAdvance}>
+            <Button type="button" disabled={actionsLocked} onClick={onAdvance}>
               {state.mode === "quiz" ? (
                 <>
                   <Eye className="h-4 w-4" />
@@ -663,20 +679,20 @@ function HostRoom({
                 </>
               )}
             </Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={onEnd}>
+            <Button type="button" variant="outline" disabled={actionsLocked} onClick={onEnd}>
               Encerrar
             </Button>
           </ActionBar>
         </div>
       ) : null}
 
-      {state.phase === "reveal" ? (
+      {state.phase === "reveal" && !sessionEnded ? (
         <div className="space-y-5">
           <QuestionMeta state={state} />
           {state.reveal ? <RevealCard state={state} /> : null}
           {state.ranking ? <RankingList ranking={state.ranking} /> : null}
           <ActionBar>
-            <Button type="button" disabled={busy} onClick={onAdvance}>
+            <Button type="button" disabled={actionsLocked} onClick={onAdvance}>
               {isLastItem ? (
                 <>
                   <Square className="h-4 w-4" />
@@ -689,14 +705,14 @@ function HostRoom({
                 </>
               )}
             </Button>
-            <Button type="button" variant="outline" disabled={busy} onClick={onEnd}>
+            <Button type="button" variant="outline" disabled={actionsLocked} onClick={onEnd}>
               Encerrar agora
             </Button>
           </ActionBar>
         </div>
       ) : null}
 
-      {state.phase === "ended" ? (
+      {sessionEnded ? (
         <div className="space-y-5">
           <div className="surface-card relative overflow-hidden px-6 py-8 text-center">
             <div className="pattern-grid absolute inset-0 opacity-40" aria-hidden />
@@ -727,7 +743,7 @@ function HostRoom({
 }
 
 function SessionHeader({ state }: { state: LiveSessionState }) {
-  const isEnded = state.phase === "ended"
+  const isEnded = state.phase === "ended" || state.status === "ended"
   const presented = presentedQuestionCount(state)
   const progress = isEnded
     ? state.itemCount > 0
@@ -768,7 +784,7 @@ function SessionHeader({ state }: { state: LiveSessionState }) {
           </h1>
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Users className="h-4 w-4" />
-            {state.participants.length} participante(s) na sala
+            {plural(state.participants.length, "participante", "participantes")} na sala
           </p>
         </div>
         <PinCard pin={state.pin} />
@@ -1006,7 +1022,7 @@ function RankingList({ ranking }: { ranking: LiveSessionState["ranking"] }) {
             <span className="min-w-0 flex-1 truncate font-medium">{entry.name}</span>
             <span className="shrink-0 text-right text-xs text-muted-foreground">
               <span className="font-mono text-sm font-semibold text-foreground">{entry.score}</span>{" "}
-              pts · {entry.correctCount} acerto(s)
+              pts · {plural(entry.correctCount, "acerto", "acertos")}
             </span>
           </li>
         ))}
@@ -1030,7 +1046,7 @@ function ParticipantList({
       </h2>
       {participants.length === 0 ? (
         <p className="mt-3 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
-          Aguardando alunos com o PIN.
+          {ended ? "Sessão encerrada." : "Aguardando alunos com o PIN."}
         </p>
       ) : (
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
