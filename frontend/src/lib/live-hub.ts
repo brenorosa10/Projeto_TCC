@@ -12,6 +12,10 @@ export function createLiveHub(onState: (state: LiveSessionState) => void) {
   const connection = new signalR.HubConnectionBuilder()
     .withUrl(`${getApiBaseUrl()}/hubs/live`, {
       accessTokenFactory: () => getAccessToken() ?? token,
+      // WebSocket only, no negotiate round-trip and no SSE/long-polling fallback
+      // (that fallback is what made "Retomar" sit on "Retomando..." for ~10s).
+      transport: signalR.HttpTransportType.WebSockets,
+      skipNegotiation: true,
     })
     .withAutomaticReconnect()
     .build()
@@ -31,7 +35,7 @@ export async function startLiveHub(connection: signalR.HubConnection) {
 
 export async function joinLiveAsHost(connection: signalR.HubConnection, sessionId: string) {
   await startLiveHub(connection)
-  await connection.invoke("JoinAsHost", sessionId)
+  return connection.invoke<LiveSessionState>("JoinAsHost", sessionId)
 }
 
 export async function joinLiveAsStudent(connection: signalR.HubConnection, pin: string) {

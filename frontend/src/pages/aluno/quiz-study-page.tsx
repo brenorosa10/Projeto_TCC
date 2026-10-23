@@ -16,7 +16,7 @@ import { api } from "@/lib/api"
 import { hasContentBlocks } from "@/lib/content-blocks"
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { hasSectionCopy, itemKindLabel } from "@/lib/item-kinds"
-import { cn, stripMarkdown } from "@/lib/utils"
+import { cn, plural, stripMarkdown } from "@/lib/utils"
 import type { StudySession, SubmitStudyAnswerRequest } from "@/lib/types"
 
 export function AlunoQuizStudyPage() {
@@ -223,7 +223,7 @@ function PracticeView({
             </Badge>
           ) : null}
           <span className="ml-auto text-xs font-medium text-muted-foreground">
-            {study.progress.correctCount} acerto(s)
+            {plural(study.progress.correctCount, "acerto", "acertos")}
           </span>
         </div>
         {canReviewPrep ? (

@@ -238,10 +238,8 @@ public class LiveSessionService(
             item => item.Id == loaded.Session.Id && item.ProfessorId == profile.Id,
             Builders<LiveSession>.Update.Set(item => item.HostConnectionId, connectionId),
             cancellationToken: cancellationToken);
-        var current = await db.LiveSessions.Find(item => item.Id == loaded.Session.Id).FirstOrDefaultAsync(cancellationToken)
-            ?? loaded.Session;
         return LiveOperationResult.Ok(
-            await BuildStateAsync(current, loaded.Activity!, loaded.Classroom!, profile.Id, isHost: true, cancellationToken));
+            await BuildStateAsync(loaded.Session, loaded.Activity!, loaded.Classroom!, profile.Id, isHost: true, cancellationToken));
     }
 
     public async Task<LiveOperationResult> JoinStudentAsync(string pin, string connectionId, CancellationToken cancellationToken)

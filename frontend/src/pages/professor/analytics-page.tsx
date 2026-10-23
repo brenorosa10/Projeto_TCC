@@ -16,7 +16,7 @@ import {
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
 import { liveSessionStatusLabel } from "@/lib/item-kinds"
-import { cn } from "@/lib/utils"
+import { cn, plural } from "@/lib/utils"
 import type { AnalyticsOverview, AnalyticsQuestion, AnalyticsSessionSummary } from "@/lib/types"
 
 export function ProfessorAnalyticsPage() {
@@ -127,7 +127,7 @@ export function ProfessorAnalyticsPage() {
                   <option value="">Todas</option>
                   {data.activities.map((activity) => (
                     <option key={activity.id} value={activity.id}>
-                      {activity.title} ({activity.sessionCount} sessão(ões))
+                      {activity.title} ({plural(activity.sessionCount, "sessão", "sessões")})
                     </option>
                   ))}
                 </select>
@@ -169,9 +169,9 @@ export function ProfessorAnalyticsPage() {
                   <Badge variant="outline">{liveSessionStatusLabel(selectedSession.status)}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {selectedSession.participants.length} participante(s)
+                  {plural(selectedSession.participants.length, "participante", "participantes")}
                   {sessionResultsReady
-                    ? ` · ${sessionAttempts} resposta(s) · ${sessionCorrect} acerto(s)`
+                    ? ` · ${plural(sessionAttempts, "resposta", "respostas")} · ${plural(sessionCorrect, "acerto", "acertos")}`
                     : ""}
                 </p>
                 {selectedSession.participants.length > 0 ? (
@@ -308,7 +308,7 @@ export function ProfessorAnalyticsPage() {
                       </div>
                       <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <Users className="h-4 w-4" />
-                        {session.participants.length} participante(s)
+                        {plural(session.participants.length, "participante", "participantes")}
                       </p>
                       {session.participants.length > 0 ? (
                         <ul className="flex flex-wrap gap-1.5">
@@ -404,8 +404,8 @@ function QuestionCard({
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          {question.correctCount} acerto(s) · {question.incorrectCount} erro(s) · {question.attempts}{" "}
-          tentativa(s)
+          {plural(question.correctCount, "acerto", "acertos")} · {plural(question.incorrectCount, "erro", "erros")} ·{" "}
+          {plural(question.attempts, "tentativa", "tentativas")}
         </p>
       </button>
       {open ? (

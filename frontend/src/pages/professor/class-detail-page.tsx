@@ -42,6 +42,7 @@ export function ProfessorClassDetailPage() {
   const [linkingId, setLinkingId] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editName, setEditName] = useState("")
+  const [nameError, setNameError] = useState<string | null>(null)
   const [savingName, setSavingName] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -95,9 +96,11 @@ export function ProfessorClassDetailPage() {
     if (!id) return
     const validation = classNameError(editName)
     if (validation) {
+      setNameError(validation)
       toast.error(validation)
       return
     }
+    setNameError(null)
     setSavingName(true)
     try {
       const updated = await api.updateClass(id, { name: editName.trim() })
@@ -224,10 +227,20 @@ export function ProfessorClassDetailPage() {
                   <Input
                     id="edit-class-name"
                     value={editName}
-                    onChange={(event) => setEditName(event.target.value)}
+                    onChange={(event) => {
+                      setEditName(event.target.value)
+                      if (nameError) setNameError(null)
+                    }}
                     maxLength={CLASS_NAME_MAX}
                     autoComplete="off"
+                    aria-invalid={nameError ? true : undefined}
+                    aria-describedby={nameError ? "edit-class-name-error" : undefined}
                   />
+                  {nameError ? (
+                    <p id="edit-class-name-error" className="text-sm text-destructive" role="alert">
+                      {nameError}
+                    </p>
+                  ) : null}
                   <p className="text-xs text-muted-foreground">{editName.trim().length}/200</p>
                 </div>
                 <DialogFooter>

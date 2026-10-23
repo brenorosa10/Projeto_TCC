@@ -11,11 +11,13 @@ import type { MatchingAnswerRequest, StudySessionItem, SubmitStudyAnswerRequest 
 export function ItemAnswerForm({
   item,
   busy,
+  ready = true,
   onSubmit,
   submitLabel = "Responder",
 }: {
   item: StudySessionItem
   busy: boolean
+  ready?: boolean
   onSubmit: (payload: SubmitStudyAnswerRequest) => void
   submitLabel?: string
 }) {
@@ -40,6 +42,8 @@ export function ItemAnswerForm({
   }, [item.id])
 
   const elapsed = () => Date.now() - startedAtRef.current
+  const submitLocked = busy || !ready
+  const submitText = busy ? "Enviando..." : !ready ? "Conectando..." : submitLabel
   const reflectionMin = item.explanationMinLength ?? 20
   const reflectionReady = !item.requireExplanation || textAnswer.trim().length >= reflectionMin
 
@@ -63,7 +67,7 @@ export function ItemAnswerForm({
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               type="button"
-              disabled={busy}
+              disabled={submitLocked}
               onClick={() =>
                 onSubmit({ itemId: item.id, remembered: true, responseTimeMs: elapsed() })
               }
@@ -73,7 +77,7 @@ export function ItemAnswerForm({
             <Button
               type="button"
               variant="outline"
-              disabled={busy}
+              disabled={submitLocked}
               onClick={() =>
                 onSubmit({ itemId: item.id, remembered: false, responseTimeMs: elapsed() })
               }
@@ -104,7 +108,7 @@ export function ItemAnswerForm({
         <Button
           type="button"
           size="lg"
-          disabled={busy || !textAnswer.trim()}
+          disabled={submitLocked || !textAnswer.trim()}
           onClick={() =>
             onSubmit({
               itemId: item.id,
@@ -113,7 +117,7 @@ export function ItemAnswerForm({
             })
           }
         >
-          {busy ? "Enviando..." : submitLabel}
+          {submitText}
         </Button>
       </div>
     )
@@ -154,10 +158,10 @@ export function ItemAnswerForm({
         </ul>
         <Button
           type="button"
-          disabled={busy || !complete}
+          disabled={submitLocked || !complete}
           onClick={() => onSubmit({ itemId: item.id, pairs: payload, responseTimeMs: elapsed() })}
         >
-          {busy ? "Enviando..." : submitLabel}
+          {submitText}
         </Button>
       </div>
     )
@@ -206,10 +210,10 @@ export function ItemAnswerForm({
         </ul>
         <Button
           type="button"
-          disabled={busy || orderIds.length === 0}
+          disabled={submitLocked || orderIds.length === 0}
           onClick={() => onSubmit({ itemId: item.id, orderedIds: orderIds, responseTimeMs: elapsed() })}
         >
-          {busy ? "Enviando..." : submitLabel}
+          {submitText}
         </Button>
       </div>
     )
@@ -240,7 +244,7 @@ export function ItemAnswerForm({
         </div>
         <Button
           type="button"
-          disabled={busy || !complete}
+          disabled={submitLocked || !complete}
           onClick={() =>
             onSubmit({
               itemId: item.id,
@@ -252,7 +256,7 @@ export function ItemAnswerForm({
             })
           }
         >
-          {busy ? "Enviando..." : submitLabel}
+          {submitText}
         </Button>
       </div>
     )
@@ -323,7 +327,7 @@ export function ItemAnswerForm({
         </ul>
         <Button
           type="button"
-          disabled={busy || !complete}
+          disabled={submitLocked || !complete}
           onClick={() =>
             onSubmit({
               itemId: item.id,
@@ -335,7 +339,7 @@ export function ItemAnswerForm({
             })
           }
         >
-          {busy ? "Enviando..." : submitLabel}
+          {submitText}
         </Button>
       </div>
     )
@@ -401,7 +405,7 @@ export function ItemAnswerForm({
       <Button
         type="button"
         size="lg"
-        disabled={busy || selectedIds.length === 0 || !reflectionReady}
+        disabled={submitLocked || selectedIds.length === 0 || !reflectionReady}
         onClick={() =>
           onSubmit({
             itemId: item.id,
@@ -412,7 +416,7 @@ export function ItemAnswerForm({
           })
         }
       >
-        {busy ? "Enviando..." : submitLabel}
+        {submitText}
       </Button>
     </div>
   )
@@ -443,10 +447,10 @@ function ReflectionField({
         id={`reflection-${itemId}`}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        minLength={minLength}
         rows={4}
         placeholder="Explique o que pensou, indique sua confiança ou dúvidas..."
       />
+      <p className="text-xs text-muted-foreground">Mínimo de {minLength} caracteres.</p>
     </div>
   )
 }

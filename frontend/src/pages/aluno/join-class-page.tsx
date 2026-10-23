@@ -38,7 +38,7 @@ export function AlunoJoinClassPage() {
 
   return (
     <AppShell title="Entrar em turma">
-      <form onSubmit={(e) => void handleJoin(e)} className="max-w-md space-y-6">
+      <form noValidate onSubmit={(e) => void handleJoin(e)} className="max-w-md space-y-6">
         <div>
           <h1 className="font-display text-3xl font-semibold">Ingressar com código</h1>
         </div>
