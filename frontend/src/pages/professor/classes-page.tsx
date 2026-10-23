@@ -17,6 +17,16 @@ import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
 import type { ClassRoom } from "@/lib/types"
 
+const CLASS_NAME_MAX = 200
+
+function classNameError(value: string) {
+  const name = value.trim()
+  if (!name) return "Informe o nome da turma."
+  if (name.length < 2) return "O nome da turma deve ter pelo menos 2 caracteres."
+  if (name.length > CLASS_NAME_MAX) return "O nome da turma deve ter no máximo 200 caracteres."
+  return null
+}
+
 export function ProfessorClassesPage() {
   const [classes, setClasses] = useState<ClassRoom[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +52,11 @@ export function ProfessorClassesPage() {
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
-    if (!name.trim()) return
+    const validation = classNameError(name)
+    if (validation) {
+      toast.error(validation)
+      return
+    }
     setCreating(true)
     try {
       const created = await api.createClass({ name: name.trim() })
@@ -69,7 +83,7 @@ export function ProfessorClassesPage() {
             <Button>Nova turma</Button>
           </DialogTrigger>
           <DialogContent>
-            <form onSubmit={(e) => void handleCreate(e)}>
+            <form noValidate onSubmit={(e) => void handleCreate(e)}>
               <DialogHeader>
                 <DialogTitle>Criar turma</DialogTitle>
               </DialogHeader>
@@ -80,8 +94,10 @@ export function ProfessorClassesPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex: Biologia 2º ano"
-                  required
+                  maxLength={CLASS_NAME_MAX}
+                  autoComplete="off"
                 />
+                <p className="text-xs text-muted-foreground">{name.trim().length}/200</p>
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={creating}>

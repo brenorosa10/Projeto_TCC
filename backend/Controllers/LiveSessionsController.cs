@@ -14,6 +14,18 @@ public class LiveSessionsController(
     LiveSessionService liveSessions,
     IHubContext<LiveSessionHub> hub) : ControllerBase
 {
+    [HttpGet("active")]
+    public async Task<ActionResult<IEnumerable<LiveSessionStateResponse>>> ListActive(CancellationToken cancellationToken)
+    {
+        var result = await liveSessions.ListActiveAsync(cancellationToken);
+        if (result.Error is not null || result.Sessions is null)
+        {
+            return StatusCode(result.StatusCode, new { detail = result.Error });
+        }
+
+        return Ok(result.Sessions);
+    }
+
     [HttpPost]
     public async Task<ActionResult<LiveSessionStateResponse>> Create(
         [FromBody] CreateLiveSessionRequest request,

@@ -102,7 +102,8 @@ export function ProfessorActivityDetailPage() {
               <Badge variant="outline">{activity.isPublic ? "Público" : "Privado"}</Badge>
             </div>
             <p className="mt-2 text-muted-foreground">
-              {activity.itemCount} {activity.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
+              {activity.items.length}{" "}
+              {activity.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button asChild variant="outline">

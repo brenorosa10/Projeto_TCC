@@ -70,22 +70,24 @@ public class AnalyticsService(
         var selectedActivityId = activityId
             ?? (activitySummaries.Count == 1 ? activitySummaries[0].Id : null);
 
-        var scopedSessions = selectedActivityId is Guid selected
-            ? sessions.Where(session => session.ActivityId == selected).ToList()
-            : sessions;
-
         if (sessionId is Guid requestedSession)
         {
-            var match = scopedSessions.FirstOrDefault(session => session.Id == requestedSession)
-                ?? sessions.FirstOrDefault(session => session.Id == requestedSession);
+            var match = sessions.FirstOrDefault(session => session.Id == requestedSession);
             if (match is null)
             {
                 return (null, StatusCodes.Status404NotFound, "Sessão não encontrada.");
             }
 
             selectedActivityId = match.ActivityId;
-            scopedSessions = [match];
         }
+
+        var scopedSessions = selectedActivityId is Guid selected
+            ? sessions.Where(session => session.ActivityId == selected).ToList()
+            : sessions;
+
+        var questionSessions = sessionId is Guid selectedSession
+            ? scopedSessions.Where(session => session.Id == selectedSession).ToList()
+            : scopedSessions;
 
         var sessionSummaries = scopedSessions
             .Select(session =>
@@ -113,7 +115,7 @@ public class AnalyticsService(
             .ToList();
 
         var questions = selectedActivityId is Guid activityKey && activitiesById.TryGetValue(activityKey, out var selectedActivity)
-            ? await BuildQuestionsAsync(selectedActivity, scopedSessions, cancellationToken)
+            ? await BuildQuestionsAsync(selectedActivity, questionSessions, cancellationToken)
             : [];
 
         return (

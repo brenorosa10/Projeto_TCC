@@ -378,8 +378,8 @@ function SaveQuizBar({
   onSave: () => void
 }) {
   return (
-    <div className="sticky bottom-3 z-10 pt-1">
-      <Button type="button" disabled={saving} onClick={onSave} className="w-full sm:w-auto h-12 text-lg">
+    <div className="mt-4 border-t border-border/70 pt-4">
+      <Button type="button" disabled={saving} onClick={onSave} className="h-12 w-full text-lg sm:w-auto">
         {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar quiz"}
       </Button>
     </div>

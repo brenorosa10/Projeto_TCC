@@ -188,7 +188,7 @@ export function AuthMethodDialog({ role, onClose }: AuthMethodDialogProps) {
                     autoComplete="username"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    placeholder="astro_aluno"
+                    placeholder={role === "professor" ? "astro_prof" : "astro_aluno"}
                   />
                 </div>
                 <div className="grid gap-2">

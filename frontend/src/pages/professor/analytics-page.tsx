@@ -1,15 +1,23 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { AlertTriangle, Users } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
 import { liveSessionStatusLabel } from "@/lib/item-kinds"
 import { cn } from "@/lib/utils"
-import type { AnalyticsOverview, AnalyticsQuestion } from "@/lib/types"
+import type { AnalyticsOverview, AnalyticsQuestion, AnalyticsSessionSummary } from "@/lib/types"
 
 export function ProfessorAnalyticsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -18,17 +26,37 @@ export function ProfessorAnalyticsPage() {
   const [data, setData] = useState<AnalyticsOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [openQuestion, setOpenQuestion] = useState<string | null>(null)
+  const [confirmEnd, setConfirmEnd] = useState<AnalyticsSessionSummary | null>(null)
+  const [ending, setEnding] = useState(false)
+  const hasData = useRef(false)
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+    if (!hasData.current) setLoading(true)
     api
       .getAnalytics(activityId || undefined, sessionId || undefined)
-      .then(setData)
-      .catch((error: unknown) =>
-        toast.error(error instanceof Error ? error.message : "Erro ao carregar analytics")
-      )
-      .finally(() => setLoading(false))
+      .then((next) => {
+        if (cancelled) return
+        hasData.current = true
+        setData(next)
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          toast.error(error instanceof Error ? error.message : "Erro ao carregar analytics")
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [activityId, sessionId])
+
+  useEffect(() => {
+    if (!sessionId || loading) return
+    document.getElementById("resultados-sessao")?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [sessionId, loading])
 
   function updateFilters(nextActivity: string, nextSession: string) {
     const params = new URLSearchParams()
@@ -38,6 +66,35 @@ export function ProfessorAnalyticsPage() {
   }
 
   const selectedActivity = activityId || data?.selectedActivityId || ""
+  const selectedSession =
+    data?.sessions.find((session) => session.id === sessionId) ??
+    (data?.selectedSessionId === sessionId
+      ? data.sessions.find((session) => session.id === data.selectedSessionId)
+      : undefined) ??
+    null
+  const sessionResultsReady = Boolean(sessionId) && data?.selectedSessionId === sessionId
+  const sessionAttempts = sessionResultsReady
+    ? data!.questions.reduce((sum, question) => sum + question.attempts, 0)
+    : 0
+  const sessionCorrect = sessionResultsReady
+    ? data!.questions.reduce((sum, question) => sum + question.correctCount, 0)
+    : 0
+
+  async function handleEndSession() {
+    if (!confirmEnd) return
+    setEnding(true)
+    try {
+      await api.endLiveSession(confirmEnd.id)
+      toast.success("Sessão encerrada.")
+      setConfirmEnd(null)
+      const next = await api.getAnalytics(activityId || undefined, sessionId || undefined)
+      setData(next)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível encerrar a sessão")
+    } finally {
+      setEnding(false)
+    }
+  }
 
   return (
     <AppShell title="Analytics">
@@ -94,9 +151,83 @@ export function ProfessorAnalyticsPage() {
               </label>
             </div>
 
+            {selectedSession ? (
+              <section id="resultados-sessao" className="surface-card space-y-4 p-4 sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-display text-xl font-semibold">Resultados da sessão</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {selectedSession.title} · {selectedSession.className} · PIN {selectedSession.pin}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Início em {new Date(selectedSession.startedAt).toLocaleString("pt-BR")}
+                      {selectedSession.endedAt
+                        ? ` · Encerrada em ${new Date(selectedSession.endedAt).toLocaleString("pt-BR")}`
+                        : ""}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{liveSessionStatusLabel(selectedSession.status)}</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {selectedSession.participants.length} participante(s)
+                  {sessionResultsReady
+                    ? ` · ${sessionAttempts} resposta(s) · ${sessionCorrect} acerto(s)`
+                    : ""}
+                </p>
+                {selectedSession.participants.length > 0 ? (
+                  <ul className="flex flex-wrap gap-1.5">
+                    {selectedSession.participants.map((participant, index) => (
+                      <li
+                        key={`${participant.studentId}-${index}`}
+                        className="rounded-full bg-muted px-2.5 py-1 text-xs"
+                      >
+                        {participant.name}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Ninguém entrou nesta sessão.</p>
+                )}
+                {sessionResultsReady && sessionAttempts === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                    Nenhuma resposta registrada nesta sessão.
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {selectedSession.status !== "ended" ? (
+                    <>
+                      <Button asChild size="sm">
+                        <Link to={`/professor/ao-vivo?sessionId=${selectedSession.id}`}>
+                          Retomar sessão
+                        </Link>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setConfirmEnd(selectedSession)}
+                      >
+                        Encerrar sessão
+                      </Button>
+                    </>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => updateFilters(selectedActivity, "")}
+                  >
+                    Ver todas as sessões
+                  </Button>
+                </div>
+              </section>
+            ) : null}
+
             {data.questions.length > 0 ? (
               <section className="space-y-3">
-                <h2 className="font-display text-xl font-semibold">Acertos por questão</h2>
+                <h2 className="font-display text-xl font-semibold">
+                  {selectedSession ? `Acertos da sessão PIN ${selectedSession.pin}` : "Acertos por questão"}
+                </h2>
                 <ul className="grid gap-3">
                   {data.questions.map((question, index) => (
                     <QuestionCard
@@ -128,7 +259,13 @@ export function ProfessorAnalyticsPage() {
                 <h2 className="font-display text-xl font-semibold">Sessões e participantes</h2>
                 <ul className="grid gap-3">
                   {data.sessions.map((session) => (
-                    <li key={session.id} className="surface-card space-y-3 p-4">
+                    <li
+                      key={session.id}
+                      className={cn(
+                        "surface-card space-y-3 p-4",
+                        session.id === sessionId && "ring-2 ring-primary"
+                      )}
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <p className="font-medium">{session.title}</p>
@@ -136,15 +273,36 @@ export function ProfessorAnalyticsPage() {
                             {session.className} · PIN {session.pin} ·{" "}
                             {new Date(session.startedAt).toLocaleString("pt-BR")}
                           </p>
+                          {session.id === sessionId ? (
+                            <p className="mt-1 text-xs font-medium text-primary">
+                              Exibindo os resultados desta sessão.
+                            </p>
+                          ) : null}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline">{liveSessionStatusLabel(session.status)}</Badge>
-                          <Button asChild size="sm" variant="outline">
-                            <Link
-                              to={`/professor/analytics?activityId=${session.activityId}&sessionId=${session.id}`}
-                            >
-                              Ver resultados
-                            </Link>
+                          {session.status !== "ended" ? (
+                            <>
+                              <Button asChild size="sm">
+                                <Link to={`/professor/ao-vivo?sessionId=${session.id}`}>Retomar</Link>
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setConfirmEnd(session)}
+                              >
+                                Encerrar
+                              </Button>
+                            </>
+                          ) : null}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateFilters(session.activityId, session.id)}
+                          >
+                            Ver resultados
                           </Button>
                         </div>
                       </div>
@@ -174,6 +332,27 @@ export function ProfessorAnalyticsPage() {
           </>
         )}
       </div>
+
+      <Dialog open={confirmEnd !== null} onOpenChange={(open) => { if (!open) setConfirmEnd(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Encerrar sessão?</DialogTitle>
+            <DialogDescription>
+              {confirmEnd
+                ? `A sala PIN ${confirmEnd.pin} (${confirmEnd.className}) será encerrada. Os alunos não poderão mais entrar.`
+                : "A sessão será encerrada."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConfirmEnd(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="destructive" disabled={ending} onClick={() => void handleEndSession()}>
+              {ending ? "Encerrando..." : "Encerrar sessão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   )
 }

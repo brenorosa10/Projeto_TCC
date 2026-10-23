@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using MongoDB.Driver;
 using Astro.Api.Contracts;
 using Astro.Api.Data;
 using Astro.Api.Domain;
+using Astro.Api.Hubs;
 using Astro.Api.Services;
 
 namespace Astro.Api.Controllers;
@@ -14,7 +16,9 @@ namespace Astro.Api.Controllers;
 public class ClassesController(
     MongoDbContext db,
     CurrentUserService currentUser,
-    ClassCodeGenerator codeGenerator) : ControllerBase
+    ClassCodeGenerator codeGenerator,
+    LiveSessionService liveSessions,
+    IHubContext<LiveSessionHub> hub) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ClassResponse>>> List(CancellationToken cancellationToken)
@@ -82,11 +86,17 @@ public class ClassesController(
             return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Apenas professores podem criar turmas." });
         }
 
+        var name = request.Name.Trim();
+        if (name.Length < 2)
+        {
+            return BadRequest(new { detail = "O nome da turma deve ter pelo menos 2 caracteres." });
+        }
+
         var code = await codeGenerator.GenerateUniqueAsync(cancellationToken);
         var classroom = new ClassRoom
         {
             Id = Guid.NewGuid(),
-            Name = request.Name.Trim(),
+            Name = name,
             Code = code,
             ProfessorId = profile.Id,
             ProfessorName = profile.FullName,
@@ -96,6 +106,115 @@ public class ClassesController(
         await db.Classes.InsertOneAsync(classroom, cancellationToken: cancellationToken);
 
         return CreatedAtAction(nameof(GetById), new { id = classroom.Id }, ToResponse(classroom));
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<ClassResponse>> Update(
+        Guid id,
+        [FromBody] UpdateClassRequest request,
+        CancellationToken cancellationToken)
+    {
+        var profile = await GetCurrentProfileAsync(cancellationToken);
+        if (profile is null)
+        {
+            return Unauthorized(new { detail = "Perfil não encontrado." });
+        }
+
+        var classroom = await db.Classes.Find(c => c.Id == id).FirstOrDefaultAsync(cancellationToken);
+        if (classroom is null)
+        {
+            return NotFound(new { detail = "Turma não encontrada." });
+        }
+
+        if (classroom.ProfessorId != profile.Id)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você só pode alterar turmas que criou." });
+        }
+
+        var name = request.Name.Trim();
+        if (name.Length < 2)
+        {
+            return BadRequest(new { detail = "O nome da turma deve ter pelo menos 2 caracteres." });
+        }
+
+        var renamed = await db.Classes.UpdateOneAsync(
+            c => c.Id == classroom.Id && c.ProfessorId == profile.Id,
+            Builders<ClassRoom>.Update.Set(c => c.Name, name),
+            cancellationToken: cancellationToken);
+        if (renamed.MatchedCount == 0)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você só pode alterar turmas que criou." });
+        }
+
+        classroom.Name = name;
+        return Ok(ToResponse(classroom));
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        var profile = await GetCurrentProfileAsync(cancellationToken);
+        if (profile is null)
+        {
+            return Unauthorized(new { detail = "Perfil não encontrado." });
+        }
+
+        var classroom = await db.Classes.Find(c => c.Id == id).FirstOrDefaultAsync(cancellationToken);
+        if (classroom is null)
+        {
+            return NotFound(new { detail = "Turma não encontrada." });
+        }
+
+        if (classroom.ProfessorId != profile.Id)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você só pode excluir turmas que criou." });
+        }
+
+        var activeSessions = await db.LiveSessions
+            .Find(session =>
+                session.ClassId == id
+                && session.ProfessorId == profile.Id
+                && session.Status != LiveSessionStatuses.Ended)
+            .ToListAsync(cancellationToken);
+
+        foreach (var session in activeSessions)
+        {
+            var ended = await liveSessions.EndAsync(session.Id, cancellationToken);
+            if (ended.State is not null)
+            {
+                await LiveSessionHub.BroadcastAsync(hub, liveSessions, ended.State.Id, cancellationToken);
+                continue;
+            }
+
+            await db.LiveSessions.UpdateOneAsync(
+                item => item.Id == session.Id && item.ProfessorId == profile.Id,
+                Builders<LiveSession>.Update
+                    .Set(item => item.Status, LiveSessionStatuses.Ended)
+                    .Set(item => item.Phase, LiveSessionPhases.Ended)
+                    .Set(item => item.EndedAt, DateTimeOffset.UtcNow),
+                cancellationToken: cancellationToken);
+        }
+
+        await db.Activities.UpdateManyAsync(
+            Builders<Activity>.Filter.AnyEq(activity => activity.ClassIds, id),
+            Builders<Activity>.Update.Pull(activity => activity.ClassIds, id),
+            cancellationToken: cancellationToken);
+
+        await db.Activities.UpdateManyAsync(
+            activity => activity.ClassId == id,
+            Builders<Activity>.Update.Set(activity => activity.ClassId, Guid.Empty),
+            cancellationToken: cancellationToken);
+
+        var deleted = await db.Classes.DeleteOneAsync(
+            c => c.Id == id && c.ProfessorId == profile.Id,
+            cancellationToken);
+
+        if (deleted.DeletedCount == 0)
+        {
+            return NotFound(new { detail = "Turma não encontrada." });
+        }
+
+        return NoContent();
     }
 
     [HttpPost("join")]

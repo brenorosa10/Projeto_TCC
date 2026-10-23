@@ -76,6 +76,20 @@ public class LiveSessionService(
             return LiveOperationResult.Fail(StatusCodes.Status400BadRequest, "A atividade não tem questões para aplicar ao vivo.");
         }
 
+        var existing = await db.LiveSessions
+            .Find(session =>
+                session.ProfessorId == profile.Id
+                && session.ClassId == classroom.Id
+                && session.ActivityId == activity.Id
+                && (session.Status == LiveSessionStatuses.Lobby || session.Status == LiveSessionStatuses.Running))
+            .SortByDescending(session => session.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing is not null)
+        {
+            return LiveOperationResult.Ok(
+                await BuildStateAsync(existing, activity, classroom, profile.Id, isHost: true, cancellationToken));
+        }
+
         var pin = await GeneratePinAsync(cancellationToken);
         var session = new LiveSession
         {
@@ -94,6 +108,48 @@ public class LiveSessionService(
 
         await db.LiveSessions.InsertOneAsync(session, cancellationToken: cancellationToken);
         return LiveOperationResult.Ok(await BuildStateAsync(session, activity, classroom, profile.Id, isHost: true, cancellationToken));
+    }
+
+    public async Task<(IReadOnlyList<LiveSessionStateResponse>? Sessions, int StatusCode, string? Error)> ListActiveAsync(
+        CancellationToken cancellationToken)
+    {
+        var profile = await GetProfileAsync(cancellationToken);
+        if (profile is null)
+        {
+            return (null, StatusCodes.Status401Unauthorized, "Perfil não encontrado.");
+        }
+
+        if (profile.Role != UserRoles.Professor)
+        {
+            return (null, StatusCodes.Status403Forbidden, "Apenas professores podem ver sessões ao vivo.");
+        }
+
+        var sessions = await db.LiveSessions
+            .Find(session =>
+                session.ProfessorId == profile.Id
+                && (session.Status == LiveSessionStatuses.Lobby || session.Status == LiveSessionStatuses.Running))
+            .SortByDescending(session => session.StartedAt)
+            .ToListAsync(cancellationToken);
+
+        var states = new List<LiveSessionStateResponse>();
+        foreach (var session in sessions)
+        {
+            var loaded = await LoadBundleAsync(session.Id, cancellationToken);
+            if (loaded.Error is not null || loaded.Session is null || loaded.Activity is null || loaded.Classroom is null)
+            {
+                continue;
+            }
+
+            states.Add(await BuildStateAsync(
+                loaded.Session,
+                loaded.Activity,
+                loaded.Classroom,
+                profile.Id,
+                isHost: true,
+                cancellationToken));
+        }
+
+        return (states, StatusCodes.Status200OK, null);
     }
 
     public async Task<LiveOperationResult> GetAsync(Guid id, CancellationToken cancellationToken)

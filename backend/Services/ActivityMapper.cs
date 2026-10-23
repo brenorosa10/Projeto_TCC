@@ -47,7 +47,8 @@ public static class ActivityMapper
                 .OrderBy(item => item.Position)
                 .Select(item => ToItemResponse(item, includeAnswers))
                 .ToList(),
-            sections);
+            sections,
+            activity.Items.Count);
     }
 
     public static ActivityItemResponse ToItemResponse(ActivityItem item, bool includeAnswers)
