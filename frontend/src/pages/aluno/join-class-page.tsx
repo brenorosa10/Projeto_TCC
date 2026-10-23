@@ -15,6 +15,10 @@ export function AlunoJoinClassPage() {
   async function handleJoin(event: React.FormEvent) {
     event.preventDefault()
     const normalized = code.trim().toUpperCase()
+    if (!normalized) {
+      toast.error("Informe o código da turma.")
+      return
+    }
     if (normalized.length !== 8) {
       toast.error("O código deve ter 8 caracteres.")
       return
@@ -47,10 +51,9 @@ export function AlunoJoinClassPage() {
             placeholder="Ex: X7B9K2M4"
             maxLength={8}
             className="font-mono tracking-widest uppercase"
-            required
           />
         </div>
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading || code.trim().length === 0}>
           {loading ? "Entrando..." : "Entrar na turma"}
         </Button>
       </form>

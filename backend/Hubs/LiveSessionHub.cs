@@ -20,13 +20,14 @@ public class LiveSessionHub(
         await BroadcastAsync(result.State.Id);
     }
 
-    public async Task JoinSession(string pin)
+    public async Task<LiveSessionStateResponse> JoinSession(string pin)
     {
         var result = await liveSessions.JoinStudentAsync(pin, Context.ConnectionId, Context.ConnectionAborted);
         ThrowIfFailed(result);
         Remember(result.State!.Id, host: false);
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(result.State.Id));
         await BroadcastAsync(result.State.Id);
+        return result.State;
     }
 
     public async Task Start()

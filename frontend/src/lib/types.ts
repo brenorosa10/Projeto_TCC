@@ -292,6 +292,9 @@ export interface StudyQuizSummary {
   isPublic?: boolean
   classIds?: string[]
   ownedByMe?: boolean
+  completed?: boolean
+  bestCorrect?: number | null
+  bestTotal?: number | null
 }
 
 export interface MatchingAnswerRequest {
@@ -430,6 +433,8 @@ export interface StudySessionFeedbackItem {
   textAnswer?: string | null
   remembered?: boolean | null
   score?: number | null
+  studentAnswer?: string | null
+  correctAnswer?: string | null
 }
 
 export interface StudySessionFeedback {
@@ -518,6 +523,7 @@ export interface LiveSessionState {
   mode: LiveSessionMode | string
   itemIndex: number
   itemCount: number
+  presentedCount: number
   questionStartedAt?: string | null
   timeLimitSeconds?: number | null
   questionEndsAt?: string | null

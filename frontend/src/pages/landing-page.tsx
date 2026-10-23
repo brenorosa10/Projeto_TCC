@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
+import { activityCountLabel } from "@/lib/utils"
 import type { PublicActivitySummary, UserRole } from "@/lib/types"
 
 export function LandingPage() {
@@ -185,7 +186,7 @@ function PublicList({
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Badge variant="secondary">Público</Badge>
                   <span>
-                    {item.itemCount} {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
+                    {activityCountLabel(item.itemCount, item.type)}
                     {item.professorName ? ` · ${item.professorName}` : null}
                   </span>
                 </div>

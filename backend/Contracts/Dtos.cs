@@ -66,8 +66,8 @@ public record UpdateClassRequest(
 );
 
 public record JoinClassRequest(
-    [Required]
-    [StringLength(8, MinimumLength = 8)]
+    [Required(ErrorMessage = "Informe o código da turma.")]
+    [StringLength(8, MinimumLength = 8, ErrorMessage = "O código deve ter 8 caracteres.")]
     string Code
 );
 
@@ -347,7 +347,10 @@ public record StudyQuizSummaryResponse(
     IReadOnlyList<string> ClassNames,
     bool IsPublic,
     IReadOnlyList<Guid> ClassIds,
-    bool OwnedByMe
+    bool OwnedByMe,
+    bool Completed = false,
+    int? BestCorrect = null,
+    int? BestTotal = null
 );
 
 public record MatchingAnswerRequest(
@@ -501,7 +504,9 @@ public record StudySessionFeedbackItemResponse(
     Guid? CorrectOptionId,
     string? TextAnswer,
     bool? Remembered,
-    int? Score
+    int? Score,
+    string? StudentAnswer = null,
+    string? CorrectAnswer = null
 );
 
 public record StudySessionFeedbackResponse(
@@ -588,6 +593,7 @@ public record LiveSessionStateResponse(
     string Mode,
     int ItemIndex,
     int ItemCount,
+    int PresentedCount,
     DateTimeOffset? QuestionStartedAt,
     int? TimeLimitSeconds,
     DateTimeOffset? QuestionEndsAt,

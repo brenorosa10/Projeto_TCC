@@ -370,7 +370,7 @@ public class LiveSessionService(
             return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "A sessão já foi iniciada.");
         }
 
-        OpenQuestion(session, 0);
+        OpenQuestion(session, host.Activity!, 0);
         if (!await TryReplaceExpectedAsync(session, LiveSessionStatuses.Lobby, LiveSessionPhases.Lobby, cancellationToken))
         {
             return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "A sessão já foi iniciada.");
@@ -408,7 +408,7 @@ public class LiveSessionService(
             }
             else
             {
-                OpenQuestion(session, nextIndex);
+                OpenQuestion(session, host.Activity!, nextIndex);
             }
         }
 
@@ -689,9 +689,10 @@ public class LiveSessionService(
             session.Mode,
             session.ItemIndex,
             session.ItemIds.Count,
+            PresentedCount(session),
             session.QuestionStartedAt,
             session.TimeLimitSeconds,
-            null,
+            QuestionEndsAt(session),
             currentItem,
             tally,
             session.Participants
@@ -700,7 +701,7 @@ public class LiveSessionService(
                     participant.StudentId,
                     participant.Name,
                     participant.JoinedAt,
-                    participant.IsConnected))
+                    session.Phase != LiveSessionPhases.Ended && participant.IsConnected))
                 .ToList(),
             ranking,
             reveal,
@@ -746,21 +747,57 @@ public class LiveSessionService(
         return session.ItemIds[session.ItemIndex];
     }
 
-    private static void OpenQuestion(LiveSession session, int index)
+    private static void OpenQuestion(LiveSession session, Activity activity, int index)
     {
         session.Status = LiveSessionStatuses.Running;
         session.Phase = LiveSessionPhases.Question;
         session.ItemIndex = index;
         session.QuestionStartedAt = DateTimeOffset.UtcNow;
-        session.TimeLimitSeconds = null;
+        int? limit = null;
+        if (index >= 0 && index < session.ItemIds.Count)
+        {
+            var itemId = session.ItemIds[index];
+            limit = activity.Items.FirstOrDefault(item => item.Id == itemId)?.TimeLimitSeconds;
+        }
+
+        session.TimeLimitSeconds = limit is >= 5 and <= 300 ? limit : null;
     }
 
     private static void EndSession(LiveSession session)
     {
+        var fromLobby = session.Phase == LiveSessionPhases.Lobby || session.Status == LiveSessionStatuses.Lobby;
         session.Status = LiveSessionStatuses.Ended;
         session.Phase = LiveSessionPhases.Ended;
         session.EndedAt = DateTimeOffset.UtcNow;
         session.QuestionStartedAt = null;
+        session.TimeLimitSeconds = null;
+        if (fromLobby)
+        {
+            session.ItemIndex = -1;
+        }
+    }
+
+    private static int PresentedCount(LiveSession session)
+    {
+        if (session.ItemIds.Count == 0 || session.Phase == LiveSessionPhases.Lobby || session.ItemIndex < 0)
+        {
+            return 0;
+        }
+
+        return Math.Min(session.ItemIds.Count, session.ItemIndex + 1);
+    }
+
+    private static DateTimeOffset? QuestionEndsAt(LiveSession session)
+    {
+        if (session.Phase != LiveSessionPhases.Question
+            || session.QuestionStartedAt is not DateTimeOffset started
+            || session.TimeLimitSeconds is not int seconds
+            || seconds <= 0)
+        {
+            return null;
+        }
+
+        return started.AddSeconds(seconds);
     }
 
     private async Task<bool> TryReplaceExpectedAsync(

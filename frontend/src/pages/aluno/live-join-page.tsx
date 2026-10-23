@@ -1,28 +1,39 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import type * as signalR from "@microsoft/signalr"
 import { toast } from "sonner"
 import { CheckCircle2, Hourglass, PartyPopper, Radio, Trophy, Users, XCircle } from "lucide-react"
 import { ItemAnswerForm } from "@/components/activity/item-answer-form"
 import { ItemPrompt } from "@/components/activity/item-prompt"
+import { QuestionCountdown } from "@/components/activity/question-countdown"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RichText } from "@/components/rich-text/rich-text"
-import { api } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
 import { createLiveHub, joinLiveAsStudent, liveSubmitAnswer } from "@/lib/live-hub"
-import { cn } from "@/lib/utils"
+import {
+  clearStoredLiveJoin,
+  presentedQuestionCount,
+  readStoredLiveJoin,
+  writeStoredLiveJoin,
+} from "@/lib/live-session"
+import { cn, plural } from "@/lib/utils"
 import type { LiveSessionState, SubmitStudyAnswerRequest } from "@/lib/types"
 
 export function AlunoLiveJoinPage() {
-  const [pin, setPin] = useState("")
-  const [joining, setJoining] = useState(false)
+  const { profile } = useAuth()
+  const [pin, setPin] = useState(() => readStoredLiveJoin()?.pin ?? "")
+  const [joining, setJoining] = useState(() => readStoredLiveJoin() !== null)
   const [busy, setBusy] = useState(false)
   const [state, setState] = useState<LiveSessionState | null>(null)
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null)
   const connectionRef = useRef<signalR.HubConnection | null>(null)
+  const userIdRef = useRef(profile?.id)
+  const autoJoinAttempted = useRef(false)
+  userIdRef.current = profile?.id
 
   useEffect(() => {
     connectionRef.current = connection
@@ -34,8 +45,8 @@ export function AlunoLiveJoinPage() {
     }
   }, [])
 
-  async function handleJoin() {
-    if (pin.length !== 6) {
+  const join = useCallback(async (nextPin: string) => {
+    if (nextPin.length !== 6) {
       toast.error("Informe um PIN de 6 dígitos.")
       return
     }
@@ -43,28 +54,63 @@ export function AlunoLiveJoinPage() {
     try {
       await connectionRef.current?.stop()
       setConnection(null)
-      const preview = await api.getLiveSessionByPin(pin)
       const hub = createLiveHub(setState)
+      let joined: LiveSessionState
       try {
-        await joinLiveAsStudent(hub, pin)
+        joined = await joinLiveAsStudent(hub, nextPin)
       } catch (error) {
         await hub.stop()
         throw error
       }
       hub.onreconnected(() => {
-        void joinLiveAsStudent(hub, pin).catch(() => undefined)
+        void joinLiveAsStudent(hub, nextPin)
+          .then((next) => {
+            setState(next)
+            if (next.phase === "ended") clearStoredLiveJoin()
+          })
+          .catch(() => undefined)
       })
       connectionRef.current = hub
       setConnection(hub)
-      setState(preview)
+      setState(joined)
+      setPin(nextPin)
+      const userId = userIdRef.current
+      if (userId && joined.phase !== "ended") {
+        writeStoredLiveJoin({ pin: nextPin, userId })
+      } else {
+        clearStoredLiveJoin()
+      }
     } catch (error) {
+      clearStoredLiveJoin()
+      setState(null)
+      setConnection(null)
       toast.error(error instanceof Error ? error.message : "Não foi possível entrar na sessão")
     } finally {
       setJoining(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!profile || autoJoinAttempted.current) return
+    const stored = readStoredLiveJoin()
+    if (!stored) return
+    autoJoinAttempted.current = true
+    if (stored.userId !== profile.id) {
+      clearStoredLiveJoin()
+      setPin("")
+      setJoining(false)
+      return
+    }
+    setPin(stored.pin)
+    void join(stored.pin)
+  }, [join, profile])
+
+  useEffect(() => {
+    if (state?.phase === "ended") clearStoredLiveJoin()
+  }, [state?.phase])
 
   async function resetSession() {
+    clearStoredLiveJoin()
     await connectionRef.current?.stop()
     connectionRef.current = null
     setConnection(null)
@@ -92,7 +138,7 @@ export function AlunoLiveJoinPage() {
           pin={pin}
           joining={joining}
           onPin={setPin}
-          onJoin={() => void handleJoin()}
+          onJoin={() => void join(pin)}
         />
       ) : (
         <StudentRoom
@@ -184,7 +230,7 @@ function StudentRoom({
           <p className="font-display text-xl font-semibold">Você está na sala</p>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
             <Users className="h-3.5 w-3.5" />
-            {state.participants.length} participante(s) na lista
+            {plural(state.participants.length, "participante", "participantes")} na lista
           </span>
         </div>
       ) : null}
@@ -195,6 +241,7 @@ function StudentRoom({
             <Badge variant="outline">
               Questão {state.itemIndex + 1} de {state.itemCount}
             </Badge>
+            <QuestionCountdown endsAt={state.questionEndsAt} />
           </div>
           <div className="surface-card space-y-5 p-5 sm:p-6">
             <ItemPrompt item={state.currentItem} />
@@ -287,13 +334,7 @@ function StudentRoom({
               </span>
               <h2 className="font-display text-2xl font-semibold">Sessão encerrada</h2>
               {state.personal ? (
-                <div className="mx-auto grid max-w-sm gap-2 sm:grid-cols-2">
-                  <ScoreTile
-                    label="Acertos"
-                    value={`${state.personal.correctCount}/${state.itemCount}`}
-                  />
-                  <ScoreTile label="Pontos" value={String(state.personal.score)} />
-                </div>
+                <EndedScore state={state} />
               ) : null}
               <div className="flex flex-wrap justify-center gap-2 pt-1">
                 <Button type="button" onClick={onReset}>
@@ -316,7 +357,10 @@ function StudentRoom({
 
 function StudentHeader({ state }: { state: LiveSessionState }) {
   const isEnded = state.phase === "ended"
-  const progress = state.itemCount > 0 ? ((state.itemIndex + 1) / state.itemCount) * 100 : 0
+  const progress =
+    state.itemCount > 0 && state.itemIndex >= 0
+      ? ((state.itemIndex + 1) / state.itemCount) * 100
+      : 0
 
   return (
     <section className="surface-card relative overflow-hidden px-5 py-5 sm:px-6">
@@ -350,7 +394,7 @@ function StudentHeader({ state }: { state: LiveSessionState }) {
         </h1>
       </div>
 
-      {state.phase !== "lobby" ? (
+      {state.phase !== "lobby" && !isEnded ? (
         <div className="relative mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
@@ -359,6 +403,35 @@ function StudentHeader({ state }: { state: LiveSessionState }) {
         </div>
       ) : null}
     </section>
+  )
+}
+
+function EndedScore({ state }: { state: LiveSessionState }) {
+  const presented = presentedQuestionCount(state)
+  const answered = state.personal?.totalAnswered ?? 0
+  const total = Math.max(presented, answered)
+  const early = presented < state.itemCount
+  if (!state.personal) return null
+
+  return (
+    <div className="mx-auto max-w-sm space-y-3">
+      {total > 0 ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <ScoreTile label="Acertos" value={`${state.personal.correctCount}/${total}`} />
+          <ScoreTile label="Pontos" value={String(state.personal.score)} />
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Nenhuma questão foi apresentada.</p>
+      )}
+      {early && presented > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          A sessão foi encerrada antes do fim.{" "}
+          {presented === 1
+            ? `Foi apresentada 1 de ${state.itemCount} questões.`
+            : `Foram apresentadas ${presented} de ${state.itemCount} questões.`}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
