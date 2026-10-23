@@ -36,7 +36,7 @@ export async function joinLiveAsHost(connection: signalR.HubConnection, sessionI
 
 export async function joinLiveAsStudent(connection: signalR.HubConnection, pin: string) {
   await startLiveHub(connection)
-  await connection.invoke("JoinSession", pin)
+  return connection.invoke<LiveSessionState>("JoinSession", pin)
 }
 
 export async function liveStart(connection: signalR.HubConnection) {

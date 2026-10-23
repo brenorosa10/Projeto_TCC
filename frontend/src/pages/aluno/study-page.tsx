@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { activityCountLabel, cn, plural } from "@/lib/utils"
 import type { ClassRoom, StudyFlashcardSummary, StudyQuizSummary } from "@/lib/types"
 
 function classIdsOf(item: { classIds?: string[] }) {
@@ -247,9 +247,17 @@ function StudyGroup({
                 <Badge variant="secondary">Quiz</Badge>
                 {quiz.ownedByMe ? <Badge variant="outline">Seu</Badge> : null}
                 {quiz.isPublic ? <Badge variant="outline">Público</Badge> : null}
+                {quiz.completed ? (
+                  <Badge variant="success">
+                    Concluído
+                    {typeof quiz.bestCorrect === "number" && typeof quiz.bestTotal === "number"
+                      ? ` · melhor ${quiz.bestCorrect}/${quiz.bestTotal}`
+                      : ""}
+                  </Badge>
+                ) : null}
               </>
             }
-            meta={`${quiz.itemCount} questão(ões)`}
+            meta={activityCountLabel(quiz.itemCount, "quiz")}
             href={`/aluno/estudar/${quiz.id}`}
             editHref={
               allowManage && quiz.ownedByMe ? `/aluno/estudar/criar/quiz/${quiz.id}` : undefined
@@ -277,7 +285,7 @@ function StudyGroup({
                 {deck.isPublic ? <Badge variant="outline">Público</Badge> : null}
               </>
             }
-            meta={`${deck.dueCount} para revisar agora · ${deck.itemCount} cartão(ões)`}
+            meta={`${plural(deck.dueCount, "cartão para revisar agora", "cartões para revisar agora")} · ${activityCountLabel(deck.itemCount, "flashcards")}`}
             href={`/aluno/estudar/flashcards/${deck.id}`}
             editHref={
               allowManage && deck.ownedByMe

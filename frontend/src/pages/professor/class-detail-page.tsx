@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
 import { activityTypeLabel } from "@/lib/item-kinds"
+import { activityCountLabel } from "@/lib/utils"
 import type { ActivitySummary, ClassRoom } from "@/lib/types"
 
 const CLASS_NAME_MAX = 200
@@ -290,10 +291,7 @@ export function ProfessorClassDetailPage() {
                       </Link>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                         <Badge variant="secondary">{activityTypeLabel(item.type)}</Badge>
-                        <span>
-                          {item.itemCount}{" "}
-                          {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
-                        </span>
+                        <span>{activityCountLabel(item.itemCount, item.type)}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">

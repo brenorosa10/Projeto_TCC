@@ -1,4 +1,13 @@
 import type { ItemKind, SectionRole } from "@/lib/types"
+import { stripMarkdown } from "@/lib/utils"
+
+const PLACEHOLDER_SECTION_TITLES = new Set([
+  "resultados",
+  "antes de começar",
+  "pré-seção",
+  "pre-seção",
+  "pré seção",
+])
 
 export const ITEM_KIND_LABELS: Record<ItemKind, string> = {
   multiple_choice: "Múltipla escolha",
@@ -60,13 +69,13 @@ export function hasSectionCopy(
     | null
     | undefined
 ) {
-  const title = section?.title?.trim() ?? ""
-  const body = section?.body?.trim() ?? ""
+  const title = stripMarkdown(section?.title).replace(/[\u200B-\u200D\uFEFF]/g, "").trim()
+  const body = stripMarkdown(section?.body).replace(/[\u200B-\u200D\uFEFF]/g, "").trim()
   if (body) return true
   if (section?.objectives?.some((item) => item.trim()) || section?.tips?.some((item) => item.trim())) {
     return true
   }
   if (section?.estimatedMinutes || section?.imageDataUrl) return true
   if (!title) return false
-  return title !== "Resultados" && title !== "Antes de começar"
+  return !PLACEHOLDER_SECTION_TITLES.has(title.toLowerCase())
 }

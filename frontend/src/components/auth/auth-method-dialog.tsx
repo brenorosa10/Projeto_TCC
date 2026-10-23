@@ -28,6 +28,11 @@ export function AuthMethodDialog({ role, onClose }: AuthMethodDialogProps) {
   const navigate = useNavigate()
   const { signInWithGoogle, signInWithPassword, registerWithPassword } = useAuth()
   const [tab, setTab] = useState("login")
+  const [trackedRole, setTrackedRole] = useState(role)
+  if (role !== trackedRole) {
+    setTrackedRole(role)
+    setTab("login")
+  }
   const [googlePending, setGooglePending] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -160,7 +165,7 @@ export function AuthMethodDialog({ role, onClose }: AuthMethodDialogProps) {
                     autoComplete="username"
                     value={login}
                     onChange={(event) => setLogin(event.target.value)}
-                    placeholder="voce@email.com"
+                    placeholder="voce@email.com ou seu_usuario"
                   />
                 </div>
                 <div className="grid gap-2">

@@ -34,6 +34,22 @@ public class StudyController(
         var classIds = classes.Select(c => c.Id).ToList();
         var nameById = classes.ToDictionary(c => c.Id, c => c.Name);
         var quizzes = await FindStudyActivitiesAsync(profile.Id, classIds, ActivityTypes.Quiz, cancellationToken);
+        var quizIds = quizzes.Select(quiz => quiz.Id).ToList();
+        var completedSessions = quizIds.Count == 0
+            ? []
+            : await db.StudySessions
+                .Find(Builders<StudySession>.Filter.And(
+                    Builders<StudySession>.Filter.Eq(session => session.StudentId, profile.Id),
+                    Builders<StudySession>.Filter.In(session => session.Status, new[]
+                    {
+                        StudySessionStatuses.Completed,
+                        StudySessionStatuses.Feedback
+                    }),
+                    Builders<StudySession>.Filter.In(session => session.ActivityId, quizIds)))
+                .ToListAsync(cancellationToken);
+        var completedByActivity = completedSessions
+            .GroupBy(session => session.ActivityId)
+            .ToDictionary(group => group.Key, group => group.ToList());
 
         var summaries = quizzes.Select(quiz =>
         {
@@ -43,6 +59,8 @@ public class StudyController(
                 .Select(id => nameById[id])
                 .Distinct()
                 .ToList();
+            completedByActivity.TryGetValue(quiz.Id, out var attempts);
+            var best = BestQuizScore(attempts);
 
             return new StudyQuizSummaryResponse(
                 quiz.Id,
@@ -51,7 +69,10 @@ public class StudyController(
                 names,
                 quiz.IsPublic,
                 linked,
-                quiz.ProfessorId == profile.Id);
+                quiz.ProfessorId == profile.Id,
+                attempts is { Count: > 0 },
+                best?.Correct,
+                best?.Total);
         });
 
         return Ok(summaries);
@@ -275,6 +296,28 @@ public class StudyController(
 
     private static bool IsDue(ReviewProgress? progress, DateTimeOffset now) =>
         progress is null || progress.NextReviewAt is null || progress.NextReviewAt <= now;
+
+    private static (int Correct, int Total)? BestQuizScore(IReadOnlyList<StudySession>? attempts)
+    {
+        if (attempts is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        (int Correct, int Total, double Ratio)? best = null;
+        foreach (var attempt in attempts)
+        {
+            var total = attempt.Answers.Count;
+            var correct = attempt.Answers.Count(answer => answer.IsCorrect == true);
+            var ratio = total == 0 ? 0 : (double)correct / total;
+            if (best is null || ratio > best.Value.Ratio || (ratio == best.Value.Ratio && correct > best.Value.Correct))
+            {
+                best = (correct, total, ratio);
+            }
+        }
+
+        return best is null ? null : (best.Value.Correct, best.Value.Total);
+    }
 
 
     [HttpPost("quizzes/{activityId:guid}/answers")]

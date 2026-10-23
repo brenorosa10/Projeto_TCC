@@ -381,13 +381,42 @@ public class StudySessionService(
             _ => false
         };
 
-    private static bool HasPrepContent(StudySessionPlanSection section) =>
-        !string.IsNullOrWhiteSpace(section.Title)
-        || !string.IsNullOrWhiteSpace(section.Body)
-        || section.Objectives is { Count: > 0 }
-        || section.Tips is { Count: > 0 }
-        || section.EstimatedMinutes is > 0
-        || section.HasImage;
+    private static readonly HashSet<string> PlaceholderPrepTitles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Resultados",
+        "Antes de começar",
+        "Pré-seção",
+        "Pre-seção",
+        "Pré seção"
+    };
+
+    private static bool HasPrepContent(StudySessionPlanSection section)
+    {
+        if (HasVisibleText(section.Body)
+            || section.Objectives is { Count: > 0 }
+            || section.Tips is { Count: > 0 }
+            || section.EstimatedMinutes is > 0
+            || section.HasImage)
+        {
+            return true;
+        }
+
+        var title = section.Title?.Trim();
+        return HasVisibleText(title) && !PlaceholderPrepTitles.Contains(title!);
+    }
+
+    private static bool HasVisibleText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var trimmed = value.Replace("\u200B", "", StringComparison.Ordinal)
+            .Replace("\uFEFF", "", StringComparison.Ordinal)
+            .Trim();
+        return trimmed.Length > 0;
+    }
 
     private static void MoveTo(StudySession session, int sectionIndex)
     {
@@ -609,7 +638,9 @@ public class StudySessionService(
                     correct?.Id,
                     answer.TextAnswer,
                     answer.Remembered,
-                    answer.Score);
+                    answer.Score,
+                    StudyAnswerFormatter.StudentAnswer(item, answer),
+                    StudyAnswerFormatter.CorrectAnswer(item));
             })
             .ToList();
 

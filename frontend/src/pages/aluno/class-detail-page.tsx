@@ -15,6 +15,7 @@ import {
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
 import { activityTypeLabel } from "@/lib/item-kinds"
+import { activityCountLabel } from "@/lib/utils"
 import type { ActivitySummary, ClassRoom } from "@/lib/types"
 
 export function AlunoClassDetailPage() {
@@ -137,10 +138,7 @@ export function AlunoClassDetailPage() {
                       <p className="font-medium">{item.title}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                         <Badge variant="secondary">{activityTypeLabel(item.type)}</Badge>
-                        <span>
-                          {item.itemCount}{" "}
-                          {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
-                        </span>
+                        <span>{activityCountLabel(item.itemCount, item.type)}</span>
                       </div>
                     </div>
                     {item.type === "prova" ? (

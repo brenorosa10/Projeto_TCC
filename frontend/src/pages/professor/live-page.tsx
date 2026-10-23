@@ -17,6 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react"
+import { QuestionCountdown } from "@/components/activity/question-countdown"
 import { ItemPrompt } from "@/components/activity/item-prompt"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +34,7 @@ import { Label } from "@/components/ui/label"
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { RichText } from "@/components/rich-text/rich-text"
 import { api } from "@/lib/api"
+import { presentedQuestionCount } from "@/lib/live-session"
 import {
   createLiveHub,
   joinLiveAsHost,
@@ -717,7 +719,7 @@ function HostRoom({
             </div>
           </div>
           {state.mode === "quiz" && state.ranking ? <RankingList ranking={state.ranking} /> : null}
-          <ParticipantList participants={state.participants} />
+          <ParticipantList participants={state.participants} ended />
         </div>
       ) : null}
     </div>
@@ -726,7 +728,14 @@ function HostRoom({
 
 function SessionHeader({ state }: { state: LiveSessionState }) {
   const isEnded = state.phase === "ended"
-  const progress = state.itemCount > 0 ? ((state.itemIndex + 1) / state.itemCount) * 100 : 0
+  const presented = presentedQuestionCount(state)
+  const progress = isEnded
+    ? state.itemCount > 0
+      ? (presented / state.itemCount) * 100
+      : 0
+    : state.itemCount > 0 && state.itemIndex >= 0
+      ? ((state.itemIndex + 1) / state.itemCount) * 100
+      : 0
 
   return (
     <section className="surface-card relative overflow-hidden px-5 py-5 sm:px-7 sm:py-6">
@@ -769,7 +778,13 @@ function SessionHeader({ state }: { state: LiveSessionState }) {
         <div className="relative mt-5 space-y-1.5">
           <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
             <span>
-              Questão {state.itemIndex + 1} de {state.itemCount}
+              {isEnded
+                ? presented === 0
+                  ? "Encerrada antes da primeira questão"
+                  : presented < state.itemCount
+                    ? `Encerrada na questão ${presented} de ${state.itemCount}`
+                    : `Questão ${state.itemCount} de ${state.itemCount}`
+                : `Questão ${state.itemIndex + 1} de ${state.itemCount}`}
             </span>
             <span>{Math.round(progress)}%</span>
           </div>
@@ -830,6 +845,7 @@ function QuestionMeta({ state }: { state: LiveSessionState }) {
           <Users className="h-4 w-4 text-muted-foreground" />
           {answeredCount}/{participantCount} responderam
         </span>
+        {state.phase === "question" ? <QuestionCountdown endsAt={state.questionEndsAt} /> : null}
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div
@@ -999,7 +1015,13 @@ function RankingList({ ranking }: { ranking: LiveSessionState["ranking"] }) {
   )
 }
 
-function ParticipantList({ participants }: { participants: LiveSessionState["participants"] }) {
+function ParticipantList({
+  participants,
+  ended = false,
+}: {
+  participants: LiveSessionState["participants"]
+  ended?: boolean
+}) {
   return (
     <section className="surface-card p-5">
       <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
@@ -1024,17 +1046,17 @@ function ParticipantList({ participants }: { participants: LiveSessionState["par
               <span
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 text-xs font-medium",
-                  participant.isConnected ? "text-success" : "text-muted-foreground"
+                  !ended && participant.isConnected ? "text-success" : "text-muted-foreground"
                 )}
               >
                 <span
                   className={cn(
                     "h-1.5 w-1.5 rounded-full",
-                    participant.isConnected ? "bg-success" : "bg-muted-foreground"
+                    !ended && participant.isConnected ? "bg-success" : "bg-muted-foreground"
                   )}
                   aria-hidden
                 />
-                {participant.isConnected ? "conectado" : "saiu"}
+                {ended ? "finalizado" : participant.isConnected ? "conectado" : "saiu"}
               </span>
             </li>
           ))}

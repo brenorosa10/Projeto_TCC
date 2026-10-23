@@ -234,6 +234,11 @@ public class ClassesController(
         }
 
         var code = request.Code.Trim().ToUpperInvariant();
+        if (code.Length == 0)
+        {
+            return BadRequest(new { detail = "Informe o código da turma." });
+        }
+
         var classroom = await db.Classes
             .Find(c => c.Code == code)
             .FirstOrDefaultAsync(cancellationToken);

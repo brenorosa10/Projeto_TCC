@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react"
 import { Check, ChevronDown, Sparkles, Trophy, X } from "lucide-react"
 import { RichText } from "@/components/rich-text/rich-text"
-import { cn } from "@/lib/utils"
+import { cn, stripMarkdown } from "@/lib/utils"
 
 export type ResultItem = {
   itemId: string
@@ -10,6 +10,8 @@ export type ResultItem = {
   isCorrect?: boolean | null
   remembered?: boolean | null
   explanation?: string | null
+  studentAnswer?: string | null
+  correctAnswer?: string | null
 }
 
 /**
@@ -126,7 +128,10 @@ function ResultRow({
   label: string
 }) {
   const [open, setOpen] = useState(false)
-  const expandable = Boolean(item.explanation?.trim())
+  const studentAnswer = plainAnswer(item.studentAnswer)
+  const correctAnswer = plainAnswer(item.correctAnswer)
+  const showAnswers = item.isCorrect === false && (studentAnswer || correctAnswer)
+  const expandable = Boolean(item.explanation?.trim()) && !showAnswers
 
   return (
     <li
@@ -168,6 +173,22 @@ function ResultRow({
             {item.remembered === false ? " · você não lembrou" : null}
             {expandable ? (open ? " · ocultar explicação" : " · ver explicação") : null}
           </p>
+          {showAnswers ? (
+            <div className="mt-2 space-y-1 text-sm text-foreground">
+              {studentAnswer ? (
+                <p>
+                  <span className="font-medium">Sua resposta: </span>
+                  {studentAnswer}
+                </p>
+              ) : null}
+              {correctAnswer ? (
+                <p>
+                  <span className="font-medium">Resposta correta: </span>
+                  {correctAnswer}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         {expandable ? (
           <ChevronDown
@@ -178,6 +199,14 @@ function ResultRow({
           />
         ) : null}
       </button>
+      {showAnswers && item.explanation?.trim() ? (
+        <div className="border-t border-border/60 bg-card px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Explicação
+          </p>
+          <RichText value={item.explanation} className="mt-1 text-sm" />
+        </div>
+      ) : null}
       {expandable && open ? (
         <div className="border-t border-border/60 bg-card px-4 py-3">
           <RichText value={item.explanation} className="text-sm" />
@@ -185,6 +214,11 @@ function ResultRow({
       ) : null}
     </li>
   )
+}
+
+function plainAnswer(value?: string | null) {
+  const stripped = stripMarkdown(value)
+  return stripped || value?.trim() || ""
 }
 
 function ScoreRing({ correct, total }: { correct: number; total: number }) {

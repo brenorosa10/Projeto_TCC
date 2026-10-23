@@ -13,7 +13,7 @@ import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
 import { hasContentBlocks } from "@/lib/content-blocks"
 import { activityTypeLabel, findSection, hasSectionCopy, itemKindLabel } from "@/lib/item-kinds"
-import { cn } from "@/lib/utils"
+import { activityCountLabel, activityItemTotal, cn, plural } from "@/lib/utils"
 import type { Activity, ActivityItem, ActivitySection, ClassRoom } from "@/lib/types"
 
 export function ProfessorActivityDetailPage() {
@@ -69,7 +69,7 @@ export function ProfessorActivityDetailPage() {
       const deck = await api.importFlashcards(activity.id)
       setImportedDecks((prev) => [deck, ...prev.filter((item) => item.id !== deck.id)])
       toast.success(
-        `Deck "${deck.title}" com ${deck.itemCount} cartão(ões) a partir das respostas corretas.`
+        `Deck "${deck.title}" com ${plural(activityItemTotal(deck), "cartão", "cartões")} a partir das respostas corretas.`
       )
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao importar flashcards")
@@ -102,8 +102,7 @@ export function ProfessorActivityDetailPage() {
               <Badge variant="outline">{activity.isPublic ? "Público" : "Privado"}</Badge>
             </div>
             <p className="mt-2 text-muted-foreground">
-              {activity.items.length}{" "}
-              {activity.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
+              {activityCountLabel(activityItemTotal(activity), activity.type)}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button asChild variant="outline">
@@ -158,7 +157,7 @@ export function ProfessorActivityDetailPage() {
                 {importedDecks.map((deck) => (
                   <li key={deck.id} className="flex items-center justify-between gap-3 text-sm">
                     <span>
-                      {deck.title} · {deck.itemCount} cartão(ões)
+                      {deck.title} · {activityCountLabel(activityItemTotal(deck), "flashcards")}
                     </span>
                     <Button asChild variant="outline" size="sm">
                       <Link to={`/professor/atividades/${deck.id}`}>Abrir deck</Link>

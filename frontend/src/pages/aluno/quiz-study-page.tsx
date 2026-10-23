@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { hasContentBlocks } from "@/lib/content-blocks"
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
-import { itemKindLabel } from "@/lib/item-kinds"
+import { hasSectionCopy, itemKindLabel } from "@/lib/item-kinds"
 import { cn, stripMarkdown } from "@/lib/utils"
 import type { StudySession, SubmitStudyAnswerRequest } from "@/lib/types"
 
@@ -92,7 +92,8 @@ export function AlunoQuizStudyPage() {
 
   const prepSection =
     study?.status === "prep" ? study.currentSection : study?.prepSection ?? cachedPrep
-  const canReviewPrep = Boolean(prepSection) && study?.status !== "prep"
+  const hasPrep = hasSectionCopy(prepSection)
+  const canReviewPrep = hasPrep && study?.status !== "prep"
   const showingPrep = study?.status === "prep" || (viewingPrep && canReviewPrep)
 
   return (
@@ -118,6 +119,7 @@ export function AlunoQuizStudyPage() {
             </h1>
             <StudyStepper
               status={study.status}
+              hasPrep={study.status === "prep" || hasPrep}
               viewingPrep={showingPrep && study.status !== "prep"}
               canOpenPrep={canReviewPrep}
               onOpenPrep={() => setViewingPrep(true)}
@@ -347,24 +349,39 @@ function PracticeView({
 
 function StudyStepper({
   status,
+  hasPrep,
   viewingPrep,
   canOpenPrep,
   onOpenPrep,
   onClosePrep,
 }: {
   status: string
+  hasPrep: boolean
   viewingPrep: boolean
   canOpenPrep: boolean
   onOpenPrep: () => void
   onClosePrep: () => void
 }) {
-  const steps = [
-    { key: "prep", label: "Pré-seção" },
-    { key: "practice", label: "Questões" },
-    { key: "feedback", label: "Pós-seção" },
-  ]
-  const sessionIndex = status === "prep" ? 0 : status === "practice" ? 1 : 2
-  const activeIndex = viewingPrep ? 0 : sessionIndex
+  const steps = hasPrep
+    ? [
+        { key: "prep", label: "Pré-seção" },
+        { key: "practice", label: "Questões" },
+        { key: "feedback", label: "Pós-seção" },
+      ]
+    : [
+        { key: "practice", label: "Questões" },
+        { key: "feedback", label: "Pós-seção" },
+      ]
+  const sessionIndex = hasPrep
+    ? status === "prep"
+      ? 0
+      : status === "practice"
+        ? 1
+        : 2
+    : status === "practice"
+      ? 0
+      : 1
+  const activeIndex = viewingPrep && hasPrep ? 0 : sessionIndex
 
   return (
     <ol className="mt-4 flex items-center gap-2 text-xs font-medium">

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
 import { activityTypeLabel } from "@/lib/item-kinds"
+import { activityCountLabel, activityItemTotal, plural } from "@/lib/utils"
 import type { ActivitySummary } from "@/lib/types"
 
 export function ProfessorActivitiesPage() {
@@ -21,7 +22,7 @@ export function ProfessorActivitiesPage() {
       const deck = await api.importFlashcards(activity.id)
       setActivities((current) => [deck, ...current.filter((item) => item.id !== deck.id)])
       toast.success(
-        `Deck "${deck.title}" com ${deck.itemCount} cartão(ões) a partir das respostas corretas.`
+        `Deck "${deck.title}" com ${plural(activityItemTotal(deck), "cartão", "cartões")} a partir das respostas corretas.`
       )
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao importar flashcards")
@@ -81,7 +82,7 @@ export function ProfessorActivitiesPage() {
                   <Badge variant="secondary">{activityTypeLabel(item.type)}</Badge>
                   <Badge variant="outline">{item.isPublic ? "Público" : "Privado"}</Badge>
                   <span>
-                    {item.itemCount} {item.type === "flashcards" ? "cartão(ões)" : "questão(ões)"}
+                    {activityCountLabel(item.itemCount, item.type)}
                   </span>
                   <span>
                     {item.classIds.length === 0
