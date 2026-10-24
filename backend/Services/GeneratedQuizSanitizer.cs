@@ -23,7 +23,7 @@ public static partial class GeneratedQuizSanitizer
         PropertyNameCaseInsensitive = true
     };
 
-    public static IReadOnlyList<GeneratedQuizQuestionResponse> Sanitize(string rawJson, int requestedCount, string? requestedKind)
+    public static GenerateQuizQuestionsResponse Sanitize(string rawJson, int requestedCount, string? requestedKind)
     {
         var payload = Parse(rawJson);
         var drafts = payload.Questions ?? [];
@@ -51,8 +51,56 @@ public static partial class GeneratedQuizSanitizer
                 "A IA não devolveu questões válidas. Tente reformular o contexto ou gerar de novo.");
         }
 
-        return accepted;
+        return new GenerateQuizQuestionsResponse(
+            accepted,
+            BuildPrep(payload.Prep),
+            BuildFeedback(payload.Feedback));
     }
+
+    private static GeneratedPrepSectionResponse BuildPrep(GeneratedSectionDraft? draft)
+    {
+        var title = Clean(draft?.Title, 200);
+        var body = CleanBlock(draft?.Body, 8000);
+        if (title.Length < 2 || body.Length < 10)
+        {
+            throw new GeneratedQuizException(
+                "A IA não devolveu a pré-seção. Tente gerar de novo.");
+        }
+
+        var minutes = draft?.EstimatedMinutes is >= 1 and <= 180 ? draft.EstimatedMinutes : null;
+        return new GeneratedPrepSectionResponse(
+            title,
+            body,
+            CleanItems(draft?.Objectives, 8, 200),
+            minutes,
+            CleanItems(draft?.Tips, 8, 200));
+    }
+
+    private static GeneratedFeedbackSectionResponse BuildFeedback(GeneratedSectionDraft? draft)
+    {
+        var title = Clean(draft?.Title, 200);
+        var body = CleanBlock(draft?.Body, 8000);
+        if (title.Length < 2)
+        {
+            title = "Resultados";
+        }
+
+        if (body.Length < 10)
+        {
+            throw new GeneratedQuizException(
+                "A IA não devolveu a pós-seção. Tente gerar de novo.");
+        }
+
+        return new GeneratedFeedbackSectionResponse(title, body);
+    }
+
+    private static List<string> CleanItems(List<string>? values, int maxItems, int maxLength) =>
+        (values ?? [])
+            .Select(value => Clean(value, maxLength))
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(maxItems)
+            .ToList();
 
     private static GeneratedQuizPayload Parse(string rawJson)
     {
@@ -245,6 +293,20 @@ public static partial class GeneratedQuizSanitizer
         return collapsed.Length <= max ? collapsed : collapsed[..max].TrimEnd();
     }
 
+    private static string CleanBlock(string? value, int max)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "";
+        }
+
+        var lines = value.Replace("\r\n", "\n").Replace('\r', '\n')
+            .Split('\n')
+            .Select(line => Whitespace().Replace(line.Trim(), " "));
+        var text = string.Join("\n", lines).Trim();
+        return text.Length <= max ? text : text[..max].TrimEnd();
+    }
+
     [GeneratedRegex(@"```(?:json)?\s*(?<json>\{.*\})\s*```", RegexOptions.Singleline)]
     private static partial Regex FencePattern();
 
@@ -254,6 +316,17 @@ public static partial class GeneratedQuizSanitizer
     private sealed class GeneratedQuizPayload
     {
         public List<GeneratedQuizQuestionDraft>? Questions { get; set; }
+        public GeneratedSectionDraft? Prep { get; set; }
+        public GeneratedSectionDraft? Feedback { get; set; }
+    }
+
+    private sealed class GeneratedSectionDraft
+    {
+        public string? Title { get; set; }
+        public string? Body { get; set; }
+        public List<string>? Objectives { get; set; }
+        public int? EstimatedMinutes { get; set; }
+        public List<string>? Tips { get; set; }
     }
 
     private sealed class GeneratedQuizQuestionDraft

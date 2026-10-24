@@ -671,8 +671,23 @@ public record GeneratedQuizQuestionResponse(
     IReadOnlyList<GeneratedQuizOptionResponse> Options
 );
 
+public record GeneratedPrepSectionResponse(
+    string Title,
+    string Body,
+    IReadOnlyList<string> Objectives,
+    int? EstimatedMinutes,
+    IReadOnlyList<string> Tips
+);
+
+public record GeneratedFeedbackSectionResponse(
+    string Title,
+    string Body
+);
+
 public record GenerateQuizQuestionsResponse(
-    IReadOnlyList<GeneratedQuizQuestionResponse> Questions
+    IReadOnlyList<GeneratedQuizQuestionResponse> Questions,
+    GeneratedPrepSectionResponse Prep,
+    GeneratedFeedbackSectionResponse Feedback
 );
 
 public record AnalyticsOverviewResponse(

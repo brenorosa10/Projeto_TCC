@@ -43,11 +43,31 @@ public class GeneratedQuizSanitizerTests
                     { "text": "B", "isCorrect": false }
                   ]
                 }
-              ]
+              ],
+              "prep": {
+                "title": "Antes de começar",
+                "body": "Releia as características dos planetas rochosos.\nDepois comece as questões.",
+                "objectives": ["Identificar os planetas interiores", "Identificar os planetas interiores", ""],
+                "estimatedMinutes": 400,
+                "tips": ["Leia o enunciado até o fim"]
+              },
+              "feedback": {
+                "title": "",
+                "body": "Revise as questões erradas e compare com o gabarito."
+              }
             }
             """;
 
-        var questions = GeneratedQuizSanitizer.Sanitize(json, requestedCount: 2, requestedKind: null);
+        var generated = GeneratedQuizSanitizer.Sanitize(json, requestedCount: 2, requestedKind: null);
+        var questions = generated.Questions;
+
+        Assert.Equal("Antes de começar", generated.Prep.Title);
+        Assert.Contains("planetas rochosos", generated.Prep.Body);
+        Assert.Equal(["Identificar os planetas interiores"], generated.Prep.Objectives);
+        Assert.Null(generated.Prep.EstimatedMinutes);
+        Assert.Equal(["Leia o enunciado até o fim"], generated.Prep.Tips);
+        Assert.Equal("Resultados", generated.Feedback.Title);
+        Assert.Contains("gabarito", generated.Feedback.Body);
 
         Assert.Equal(2, questions.Count);
         Assert.Equal("multiple_choice", questions[0].Kind);
@@ -89,11 +109,11 @@ public class GeneratedQuizSanitizerTests
     {
         const string json = """
             ```json
-            {"questions":[{"kind":"true_false","prompt":"O Sol é uma estrela.","explanation":"Sim.","options":[{"text":"Falso","isCorrect":true},{"text":"Verdadeiro","isCorrect":false}]}]}
+            {"questions":[{"kind":"true_false","prompt":"O Sol é uma estrela.","explanation":"Sim.","options":[{"text":"Falso","isCorrect":true},{"text":"Verdadeiro","isCorrect":false}]}],"prep":{"title":"Aquecimento","body":"Lembre o que é uma estrela antes de responder.","objectives":["Relacionar o Sol às estrelas"],"estimatedMinutes":5,"tips":["Não tenha pressa"]},"feedback":{"title":"Depois do quiz","body":"Se errou, volte ao texto e marque o que ainda está confuso."}}
             ```
             """;
 
-        var questions = GeneratedQuizSanitizer.Sanitize(json, 1, "true_false");
+        var questions = GeneratedQuizSanitizer.Sanitize(json, 1, "true_false").Questions;
 
         Assert.Single(questions);
         Assert.False(questions[0].Options.Single(option => option.Text == "Verdadeiro").IsCorrect);
@@ -108,15 +128,41 @@ public class GeneratedQuizSanitizerTests
             Enumerable.Range(1, 8).Select(index =>
                 $$"""{ "text": "Opção {{index}}", "isCorrect": {{(index == 7 ? "true" : "false")}} }"""));
         var json = $$"""
-            { "questions": [ { "kind": "true_false", "prompt": "Escolha a opção correta deste conjunto.", "options": [ {{options}} ] } ] }
+            { "questions": [ { "kind": "true_false", "prompt": "Escolha a opção correta deste conjunto.", "options": [ {{options}} ] } ], "prep": { "title": "Preparação", "body": "Observe as opções com atenção antes de marcar.", "objectives": ["Comparar alternativas"], "estimatedMinutes": 6, "tips": ["Elimine o que for absurdo"] }, "feedback": { "title": "Encerramento", "body": "Anote a alternativa correta e o motivo da escolha." } }
             """;
 
-        var questions = GeneratedQuizSanitizer.Sanitize(json, 1, "multiple_choice");
+        var questions = GeneratedQuizSanitizer.Sanitize(json, 1, "multiple_choice").Questions;
 
         Assert.Equal("multiple_choice", questions[0].Kind);
         Assert.Equal(6, questions[0].Options.Count);
         Assert.Equal(1, questions[0].Options.Count(option => option.IsCorrect));
         Assert.Contains(questions[0].Options, option => option.Text == "Opção 7" && option.IsCorrect);
+    }
+
+    [Fact]
+    public void RejectsAPrepSectionWithoutOpeningText()
+    {
+        const string json = """
+            {
+              "questions": [
+                {
+                  "kind": "multiple_choice",
+                  "prompt": "Qual é a capital do Brasil?",
+                  "options": [
+                    { "text": "Brasília", "isCorrect": true },
+                    { "text": "Salvador", "isCorrect": false }
+                  ]
+                }
+              ],
+              "prep": { "title": "Pré", "body": "curto" },
+              "feedback": { "title": "Pós", "body": "Mensagem longa o bastante para encerrar." }
+            }
+            """;
+
+        var error = Assert.Throws<GeneratedQuizException>(() =>
+            GeneratedQuizSanitizer.Sanitize(json, 1, null));
+
+        Assert.Contains("pré-seção", error.Message);
     }
 }
 

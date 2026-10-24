@@ -44,7 +44,7 @@ import type {
   ActivityItem,
   CreateActivityItemRequest,
   CreateActivityRequest,
-  GeneratedQuizQuestion,
+  AcceptedQuizGeneration,
   ItemKind,
 } from "@/lib/types"
 
@@ -236,7 +236,7 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
   }
 }
 
-function questionFromGenerated(generated: GeneratedQuizQuestion): DraftQuestion {
+function questionFromGenerated(generated: AcceptedQuizGeneration["questions"][number]): DraftQuestion {
   const kind = generated.kind === "true_false" ? "true_false" : "multiple_choice"
   const question = newQuestion(kind)
   const correctTrue = generated.options.some(
@@ -596,17 +596,34 @@ export function ProfessorCreateQuizPage() {
     setQuestionIndex(Math.max(0, index - 1))
   }
 
-  function appendGenerated(generated: GeneratedQuizQuestion[]) {
-    const mapped = generated.map(questionFromGenerated)
+  function appendGenerated(generated: AcceptedQuizGeneration) {
+    const mapped = generated.questions.map(questionFromGenerated)
     const replaceBlank = questions.length === 1 && isBlankQuestion(questions[0])
     setQuestions(replaceBlank ? mapped : [...questions, ...mapped])
+    if (generated.prep) {
+      setPrepTitle(generated.prep.title)
+      setPrepBody(generated.prep.body)
+      setPrepObjectives(generated.prep.objectives.join("\n"))
+      setPrepMinutes(generated.prep.estimatedMinutes ? String(generated.prep.estimatedMinutes) : "")
+      setPrepTips(generated.prep.tips.join("\n"))
+    }
+    if (generated.feedback) {
+      setFeedbackTitle(generated.feedback.title)
+      setFeedbackBody(generated.feedback.body)
+    }
     setEditorTab("questoes")
     setQuestionIndex(replaceBlank ? 0 : questions.length)
     setQuestionPanel("pergunta")
+    const sections = [
+      generated.prep ? "pré-seção" : null,
+      generated.feedback ? "pós-seção" : null,
+    ].filter(Boolean)
+    const sectionNote =
+      sections.length > 0 ? ` ${sections.join(" e ")} atualizada${sections.length > 1 ? "s" : ""}.` : ""
     toast.success(
-      mapped.length === 1
-        ? "1 questão adicionada. Revise e salve o quiz quando quiser."
-        : `${mapped.length} questões adicionadas. Revise e salve o quiz quando quiser.`
+      (mapped.length === 1 ? "1 questão adicionada." : `${mapped.length} questões adicionadas.`) +
+        sectionNote +
+        " Revise e salve o quiz quando quiser."
     )
   }
 
@@ -955,6 +972,18 @@ export function ProfessorCreateQuizPage() {
               onSelect={setQuestionIndex}
               onAdd={addQuestion}
               onImportCsv={() => csvInputRef.current?.click()}
+              prepHasContent={Boolean(
+                prepTitle.trim() ||
+                  prepBody.trim() ||
+                  prepObjectives.trim() ||
+                  prepMinutes.trim() ||
+                  prepTips.trim() ||
+                  prepImageDataUrl
+              )}
+              feedbackHasContent={Boolean(
+                feedbackBody.trim() ||
+                  (feedbackTitle.trim() && feedbackTitle.trim().toLowerCase() !== "resultados")
+              )}
               onAcceptGenerated={appendGenerated}
               onRemove={removeActiveQuestion}
               onReorder={(delta) => {
@@ -1764,6 +1793,8 @@ function QuestionCarousel({
   onSelect,
   onAdd,
   onImportCsv,
+  prepHasContent,
+  feedbackHasContent,
   onAcceptGenerated,
   onRemove,
   onReorder,
@@ -1773,7 +1804,9 @@ function QuestionCarousel({
   onSelect: (index: number) => void
   onAdd: () => void
   onImportCsv: () => void
-  onAcceptGenerated: (questions: GeneratedQuizQuestion[]) => void
+  prepHasContent: boolean
+  feedbackHasContent: boolean
+  onAcceptGenerated: (result: AcceptedQuizGeneration) => void
   onRemove: () => void
   onReorder: (delta: number) => void
 }) {
@@ -1842,7 +1875,11 @@ function QuestionCarousel({
           Importar CSV
         </Button>
         <div className="sm:col-span-2">
-          <AiQuizGenerator onAccept={onAcceptGenerated} />
+          <AiQuizGenerator
+            prepHasContent={prepHasContent}
+            feedbackHasContent={feedbackHasContent}
+            onAccept={onAcceptGenerated}
+          />
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">

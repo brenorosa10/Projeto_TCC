@@ -509,8 +509,8 @@ public class ActivitiesController(
 
         try
         {
-            var questions = await quizGenerator.GenerateAsync(request, profile.Id, cancellationToken);
-            return Ok(new GenerateQuizQuestionsResponse(questions));
+            var generated = await quizGenerator.GenerateAsync(request, profile.Id, cancellationToken);
+            return Ok(generated);
         }
         catch (GeminiApiException exception)
         {
