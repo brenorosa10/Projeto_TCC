@@ -62,7 +62,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-hero-atmosphere">
-      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-border bg-card/95 shadow-[0_1px_0_rgb(18_57_92/0.04)] backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
             {backTo ? (
@@ -155,7 +155,7 @@ export function AppShell({
         </div>
       </header>
       {navLinks.length > 0 ? (
-        <nav className="scrollbar-none flex gap-1 overflow-x-auto border-b border-border/60 bg-background/60 px-4 py-2 backdrop-blur md:hidden">
+        <nav className="scrollbar-none flex gap-1 overflow-x-auto border-b border-border bg-card/90 px-4 py-2 backdrop-blur md:hidden">
           {navLinks.map((link) => {
             const active = isNavActive(pathname, link.to, "exact" in link && link.exact)
             const Icon = "icon" in link ? link.icon : undefined
