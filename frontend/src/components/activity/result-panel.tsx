@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react"
 import { Check, ChevronDown, Sparkles, Trophy, X } from "lucide-react"
+import { AlternativeImage } from "@/components/activity/alternative-media"
 import { RichText } from "@/components/rich-text/rich-text"
 import { cn, stripMarkdown } from "@/lib/utils"
 
@@ -12,6 +13,8 @@ export type ResultItem = {
   explanation?: string | null
   studentAnswer?: string | null
   correctAnswer?: string | null
+  studentAnswerImageUrls?: string[] | null
+  correctAnswerImageUrls?: string[] | null
 }
 
 /**
@@ -118,6 +121,17 @@ export function ResultPanel({
   )
 }
 
+function AnswerImages({ urls }: { urls: string[] }) {
+  if (urls.length === 0) return null
+  return (
+    <div className="mt-1 flex flex-wrap gap-2">
+      {urls.map((url) => (
+        <AlternativeImage key={url} imageUrl={url} className="max-h-24 max-w-48" />
+      ))}
+    </div>
+  )
+}
+
 function ResultRow({
   index,
   item,
@@ -130,7 +144,11 @@ function ResultRow({
   const [open, setOpen] = useState(false)
   const studentAnswer = plainAnswer(item.studentAnswer)
   const correctAnswer = plainAnswer(item.correctAnswer)
-  const showAnswers = item.isCorrect === false && (studentAnswer || correctAnswer)
+  const studentImages = item.studentAnswerImageUrls ?? []
+  const correctImages = item.correctAnswerImageUrls ?? []
+  const showAnswers =
+    item.isCorrect === false &&
+    Boolean(studentAnswer || correctAnswer || studentImages.length || correctImages.length)
   const expandable = Boolean(item.explanation?.trim()) && !showAnswers
 
   return (
@@ -174,18 +192,32 @@ function ResultRow({
             {expandable ? (open ? " · ocultar explicação" : " · ver explicação") : null}
           </p>
           {showAnswers ? (
-            <div className="mt-2 space-y-1 text-sm text-foreground">
-              {studentAnswer ? (
-                <p>
-                  <span className="font-medium">Sua resposta: </span>
-                  {studentAnswer}
-                </p>
+            <div className="mt-2 space-y-2 text-sm text-foreground">
+              {studentAnswer || studentImages.length ? (
+                <div>
+                  {studentAnswer ? (
+                    <p>
+                      <span className="font-medium">Sua resposta: </span>
+                      {studentAnswer}
+                    </p>
+                  ) : (
+                    <p className="font-medium">Sua resposta</p>
+                  )}
+                  <AnswerImages urls={studentImages} />
+                </div>
               ) : null}
-              {correctAnswer ? (
-                <p>
-                  <span className="font-medium">Resposta correta: </span>
-                  {correctAnswer}
-                </p>
+              {correctAnswer || correctImages.length ? (
+                <div>
+                  {correctAnswer ? (
+                    <p>
+                      <span className="font-medium">Resposta correta: </span>
+                      {correctAnswer}
+                    </p>
+                  ) : (
+                    <p className="font-medium">Resposta correta</p>
+                  )}
+                  <AnswerImages urls={correctImages} />
+                </div>
               ) : null}
             </div>
           ) : null}

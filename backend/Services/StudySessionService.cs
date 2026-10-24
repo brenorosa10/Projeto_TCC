@@ -640,7 +640,9 @@ public class StudySessionService(
                     answer.Remembered,
                     answer.Score,
                     StudyAnswerFormatter.StudentAnswer(item, answer),
-                    StudyAnswerFormatter.CorrectAnswer(item));
+                    StudyAnswerFormatter.CorrectAnswer(item),
+                    StudyAnswerFormatter.SelectedImageUrls(item, answer),
+                    StudyAnswerFormatter.CorrectImageUrls(item));
             })
             .ToList();
 

@@ -19,6 +19,7 @@ import {
   type DraftBlock,
 } from "@/components/activity/content-block-fields"
 import { ItemImageField } from "@/components/activity/item-image-field"
+import { OptionImageField } from "@/components/activity/option-image-field"
 import { PrepFeedbackFields } from "@/components/activity/prep-feedback-fields"
 import { QuestionPreview } from "@/components/activity/question-preview"
 import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
@@ -33,6 +34,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { activityEditorNav } from "@/lib/activity-editor-paths"
 import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
+import { isAcceptableImageUrl } from "@/lib/media-url"
 import { cleanContentBlocks, flattenContentBlocks, QUESTION_DIFFICULTIES } from "@/lib/content-blocks"
 import { findSection, ITEM_KIND_LABELS, QUIZ_ITEM_KINDS } from "@/lib/item-kinds"
 import { parseQuizCsv, type ImportedQuizQuestion } from "@/lib/quiz-csv-import"
@@ -44,7 +46,13 @@ import type {
   ItemKind,
 } from "@/lib/types"
 
-type DraftOption = { key: string; id?: string; text: string; isCorrect: boolean }
+type DraftOption = {
+  key: string
+  id?: string
+  text: string
+  isCorrect: boolean
+  imageUrl?: string
+}
 type DraftPair = { key: string; leftId?: string; rightId?: string; left: string; right: string }
 type DraftLine = { key: string; id?: string; text: string }
 type DraftCategory = { key: string; id?: string; label: string }
@@ -61,6 +69,8 @@ type DraftQuestion = {
   allowMultiple: boolean
   options: DraftOption[]
   correctTrue: boolean
+  trueImageUrl?: string
+  falseImageUrl?: string
   acceptedAnswers: string
   caseSensitive: boolean
   pairs: DraftPair[]
@@ -180,8 +190,13 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
             id: option.id,
             text: option.text,
             isCorrect: Boolean(option.isCorrect),
+            imageUrl: option.imageUrl ?? undefined,
           }))
         : [newOption(true), newOption(), newOption(), newOption()],
+    trueImageUrl: item.options?.find((option) => option.text.toLowerCase().startsWith("verdade"))
+      ?.imageUrl ?? undefined,
+    falseImageUrl: item.options?.find((option) => option.text.toLowerCase().startsWith("falso"))
+      ?.imageUrl ?? undefined,
     correctTrue: trueOption ? Boolean(trueOption.isCorrect) : true,
     acceptedAnswers: (item.acceptedAnswers ?? []).join("\n"),
     caseSensitive: Boolean(item.caseSensitive),
@@ -251,7 +266,9 @@ function isBlankQuestion(question: DraftQuestion) {
     question.intro.every((block) => !block.content.trim()) &&
     question.promptBlocks.every((block) => !block.content.trim()) &&
     question.feedbackBlocks.every((block) => !block.content.trim()) &&
-    question.options.every((option) => !option.text.trim())
+    question.options.every((option) => !option.text.trim() && !option.imageUrl?.trim()) &&
+    !question.trueImageUrl?.trim() &&
+    !question.falseImageUrl?.trim()
   )
 }
 
@@ -308,7 +325,28 @@ function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
   }
 
   if (question.kind === "true_false") {
-    return { ...base, correctTrue: question.correctTrue }
+    const verdadeiro = question.options.find((option) =>
+      option.text.toLowerCase().startsWith("verdade")
+    )
+    const falso = question.options.find((option) => option.text.toLowerCase().startsWith("falso"))
+    return {
+      ...base,
+      correctTrue: question.correctTrue,
+      options: [
+        {
+          id: verdadeiro?.id,
+          text: "Verdadeiro",
+          isCorrect: question.correctTrue,
+          imageUrl: question.trueImageUrl?.trim() || undefined,
+        },
+        {
+          id: falso?.id,
+          text: "Falso",
+          isCorrect: !question.correctTrue,
+          imageUrl: question.falseImageUrl?.trim() || undefined,
+        },
+      ],
+    }
   }
   if (question.kind === "short_answer") {
     return {
@@ -364,6 +402,7 @@ function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
       id: option.id,
       text: option.text.trim(),
       isCorrect: option.isCorrect,
+      imageUrl: option.imageUrl?.trim() || undefined,
     })),
   }
 }
@@ -455,14 +494,14 @@ export function ProfessorCreateQuizPage() {
     setQuestions((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)))
   }
 
-  function updateOption(questionKey: string, optionKey: string, text: string) {
+  function patchOption(questionKey: string, optionKey: string, patch: Partial<DraftOption>) {
     setQuestions((prev) =>
       prev.map((item) =>
         item.key === questionKey
           ? {
               ...item,
               options: item.options.map((option) =>
-                option.key === optionKey ? { ...option, text } : option
+                option.key === optionKey ? { ...option, ...patch } : option
               ),
             }
           : item
@@ -584,10 +623,20 @@ export function ProfessorCreateQuizPage() {
         return null
       }
       if (question.kind === "multiple_choice") {
-        if (question.options.some((option) => !option.text.trim())) {
-          toast.error(`Preencha todas as alternativas da questão ${n}.`)
-          goToQuestion(index)
-          return null
+        for (const [optionIndex, option] of question.options.entries()) {
+          const letter = String.fromCharCode(65 + optionIndex)
+          if (!option.text.trim() && !option.imageUrl?.trim()) {
+            toast.error(`A alternativa ${letter} da questão ${n} precisa de texto ou imagem.`)
+            goToQuestion(index)
+            return null
+          }
+          if (option.imageUrl?.trim() && !isAcceptableImageUrl(option.imageUrl)) {
+            toast.error(
+              `A imagem da alternativa ${letter} da questão ${n} precisa ser um link http ou https.`
+            )
+            goToQuestion(index)
+            return null
+          }
         }
         const correctCount = question.options.filter((option) => option.isCorrect).length
         if (question.allowMultiple ? correctCount < 1 : correctCount !== 1) {
@@ -598,6 +647,18 @@ export function ProfessorCreateQuizPage() {
           )
           goToQuestion(index)
           return null
+        }
+      }
+      if (question.kind === "true_false") {
+        for (const [label, imageUrl] of [
+          ["Verdadeiro", question.trueImageUrl],
+          ["Falso", question.falseImageUrl],
+        ] as const) {
+          if (imageUrl?.trim() && !isAcceptableImageUrl(imageUrl)) {
+            toast.error(`A imagem de "${label}" na questão ${n} precisa ser um link http ou https.`)
+            goToQuestion(index)
+            return null
+          }
         }
       }
       if (question.kind === "short_answer") {
@@ -951,8 +1012,18 @@ export function ProfessorCreateQuizPage() {
                       question.kind === "multiple_choice" || question.kind === "true_false"
                         ? question.kind === "true_false"
                           ? [
-                              { key: "true", text: "Verdadeiro", isCorrect: question.correctTrue },
-                              { key: "false", text: "Falso", isCorrect: !question.correctTrue },
+                              {
+                                key: "true",
+                                text: "Verdadeiro",
+                                isCorrect: question.correctTrue,
+                                imageUrl: question.trueImageUrl,
+                              },
+                              {
+                                key: "false",
+                                text: "Falso",
+                                isCorrect: !question.correctTrue,
+                                imageUrl: question.falseImageUrl,
+                              },
                             ]
                           : question.options
                         : undefined
@@ -1116,44 +1187,51 @@ export function ProfessorCreateQuizPage() {
                       <div
                         key={option.key}
                         className={cn(
-                          "flex items-center gap-2 rounded-xl border px-2.5 py-2 transition-colors",
+                          "grid gap-2 rounded-xl border px-2.5 py-2 transition-colors",
                           option.isCorrect
                             ? "border-success/40 bg-success/6"
                             : "border-border/70 bg-muted/25"
                         )}
                       >
-                        <input
-                          type={question.allowMultiple ? "checkbox" : "radio"}
-                          name={`correct-${question.key}`}
-                          className="h-4 w-4 accent-[var(--color-success)]"
-                          checked={option.isCorrect}
-                          onChange={() =>
-                            markCorrect(question.key, option.key, question.allowMultiple)
-                          }
-                          aria-label={`Marcar alternativa ${optionIndex + 1} como correta`}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type={question.allowMultiple ? "checkbox" : "radio"}
+                            name={`correct-${question.key}`}
+                            className="h-4 w-4 accent-[var(--color-success)]"
+                            checked={option.isCorrect}
+                            onChange={() =>
+                              markCorrect(question.key, option.key, question.allowMultiple)
+                            }
+                            aria-label={`Marcar alternativa ${optionIndex + 1} como correta`}
+                          />
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-card text-xs font-bold text-muted-foreground">
+                            {String.fromCharCode(65 + optionIndex)}
+                          </span>
+                          <Input
+                            value={option.text}
+                            onChange={(event) =>
+                              patchOption(question.key, option.key, { text: event.target.value })
+                            }
+                            className="border-transparent bg-card"
+                            placeholder={`Alternativa ${String.fromCharCode(65 + optionIndex)} (texto ou imagem)`}
+                          />
+                          {question.options.length > 2 ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Remover alternativa"
+                              onClick={() => removeOption(question.key, option.key)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                        <OptionImageField
+                          inputId={`option-image-${option.key}`}
+                          imageUrl={option.imageUrl}
+                          onChange={(imageUrl) => patchOption(question.key, option.key, { imageUrl })}
                         />
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-card text-xs font-bold text-muted-foreground">
-                          {String.fromCharCode(65 + optionIndex)}
-                        </span>
-                        <Input
-                          value={option.text}
-                          onChange={(event) =>
-                            updateOption(question.key, option.key, event.target.value)
-                          }
-                          className="border-transparent bg-card"
-                          placeholder={`Alternativa ${String.fromCharCode(65 + optionIndex)}`}
-                        />
-                        {question.options.length > 2 ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Remover alternativa"
-                            onClick={() => removeOption(question.key, option.key)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        ) : null}
                       </div>
                     ))}
                     {question.options.length < 6 ? (
@@ -1171,26 +1249,40 @@ export function ProfessorCreateQuizPage() {
                 ) : null}
 
                 {questionPanel === "pergunta" && question.kind === "true_false" ? (
-                  <fieldset className="grid gap-2">
+                  <fieldset className="grid gap-3">
                     <legend className="text-sm font-medium">Resposta correta</legend>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="radio"
-                        name={`tf-${question.key}`}
-                        checked={question.correctTrue}
-                        onChange={() => updateQuestion(question.key, { correctTrue: true })}
+                    <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/25 px-2.5 py-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name={`tf-${question.key}`}
+                          checked={question.correctTrue}
+                          onChange={() => updateQuestion(question.key, { correctTrue: true })}
+                        />
+                        Verdadeiro
+                      </label>
+                      <OptionImageField
+                        inputId={`true-image-${question.key}`}
+                        imageUrl={question.trueImageUrl}
+                        onChange={(trueImageUrl) => updateQuestion(question.key, { trueImageUrl })}
                       />
-                      Verdadeiro
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="radio"
-                        name={`tf-${question.key}`}
-                        checked={!question.correctTrue}
-                        onChange={() => updateQuestion(question.key, { correctTrue: false })}
+                    </div>
+                    <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/25 px-2.5 py-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name={`tf-${question.key}`}
+                          checked={!question.correctTrue}
+                          onChange={() => updateQuestion(question.key, { correctTrue: false })}
+                        />
+                        Falso
+                      </label>
+                      <OptionImageField
+                        inputId={`false-image-${question.key}`}
+                        imageUrl={question.falseImageUrl}
+                        onChange={(falseImageUrl) => updateQuestion(question.key, { falseImageUrl })}
                       />
-                      Falso
-                    </label>
+                    </div>
                   </fieldset>
                 ) : null}
 

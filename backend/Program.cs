@@ -120,6 +120,7 @@ builder.Services.AddScoped<StudyAccessService>();
 builder.Services.AddScoped<StudySessionService>();
 builder.Services.AddScoped<LiveSessionService>();
 builder.Services.AddScoped<AnalyticsService>();
+builder.Services.AddSingleton(new MediaStorage(ResolveMediaRoot(builder)));
 builder.Services.AddSignalR(options =>
 {
     options.MaximumReceiveMessageSize = 10 * 1024 * 1024;
@@ -175,6 +176,17 @@ app.MapHub<LiveSessionHub>("/hubs/live");
 app.MapGet("/", () => Results.Ok(new { name = "Astro.Api", docs = "/swagger" }));
 
 app.Run();
+
+static string ResolveMediaRoot(WebApplicationBuilder builder)
+{
+    var configured = builder.Configuration["Media:Root"];
+    if (!string.IsNullOrWhiteSpace(configured))
+    {
+        return configured.Trim();
+    }
+
+    return Path.Combine(builder.Environment.ContentRootPath, "data", "media");
+}
 
 static string[] ReadCorsOrigins(IConfiguration configuration)
 {

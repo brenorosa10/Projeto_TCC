@@ -171,6 +171,13 @@ public class QuestionOption
     public string Text { get; set; } = string.Empty;
     public bool IsCorrect { get; set; }
     public int Position { get; set; }
+
+    /// <summary>
+    /// Link http(s) colado pelo autor ou caminho /api/media/{id} de um upload.
+    /// Ausente nos quizzes criados antes das imagens de alternativa.
+    /// </summary>
+    [BsonIgnoreIfNull]
+    public string? ImageUrl { get; set; }
 }
 
 public class MatchingPair

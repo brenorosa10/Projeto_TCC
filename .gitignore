@@ -3,6 +3,7 @@ node_modules/
 **/bin/
 **/obj/
 backend/dp-keys/
+backend/data/
 
 # Env / secrets
 .env

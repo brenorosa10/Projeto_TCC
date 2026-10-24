@@ -83,12 +83,14 @@ public record ClassResponse(
 
 public record CreateQuestionOptionRequest(
     Guid? Id,
-    [Required]
-    [MinLength(1)]
     [MaxLength(500)]
-    string Text,
-    bool IsCorrect
+    string? Text,
+    bool IsCorrect,
+    [MaxLength(2000)]
+    string? ImageUrl = null
 );
+
+public record MediaUploadResponse(string Url);
 
 public record CreateMatchingPairRequest(
     Guid? LeftId,
@@ -219,7 +221,8 @@ public record QuestionOptionResponse(
     Guid Id,
     string Text,
     bool? IsCorrect,
-    int Position
+    int Position,
+    string? ImageUrl = null
 );
 
 public record MatchingPairResponse(
@@ -506,7 +509,9 @@ public record StudySessionFeedbackItemResponse(
     bool? Remembered,
     int? Score,
     string? StudentAnswer = null,
-    string? CorrectAnswer = null
+    string? CorrectAnswer = null,
+    IReadOnlyList<string>? StudentAnswerImageUrls = null,
+    IReadOnlyList<string>? CorrectAnswerImageUrls = null
 );
 
 public record StudySessionFeedbackResponse(

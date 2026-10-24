@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import * as signalR from "@microsoft/signalr"
 import { toast } from "sonner"
 import { CheckCircle2, Hourglass, PartyPopper, Radio, Trophy, Users, XCircle } from "lucide-react"
+import { AlternativeBody } from "@/components/activity/alternative-media"
 import { ItemAnswerForm } from "@/components/activity/item-answer-form"
 import { ItemPrompt } from "@/components/activity/item-prompt"
 import { QuestionCountdown } from "@/components/activity/question-countdown"
@@ -329,7 +330,11 @@ function StudentRoom({
                       >
                         {String.fromCharCode(65 + index)}
                       </span>
-                      <RichText value={option.text} className="min-w-0 flex-1 text-sm" />
+                      <AlternativeBody
+                        text={option.text}
+                        imageUrl={option.imageUrl}
+                        textClassName="text-sm"
+                      />
                       {option.isCorrect ? (
                         <Badge variant="success" className="shrink-0">
                           correta

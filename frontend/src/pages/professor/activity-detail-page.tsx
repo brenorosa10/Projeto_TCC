@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Flag, Rocket } from "lucide-react"
+import { AlternativeBody } from "@/components/activity/alternative-media"
 import { ContentBlockList } from "@/components/activity/content-block-list"
 import { PromptMedia } from "@/components/activity/question-preview"
 import { DeleteActivityButton } from "@/components/activity/delete-activity-button"
@@ -410,7 +411,7 @@ function ActivityItemPreview({
               >
                 {String.fromCharCode(65 + optionIndex)}
               </span>
-              <RichText value={option.text} className="min-w-0 flex-1 text-sm" />
+              <AlternativeBody text={option.text} imageUrl={option.imageUrl} textClassName="text-sm" />
             </li>
           ))}
         </ul>

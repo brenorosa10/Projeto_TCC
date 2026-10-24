@@ -331,14 +331,16 @@ public static class ActivityContentBuilder
                     Id = existingTrue?.Id ?? Guid.NewGuid(),
                     Text = "Verdadeiro",
                     IsCorrect = correctTrue,
-                    Position = 0
+                    Position = 0,
+                    ImageUrl = existingTrue?.ImageUrl
                 },
                 new QuestionOption
                 {
                     Id = existingFalse?.Id ?? Guid.NewGuid(),
                     Text = "Falso",
                     IsCorrect = !correctTrue,
-                    Position = 1
+                    Position = 1,
+                    ImageUrl = existingFalse?.ImageUrl
                 }
             ];
         }
@@ -347,9 +349,10 @@ public static class ActivityContentBuilder
             .Select((option, optionIndex) => new QuestionOption
             {
                 Id = ResolveOptionId(option.Id, existing?.Options),
-                Text = option.Text.Trim(),
+                Text = option.Text?.Trim() ?? string.Empty,
                 IsCorrect = option.IsCorrect,
-                Position = optionIndex
+                Position = optionIndex,
+                ImageUrl = OptionImageUrl.Normalize(option.ImageUrl).Value
             })
             .ToList();
     }
@@ -398,6 +401,25 @@ public static class ActivityContentBuilder
         };
     }
 
+    private static string? ValidateOptionContent(IReadOnlyList<CreateQuestionOptionRequest> options)
+    {
+        foreach (var option in options)
+        {
+            if (string.IsNullOrWhiteSpace(option.Text) && string.IsNullOrWhiteSpace(option.ImageUrl))
+            {
+                return "Cada alternativa precisa de texto ou de uma imagem.";
+            }
+
+            var image = OptionImageUrl.Normalize(option.ImageUrl);
+            if (image.Error is not null)
+            {
+                return image.Error;
+            }
+        }
+
+        return null;
+    }
+
     private static string? ValidateMultipleChoice(CreateActivityItemRequest item)
     {
         if (!HasAuthoredPrompt(item))
@@ -411,9 +433,10 @@ public static class ActivityContentBuilder
             return "Cada questão de múltipla escolha deve ter de 2 a 6 alternativas.";
         }
 
-        if (options.Any(option => string.IsNullOrWhiteSpace(option.Text)))
+        var optionError = ValidateOptionContent(options);
+        if (optionError is not null)
         {
-            return "Todas as alternativas precisam de texto.";
+            return optionError;
         }
 
         var correctCount = options.Count(option => option.IsCorrect);
@@ -449,9 +472,10 @@ public static class ActivityContentBuilder
             return "Questões de verdadeiro ou falso devem ter exatamente duas alternativas.";
         }
 
-        if (options.Any(option => string.IsNullOrWhiteSpace(option.Text)))
+        var optionError = ValidateOptionContent(options);
+        if (optionError is not null)
         {
-            return "Todas as alternativas precisam de texto.";
+            return optionError;
         }
 
         return options.Count(option => option.IsCorrect) != 1

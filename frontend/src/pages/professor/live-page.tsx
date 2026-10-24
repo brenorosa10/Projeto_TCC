@@ -17,6 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react"
+import { AlternativeBody } from "@/components/activity/alternative-media"
 import { QuestionCountdown } from "@/components/activity/question-countdown"
 import { ItemPrompt } from "@/components/activity/item-prompt"
 import { AppShell } from "@/components/layout/app-shell"
@@ -645,7 +646,7 @@ function HostRoom({
                     >
                       {String.fromCharCode(65 + index)}
                     </span>
-                    <RichText value={option.text} className="min-w-0 flex-1" />
+                    <AlternativeBody text={option.text} imageUrl={option.imageUrl} />
                     {option.isCorrect ? (
                       <Badge variant="success" className="shrink-0">
                         correta
@@ -880,6 +881,38 @@ function RevealCard({ state }: { state: LiveSessionState }) {
   return (
     <div className="surface-card space-y-5 p-5 sm:p-6">
       {state.currentItem ? <ItemPrompt item={state.currentItem} /> : null}
+      {state.currentItem?.options?.length ? (
+        <ul className="grid gap-2">
+          {state.currentItem.options.map((option, index) => (
+            <li
+              key={option.id}
+              className={cn(
+                "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm",
+                option.isCorrect
+                  ? "border-success/40 bg-success/8"
+                  : "border-border/70 bg-muted/30"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                  option.isCorrect
+                    ? "bg-success/15 text-success"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {String.fromCharCode(65 + index)}
+              </span>
+              <AlternativeBody text={option.text} imageUrl={option.imageUrl} />
+              {option.isCorrect ? (
+                <Badge variant="success" className="shrink-0">
+                  correta
+                </Badge>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-5">
         <AccuracyDonut percent={reveal.accuracyPercent} />

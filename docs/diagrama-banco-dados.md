@@ -92,6 +92,7 @@ erDiagram
     string text
     bool isCorrect
     int position
+    string imageUrl "opcional: /api/media/{id} ou http(s)"
   }
 
   ANSWER_ATTEMPTS {

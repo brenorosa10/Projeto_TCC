@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { ArrowDown, ArrowUp } from "lucide-react"
+import { AlternativeBody } from "@/components/activity/alternative-media"
 import { RichText } from "@/components/rich-text/rich-text"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -388,7 +389,7 @@ export function ItemAnswerForm({
                 >
                   {String.fromCharCode(65 + index)}
                 </span>
-                <RichText value={option.text} className="min-w-0 flex-1" />
+                <AlternativeBody text={option.text} imageUrl={option.imageUrl} />
               </button>
             </li>
           )

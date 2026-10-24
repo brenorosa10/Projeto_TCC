@@ -67,7 +67,12 @@ public static class ActivityItemPresenter
             item.TimeLimitSeconds,
             item.Options?
                 .OrderBy(option => option.Position)
-                .Select(option => new QuestionOptionResponse(option.Id, option.Text, null, option.Position))
+                .Select(option => new QuestionOptionResponse(
+                    option.Id,
+                    option.Text,
+                    null,
+                    option.Position,
+                    option.ImageUrl))
                 .ToList(),
             item.Front,
             null,
@@ -96,7 +101,12 @@ public static class ActivityItemPresenter
         {
             Options = item.Options?
                 .OrderBy(option => option.Position)
-                .Select(option => new QuestionOptionResponse(option.Id, option.Text, option.IsCorrect, option.Position))
+                .Select(option => new QuestionOptionResponse(
+                    option.Id,
+                    option.Text,
+                    option.IsCorrect,
+                    option.Position,
+                    option.ImageUrl))
                 .ToList()
         };
     }

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { hasContentBlocks } from "@/lib/content-blocks"
 import { ITEM_KIND_LABELS } from "@/lib/item-kinds"
 import { cn } from "@/lib/utils"
+import { AlternativeBody } from "@/components/activity/alternative-media"
 import type { ContentBlock, ImagePosition, ItemKind } from "@/lib/types"
 
 export function PromptMedia({
@@ -61,7 +62,7 @@ export function QuestionPreview({
   imagePosition?: ImagePosition | string | null
   topics?: string[]
   difficulty?: string | null
-  options?: { key: string; text: string; isCorrect?: boolean }[]
+  options?: { key: string; text: string; isCorrect?: boolean; imageUrl?: string }[]
   allowMultiple?: boolean
   requireExplanation?: boolean
   explanationPrompt?: string
@@ -117,11 +118,11 @@ export function QuestionPreview({
               >
                 {String.fromCharCode(65 + index)}
               </span>
-              <RichText
-                value={option.text}
-                fallback={<span className="text-sm text-muted-foreground">Alternativa vazia</span>}
-                className="min-w-0 flex-1 text-sm"
-              />
+              {option.text.trim() || option.imageUrl ? (
+                <AlternativeBody text={option.text} imageUrl={option.imageUrl} textClassName="text-sm" />
+              ) : (
+                <span className="text-sm text-muted-foreground">Alternativa vazia</span>
+              )}
             </li>
           ))}
         </ul>
