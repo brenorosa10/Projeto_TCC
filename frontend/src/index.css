@@ -36,7 +36,7 @@
   --color-warning-foreground: #ffffff;
   --color-border: #b7c8d6;
   --color-input: #9fb4c6;
-  --color-field: #f4f8fb;
+  --color-surface: #e4eef6;
   --color-ring: #2f7ea3;
 
   /* Code surface */
@@ -116,10 +116,6 @@
 
   .bg-hero-atmosphere {
     background-color: #d9e4ee;
-    background-image:
-      radial-gradient(ellipse 90% 42% at 0% -8%, rgb(109 92 231 / 0.12), transparent 52%),
-      radial-gradient(ellipse 70% 40% at 100% -6%, rgb(18 57 92 / 0.16), transparent 50%),
-      linear-gradient(180deg, #c9d9e6 0%, #d9e4ee 22rem, #e3ebf2 100%);
   }
 
   .pattern-grid {
@@ -130,11 +126,11 @@
   }
 
   .surface-card {
-    @apply rounded-xl border border-border bg-card shadow-[var(--shadow-soft)];
+    @apply rounded-xl border border-border bg-surface shadow-[var(--shadow-soft)];
   }
 
   .surface-raised {
-    @apply rounded-xl border border-border/70 bg-card/85 shadow-[var(--shadow-lift)] backdrop-blur;
+    @apply rounded-xl border border-border bg-surface shadow-[var(--shadow-lift)];
   }
 
   .text-balance {
