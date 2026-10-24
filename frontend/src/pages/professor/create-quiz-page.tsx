@@ -929,8 +929,8 @@ export function ProfessorCreateQuizPage() {
 
           {editorTab === "geral" ? (
             <div className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                <div className="grid gap-1.5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="grid min-w-0 flex-1 gap-1.5">
                   <Label htmlFor="quiz-title">Título</Label>
                   <Input
                     id="quiz-title"
@@ -940,9 +940,26 @@ export function ProfessorCreateQuizPage() {
                     className="h-12 text-lg"
                   />
                 </div>
-                {!nav.student ? (
-                  <VisibilityCheckbox id="quiz-public" checked={isPublic} onChange={setIsPublic} />
-                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <AiQuizGenerator
+                    prepHasContent={Boolean(
+                      prepTitle.trim() ||
+                        prepBody.trim() ||
+                        prepObjectives.trim() ||
+                        prepMinutes.trim() ||
+                        prepTips.trim() ||
+                        prepImageDataUrl
+                    )}
+                    feedbackHasContent={Boolean(
+                      feedbackBody.trim() ||
+                        (feedbackTitle.trim() && feedbackTitle.trim().toLowerCase() !== "resultados")
+                    )}
+                    onAccept={appendGenerated}
+                  />
+                  {!nav.student ? (
+                    <VisibilityCheckbox id="quiz-public" checked={isPublic} onChange={setIsPublic} />
+                  ) : null}
+                </div>
               </div>
 
               <PrepFeedbackFields
@@ -972,19 +989,6 @@ export function ProfessorCreateQuizPage() {
               onSelect={setQuestionIndex}
               onAdd={addQuestion}
               onImportCsv={() => csvInputRef.current?.click()}
-              prepHasContent={Boolean(
-                prepTitle.trim() ||
-                  prepBody.trim() ||
-                  prepObjectives.trim() ||
-                  prepMinutes.trim() ||
-                  prepTips.trim() ||
-                  prepImageDataUrl
-              )}
-              feedbackHasContent={Boolean(
-                feedbackBody.trim() ||
-                  (feedbackTitle.trim() && feedbackTitle.trim().toLowerCase() !== "resultados")
-              )}
-              onAcceptGenerated={appendGenerated}
               onRemove={removeActiveQuestion}
               onReorder={(delta) => {
                 const index = Math.min(questionIndex, questions.length - 1)
@@ -1793,9 +1797,6 @@ function QuestionCarousel({
   onSelect,
   onAdd,
   onImportCsv,
-  prepHasContent,
-  feedbackHasContent,
-  onAcceptGenerated,
   onRemove,
   onReorder,
 }: {
@@ -1804,9 +1805,6 @@ function QuestionCarousel({
   onSelect: (index: number) => void
   onAdd: () => void
   onImportCsv: () => void
-  prepHasContent: boolean
-  feedbackHasContent: boolean
-  onAcceptGenerated: (result: AcceptedQuizGeneration) => void
   onRemove: () => void
   onReorder: (delta: number) => void
 }) {
@@ -1874,13 +1872,6 @@ function QuestionCarousel({
           <FileUp className="h-5 w-5" />
           Importar CSV
         </Button>
-        <div className="sm:col-span-2">
-          <AiQuizGenerator
-            prepHasContent={prepHasContent}
-            feedbackHasContent={feedbackHasContent}
-            onAccept={onAcceptGenerated}
-          />
-        </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <Button

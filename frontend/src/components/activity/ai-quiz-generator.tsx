@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { QUESTION_DIFFICULTIES } from "@/lib/content-blocks"
+import { cn } from "@/lib/utils"
 import type {
   AcceptedQuizGeneration,
   GeneratedFeedbackSection,
@@ -49,10 +50,12 @@ export function AiQuizGenerator({
   prepHasContent,
   feedbackHasContent,
   onAccept,
+  className,
 }: {
   prepHasContent: boolean
   feedbackHasContent: boolean
   onAccept: (result: AcceptedQuizGeneration) => void
+  className?: string
 }) {
   const [open, setOpen] = useState(false)
   const [context, setContext] = useState("")
@@ -235,7 +238,7 @@ export function AiQuizGenerator({
       <Button
         type="button"
         variant="outline"
-        className="h-11 w-full text-sm font-semibold"
+        className={cn("h-12 w-full text-sm font-semibold sm:w-auto", className)}
         onClick={() => setOpen(true)}
       >
         <Sparkles className="h-5 w-5" />
