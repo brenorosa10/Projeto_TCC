@@ -192,8 +192,12 @@ function isNavActive(
 }
 
 function parentRoute(pathname: string) {
-  const segments = pathname.replace(/\/+$/, "").split("/").filter(Boolean)
+  const path = pathname.replace(/\/+$/, "")
+  if (path.startsWith("/professor/quiz") || path.startsWith("/professor/flashcards")) {
+    return "/professor/atividades"
+  }
+  if (path.startsWith("/aluno/estudar/criar")) return "/aluno/estudar"
+  const segments = path.split("/").filter(Boolean)
   if (segments.length <= 1) return null
-  if (pathname.startsWith("/aluno/estudar/criar")) return "/aluno/estudar"
   return `/${segments.slice(0, -1).join("/")}`
 }
