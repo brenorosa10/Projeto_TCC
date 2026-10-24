@@ -288,8 +288,29 @@ export interface GeneratedQuizQuestion {
   options: GeneratedQuizOption[]
 }
 
+export interface GeneratedPrepSection {
+  title: string
+  body: string
+  objectives: string[]
+  estimatedMinutes?: number | null
+  tips: string[]
+}
+
+export interface GeneratedFeedbackSection {
+  title: string
+  body: string
+}
+
 export interface GenerateQuizQuestionsResponse {
   questions: GeneratedQuizQuestion[]
+  prep: GeneratedPrepSection
+  feedback: GeneratedFeedbackSection
+}
+
+export interface AcceptedQuizGeneration {
+  questions: GeneratedQuizQuestion[]
+  prep: GeneratedPrepSection | null
+  feedback: GeneratedFeedbackSection | null
 }
 
 export interface CreateActivityRequest {

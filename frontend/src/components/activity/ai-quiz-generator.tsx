@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { Sparkles, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,12 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { QUESTION_DIFFICULTIES } from "@/lib/content-blocks"
-import type { GeneratedQuizQuestion } from "@/lib/types"
+import type {
+  AcceptedQuizGeneration,
+  GeneratedFeedbackSection,
+  GeneratedPrepSection,
+  GeneratedQuizQuestion,
+} from "@/lib/types"
 
 type DraftOption = { key: string; text: string; isCorrect: boolean }
 type ReviewQuestion = {
@@ -26,6 +31,14 @@ type ReviewQuestion = {
   options: DraftOption[]
 }
 
+type ReviewBundle = {
+  questions: ReviewQuestion[]
+  prep: GeneratedPrepSection
+  feedback: GeneratedFeedbackSection
+  applyPrep: boolean
+  applyFeedback: boolean
+}
+
 const kinds = [
   { value: "mixed", label: "Mista" },
   { value: "multiple_choice", label: "Múltipla escolha" },
@@ -33,9 +46,13 @@ const kinds = [
 ] as const
 
 export function AiQuizGenerator({
+  prepHasContent,
+  feedbackHasContent,
   onAccept,
 }: {
-  onAccept: (questions: GeneratedQuizQuestion[]) => void
+  prepHasContent: boolean
+  feedbackHasContent: boolean
+  onAccept: (result: AcceptedQuizGeneration) => void
 }) {
   const [open, setOpen] = useState(false)
   const [context, setContext] = useState("")
@@ -43,7 +60,7 @@ export function AiQuizGenerator({
   const [difficulty, setDifficulty] = useState("")
   const [kind, setKind] = useState<(typeof kinds)[number]["value"]>("mixed")
   const [generating, setGenerating] = useState(false)
-  const [review, setReview] = useState<ReviewQuestion[] | null>(null)
+  const [review, setReview] = useState<ReviewBundle | null>(null)
 
   function resetReview() {
     setReview(null)
@@ -70,7 +87,22 @@ export function AiQuizGenerator({
         toast.error("A IA não devolveu questões válidas. Tente novamente.")
         return
       }
-      setReview(questions)
+      setReview({
+        questions,
+        prep: {
+          title: response.prep.title,
+          body: response.prep.body,
+          objectives: response.prep.objectives ?? [],
+          estimatedMinutes: response.prep.estimatedMinutes,
+          tips: response.prep.tips ?? [],
+        },
+        feedback: {
+          title: response.feedback.title,
+          body: response.feedback.body,
+        },
+        applyPrep: !prepHasContent,
+        applyFeedback: !feedbackHasContent,
+      })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível gerar as questões.")
     } finally {
@@ -80,52 +112,73 @@ export function AiQuizGenerator({
 
   function updateQuestion(key: string, patch: Partial<ReviewQuestion>) {
     setReview((current) =>
-      current?.map((question) => (question.key === key ? { ...question, ...patch } : question)) ?? null
+      current
+        ? {
+            ...current,
+            questions: current.questions.map((question) =>
+              question.key === key ? { ...question, ...patch } : question
+            ),
+          }
+        : null
     )
   }
 
   function markCorrect(questionKey: string, optionKey: string) {
     setReview((current) =>
-      current?.map((question) =>
-        question.key === questionKey
-          ? {
-              ...question,
-              options: question.options.map((option) => ({
-                ...option,
-                isCorrect: option.key === optionKey,
-              })),
-            }
-          : question
-      ) ?? null
+      current
+        ? {
+            ...current,
+            questions: current.questions.map((question) =>
+              question.key === questionKey
+                ? {
+                    ...question,
+                    options: question.options.map((option) => ({
+                      ...option,
+                      isCorrect: option.key === optionKey,
+                    })),
+                  }
+                : question
+            ),
+          }
+        : null
     )
   }
 
   function updateOption(questionKey: string, optionKey: string, text: string) {
     setReview((current) =>
-      current?.map((question) =>
-        question.key === questionKey
-          ? {
-              ...question,
-              options: question.options.map((option) =>
-                option.key === optionKey ? { ...option, text } : option
-              ),
-            }
-          : question
-      ) ?? null
+      current
+        ? {
+            ...current,
+            questions: current.questions.map((question) =>
+              question.key === questionKey
+                ? {
+                    ...question,
+                    options: question.options.map((option) =>
+                      option.key === optionKey ? { ...option, text } : option
+                    ),
+                  }
+                : question
+            ),
+          }
+        : null
     )
   }
 
   function removeQuestion(key: string) {
-    setReview((current) => current?.filter((question) => question.key !== key) ?? null)
+    setReview((current) =>
+      current
+        ? { ...current, questions: current.questions.filter((question) => question.key !== key) }
+        : null
+    )
   }
 
   function accept() {
-    if (!review || review.length === 0) {
+    if (!review || review.questions.length === 0) {
       toast.error("Não há questões para adicionar.")
       return
     }
     const cleaned: GeneratedQuizQuestion[] = []
-    for (const question of review) {
+    for (const question of review.questions) {
       const prompt = question.prompt.trim()
       if (prompt.length < 8) {
         toast.error("Cada questão precisa de um enunciado.")
@@ -162,7 +215,17 @@ export function AiQuizGenerator({
         options,
       })
     }
-    onAccept(cleaned)
+    const prep = review.applyPrep ? normalizePrep(review.prep) : null
+    const feedback = review.applyFeedback ? normalizeFeedback(review.feedback) : null
+    if (review.applyPrep && !prep) {
+      toast.error("A pré-seção precisa de título e texto de abertura.")
+      return
+    }
+    if (review.applyFeedback && !feedback) {
+      toast.error("A pós-seção precisa de título e mensagem de encerramento.")
+      return
+    }
+    onAccept({ questions: cleaned, prep, feedback })
     setOpen(false)
     setReview(null)
   }
@@ -189,14 +252,109 @@ export function AiQuizGenerator({
           <DialogHeader>
             <DialogTitle>Gerar perguntas com IA</DialogTitle>
             <DialogDescription>
-              As questões aparecem para revisão e só entram no quiz quando você confirmar. Nada é salvo
-              sozinho.
+              Questões, pré-seção e pós-seção aparecem para revisão e só entram no quiz quando você
+              confirmar. Nada é salvo sozinho.
             </DialogDescription>
           </DialogHeader>
 
           {review ? (
             <div className="space-y-4">
-              {review.map((question, index) => (
+              <SectionReview
+                title="Pré-seção"
+                apply={review.applyPrep}
+                occupied={prepHasContent}
+                onApply={(applyPrep) => setReview({ ...review, applyPrep })}
+              >
+                <Label htmlFor="ai-prep-title">Título</Label>
+                <Input
+                  id="ai-prep-title"
+                  value={review.prep.title}
+                  onChange={(event) =>
+                    setReview({ ...review, prep: { ...review.prep, title: event.target.value } })
+                  }
+                />
+                <Label htmlFor="ai-prep-body">Texto de abertura</Label>
+                <Textarea
+                  id="ai-prep-body"
+                  rows={4}
+                  value={review.prep.body}
+                  onChange={(event) =>
+                    setReview({ ...review, prep: { ...review.prep, body: event.target.value } })
+                  }
+                />
+                <Label htmlFor="ai-prep-objectives">Objetivos (um por linha)</Label>
+                <Textarea
+                  id="ai-prep-objectives"
+                  rows={3}
+                  value={review.prep.objectives.join("\n")}
+                  onChange={(event) =>
+                    setReview({
+                      ...review,
+                      prep: { ...review.prep, objectives: splitLines(event.target.value) },
+                    })
+                  }
+                />
+                <Label htmlFor="ai-prep-tips">Dicas de estudo (uma por linha)</Label>
+                <Textarea
+                  id="ai-prep-tips"
+                  rows={3}
+                  value={review.prep.tips.join("\n")}
+                  onChange={(event) =>
+                    setReview({
+                      ...review,
+                      prep: { ...review.prep, tips: splitLines(event.target.value) },
+                    })
+                  }
+                />
+                <Label htmlFor="ai-prep-minutes">Tempo estimado (minutos)</Label>
+                <Input
+                  id="ai-prep-minutes"
+                  type="number"
+                  min={1}
+                  max={180}
+                  value={review.prep.estimatedMinutes ?? ""}
+                  onChange={(event) =>
+                    setReview({
+                      ...review,
+                      prep: {
+                        ...review.prep,
+                        estimatedMinutes: event.target.value ? Number(event.target.value) : null,
+                      },
+                    })
+                  }
+                />
+              </SectionReview>
+              <SectionReview
+                title="Pós-seção"
+                apply={review.applyFeedback}
+                occupied={feedbackHasContent}
+                onApply={(applyFeedback) => setReview({ ...review, applyFeedback })}
+              >
+                <Label htmlFor="ai-feedback-title">Título</Label>
+                <Input
+                  id="ai-feedback-title"
+                  value={review.feedback.title}
+                  onChange={(event) =>
+                    setReview({
+                      ...review,
+                      feedback: { ...review.feedback, title: event.target.value },
+                    })
+                  }
+                />
+                <Label htmlFor="ai-feedback-body">Mensagem de encerramento</Label>
+                <Textarea
+                  id="ai-feedback-body"
+                  rows={4}
+                  value={review.feedback.body}
+                  onChange={(event) =>
+                    setReview({
+                      ...review,
+                      feedback: { ...review.feedback, body: event.target.value },
+                    })
+                  }
+                />
+              </SectionReview>
+              {review.questions.map((question, index) => (
                 <article key={question.key} className="space-y-2 rounded-xl border border-border/70 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold">
@@ -254,7 +412,7 @@ export function AiQuizGenerator({
                   />
                 </article>
               ))}
-              {review.length === 0 ? (
+              {review.questions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Nenhuma questão restante. Gere de novo ou feche.
                 </p>
@@ -329,7 +487,7 @@ export function AiQuizGenerator({
               </Button>
             ) : null}
             {review ? (
-              <Button type="button" disabled={generating || review.length === 0} onClick={accept}>
+              <Button type="button" disabled={generating || review.questions.length === 0} onClick={accept}>
                 Adicionar ao quiz
               </Button>
             ) : (
@@ -342,6 +500,76 @@ export function AiQuizGenerator({
       </Dialog>
     </>
   )
+}
+
+function SectionReview({
+  title,
+  apply,
+  occupied,
+  onApply,
+  children,
+}: {
+  title: string
+  apply: boolean
+  occupied: boolean
+  onApply: (value: boolean) => void
+  children: ReactNode
+}) {
+  return (
+    <section className="space-y-2 rounded-xl border border-border/70 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold">{title}</p>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={apply}
+            onChange={(event) => onApply(event.target.checked)}
+            className="h-4 w-4 accent-primary"
+          />
+          {occupied ? "Substituir o conteúdo atual" : "Incluir no quiz"}
+        </label>
+      </div>
+      {occupied ? (
+        <p className="text-xs text-muted-foreground">
+          Esta seção já tem texto. Sem a opção acima, o que está no quiz permanece. A imagem da
+          pré-seção, se existir, não é trocada.
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Desmarque para descartar esta sugestão.
+        </p>
+      )}
+      {apply ? <div className="grid gap-2">{children}</div> : null}
+    </section>
+  )
+}
+
+function splitLines(value: string) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function normalizePrep(prep: GeneratedPrepSection): GeneratedPrepSection | null {
+  const title = prep.title.trim()
+  const body = prep.body.trim()
+  if (title.length < 2 || body.length < 10) return null
+  const minutes = prep.estimatedMinutes
+  return {
+    title,
+    body,
+    objectives: prep.objectives.map((item) => item.trim()).filter(Boolean).slice(0, 8),
+    tips: prep.tips.map((item) => item.trim()).filter(Boolean).slice(0, 8),
+    estimatedMinutes: minutes && minutes >= 1 && minutes <= 180 ? Math.round(minutes) : null,
+  }
+}
+
+function normalizeFeedback(feedback: GeneratedFeedbackSection): GeneratedFeedbackSection | null {
+  const title = feedback.title.trim()
+  const body = feedback.body.trim()
+  if (title.length < 2 || body.length < 10) return null
+  return { title, body }
 }
 
 function toReview(question: GeneratedQuizQuestion): ReviewQuestion {

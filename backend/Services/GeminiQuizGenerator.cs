@@ -22,7 +22,7 @@ public sealed class GeminiQuizGenerator(
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public async Task<IReadOnlyList<GeneratedQuizQuestionResponse>> GenerateAsync(
+    public async Task<GenerateQuizQuestionsResponse> GenerateAsync(
         GenerateQuizQuestionsRequest request,
         Guid userId,
         CancellationToken cancellationToken)
@@ -153,6 +153,10 @@ public sealed class GeminiQuizGenerator(
             Quantidade: exatamente {count} questões.
             Cada questão tem exatamente uma alternativa correta.
             O enunciado deve ser autocontido. A explicação justifica a resposta correta em uma ou duas frases.
+            Também escreva a pré-seção (o que o aluno lê antes de começar) e a pós-seção (a mensagem depois do resultado).
+            Pré-seção: título curto, texto de abertura, de 2 a 4 objetivos de aprendizagem, de 2 a 4 dicas de estudo e um tempo estimado em minutos (1 a 180).
+            Pós-seção: título e uma mensagem de encerramento que oriente a revisar os erros, sem inventar a nota.
+            Não inclua imagens.
             Contexto:
             {context}
             """;
@@ -212,10 +216,43 @@ public sealed class GeminiQuizGenerator(
                     },
                     required = new[] { "kind", "prompt", "explanation", "options" }
                 }
-            }
+            },
+            prep = SectionSchema(includeLists: true),
+            feedback = SectionSchema(includeLists: false)
         },
-        required = new[] { "questions" }
+        required = new[] { "questions", "prep", "feedback" }
     };
+
+    private static object SectionSchema(bool includeLists)
+    {
+        if (!includeLists)
+        {
+            return new
+            {
+                type = "object",
+                properties = new
+                {
+                    title = new { type = "string" },
+                    body = new { type = "string" }
+                },
+                required = new[] { "title", "body" }
+            };
+        }
+
+        return new
+        {
+            type = "object",
+            properties = new
+            {
+                title = new { type = "string" },
+                body = new { type = "string" },
+                objectives = new { type = "array", items = new { type = "string" } },
+                estimatedMinutes = new { type = "integer" },
+                tips = new { type = "array", items = new { type = "string" } }
+            },
+            required = new[] { "title", "body", "objectives", "estimatedMinutes", "tips" }
+        };
+    }
 
     private static string ExtractText(string body)
     {
