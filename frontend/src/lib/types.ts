@@ -98,6 +98,7 @@ export interface QuestionOption {
   text: string
   isCorrect?: boolean | null
   position: number
+  imageUrl?: string | null
 }
 
 export interface MatchingPair {
@@ -192,6 +193,7 @@ export interface CreateQuestionOptionRequest {
   id?: string
   text: string
   isCorrect: boolean
+  imageUrl?: string
 }
 
 export interface CreateMatchingPairRequest {
@@ -435,6 +437,8 @@ export interface StudySessionFeedbackItem {
   score?: number | null
   studentAnswer?: string | null
   correctAnswer?: string | null
+  studentAnswerImageUrls?: string[] | null
+  correctAnswerImageUrls?: string[] | null
 }
 
 export interface StudySessionFeedback {

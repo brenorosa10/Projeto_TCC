@@ -70,7 +70,8 @@ public static class ActivityMapper
                     option.Id,
                     option.Text,
                     includeAnswers ? option.IsCorrect : null,
-                    option.Position))
+                    option.Position,
+                    option.ImageUrl))
                 .ToList(),
             item.Front,
             includeAnswers ? item.Back : null,

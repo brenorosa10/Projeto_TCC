@@ -25,7 +25,7 @@ O nginx de borda fica num diretório próprio (`~/proxy`), não dentro do Astro 
 6. Neste repositório: copie `.env.example` para `.env`, preencha Mongo/Google/JWT e `Auth__FrontendUrl` / `Cors__Origins` com `https://astroarq.online`.
 7. `./scripts/deploy.sh` (ou `docker compose up -d --build --remove-orphans`)
 
-O nginx de borda encaminha o domínio do Astro para o container `astro-frontend`. O nginx interno do container encaminha `/api`, `/hubs` e `/signin-google` para a API.
+O nginx de borda encaminha o domínio do Astro para o container `astro-frontend`. O nginx interno do container encaminha `/api`, `/hubs` e `/signin-google` para a API. Imagens enviadas nas alternativas de quiz passam por `POST /api/media` e são servidas em `/api/media/{id}`, então o proxy atual já cobre o upload (limite de corpo 21 MB). Os arquivos ficam no volume Docker `backend-media` (`/data/media` no container). O `docker compose up` cria o volume; ele sobrevive a rebuild. Não rode `docker compose down -v`, senão as imagens enviadas são apagadas. O endereço da imagem (upload ou link http/https) fica no documento da questão no MongoDB.
 
 ## Requisitos
 

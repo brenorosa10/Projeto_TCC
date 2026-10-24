@@ -37,6 +37,42 @@ export class ApiError extends Error {
   }
 }
 
+async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const token = getAccessToken()
+  const headers = new Headers()
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`)
+  }
+  const body = new FormData()
+  body.append("file", file)
+  const response = await fetch(`${API_URL}${path}`, { method: "POST", headers, body })
+  if (!response.ok) {
+    throw new ApiError(response.status, await readErrorMessage(response))
+  }
+  return (await response.json()) as T
+}
+
+async function readErrorMessage(response: Response): Promise<string> {
+  let message = `Erro ${response.status}`
+  try {
+    const body = (await response.json()) as ApiErrorBody & {
+      errors?: Record<string, string[] | string>
+    }
+    const validation = body.errors
+      ? Object.values(body.errors).flat().find((item) => typeof item === "string")
+      : undefined
+    message =
+      (typeof validation === "string" ? validation : undefined) ??
+      body.detail ??
+      body.message ??
+      body.title ??
+      message
+  } catch {
+    // ignore parse errors
+  }
+  return message
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getAccessToken()
   const headers = new Headers(init.headers)
@@ -51,24 +87,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   })
 
   if (!response.ok) {
-    let message = `Erro ${response.status}`
-    try {
-      const body = (await response.json()) as ApiErrorBody & {
-        errors?: Record<string, string[] | string>
-      }
-      const validation = body.errors
-        ? Object.values(body.errors).flat().find((item) => typeof item === "string")
-        : undefined
-      message =
-        (typeof validation === "string" ? validation : undefined) ??
-        body.detail ??
-        body.message ??
-        body.title ??
-        message
-    } catch {
-      // ignore parse errors
-    }
-    throw new ApiError(response.status, message)
+    throw new ApiError(response.status, await readErrorMessage(response))
   }
 
   if (response.status === 204) {
@@ -211,6 +230,7 @@ export const api = {
     request<LiveSessionState>(`/api/live/sessions/${id}/end`, {
       method: "POST",
     }),
+  uploadOptionImage: (file: File) => uploadFile<{ url: string }>("/api/media", file),
   getAnalytics: (activityId?: string, sessionId?: string) => {
     const params = new URLSearchParams()
     if (activityId) params.set("activityId", activityId)

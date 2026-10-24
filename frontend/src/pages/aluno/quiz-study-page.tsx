@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, XCircle } from "lucide-react"
+import { AlternativeBody } from "@/components/activity/alternative-media"
 import { ContentBlockList } from "@/components/activity/content-block-list"
 import { ItemAnswerForm } from "@/components/activity/item-answer-form"
 import { ItemPrompt } from "@/components/activity/item-prompt"
@@ -271,7 +272,11 @@ function PracticeView({
                     ) : (
                       <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-muted-foreground/40" />
                     )}
-                    <RichText value={option.text} className="min-w-0 flex-1 text-sm" />
+                    <AlternativeBody
+                      text={option.text}
+                      imageUrl={option.imageUrl}
+                      textClassName="text-sm"
+                    />
                     {selected ? (
                       <span className="shrink-0 text-xs font-medium text-muted-foreground">
                         sua escolha

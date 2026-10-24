@@ -127,6 +127,7 @@ public static partial class PortugueseValidation
             "content" => "o conteúdo",
             "body" => "o texto",
             "prompt" => "o enunciado",
+            "imageurl" => "o endereço da imagem",
             "front" => "a frente",
             "back" => "o verso",
             "itemid" => "o item",

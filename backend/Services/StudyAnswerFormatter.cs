@@ -44,7 +44,7 @@ public static class StudyAnswerFormatter
                 item.Options?
                     .Where(option => option.IsCorrect)
                     .OrderBy(option => option.Position)
-                    .Select(option => option.Text)),
+                    .Select(OptionLabel)),
             ItemKinds.ShortAnswer => Join(item.AcceptedAnswers, " ou "),
             ItemKinds.Ordering => Join(
                 item.OrderEntries?.OrderBy(entry => entry.Position).Select(entry => entry.Text),
@@ -72,8 +72,46 @@ public static class StudyAnswerFormatter
             return null;
         }
 
-        var textById = item.Options.ToDictionary(option => option.Id, option => option.Text);
+        var textById = item.Options.ToDictionary(option => option.Id, OptionLabel);
         return Join(ids.Select(id => textById.GetValueOrDefault(id)));
+    }
+
+    public static IReadOnlyList<string>? SelectedImageUrls(ActivityItem? item, StudySessionAnswer answer)
+    {
+        if (item?.Options is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var ids = answer.SelectedOptionIds is { Count: > 0 }
+            ? answer.SelectedOptionIds
+            : answer.SelectedOptionId is Guid id
+                ? new List<Guid> { id }
+                : [];
+        return ImageUrls(item.Options.Where(option => ids.Contains(option.Id)));
+    }
+
+    public static IReadOnlyList<string>? CorrectImageUrls(ActivityItem? item)
+    {
+        if (item?.Options is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        return ImageUrls(item.Options.Where(option => option.IsCorrect).OrderBy(option => option.Position));
+    }
+
+    private static string? OptionLabel(QuestionOption option) =>
+        Clean(option.Text) ?? (string.IsNullOrWhiteSpace(option.ImageUrl) ? null : "Imagem");
+
+    private static IReadOnlyList<string>? ImageUrls(IEnumerable<QuestionOption> options)
+    {
+        var urls = options
+            .Select(option => option.ImageUrl)
+            .Where(url => !string.IsNullOrWhiteSpace(url))
+            .Cast<string>()
+            .ToList();
+        return urls.Count == 0 ? null : urls;
     }
 
     private static string? OrderingText(ActivityItem item, IReadOnlyList<Guid>? orderedIds)
