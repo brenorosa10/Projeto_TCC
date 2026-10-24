@@ -269,6 +269,29 @@ export interface CreateActivitySectionRequest {
   imageDataUrl?: string
 }
 
+export interface GenerateQuizQuestionsRequest {
+  context: string
+  count: number
+  difficulty?: string
+  kind?: "multiple_choice" | "true_false"
+}
+
+export interface GeneratedQuizOption {
+  text: string
+  isCorrect: boolean
+}
+
+export interface GeneratedQuizQuestion {
+  kind: string
+  prompt: string
+  explanation?: string | null
+  options: GeneratedQuizOption[]
+}
+
+export interface GenerateQuizQuestionsResponse {
+  questions: GeneratedQuizQuestion[]
+}
+
 export interface CreateActivityRequest {
   title: string
   type: "quiz" | "flashcards"

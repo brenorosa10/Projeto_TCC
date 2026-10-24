@@ -12,7 +12,8 @@ namespace Astro.Api.Controllers;
 [Authorize]
 public class ActivitiesController(
     MongoDbContext db,
-    CurrentUserService currentUser) : ControllerBase
+    CurrentUserService currentUser,
+    GeminiQuizGenerator quizGenerator) : ControllerBase
 {
     [HttpGet("api/activities")]
     public async Task<ActionResult<IEnumerable<ActivitySummaryResponse>>> ListMine(
@@ -483,6 +484,38 @@ public class ActivitiesController(
 
         await db.Activities.ReplaceOneAsync(a => a.Id == activity.Id, activity, cancellationToken: cancellationToken);
         return (ActivityMapper.ToResponse(activity, includeAnswers: true), null);
+    }
+
+    [HttpPost("api/activities/quiz/generate")]
+    public async Task<ActionResult<GenerateQuizQuestionsResponse>> GenerateQuizQuestions(
+        [FromBody] GenerateQuizQuestionsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var profile = await GetCurrentProfileAsync(cancellationToken);
+        if (profile is null)
+        {
+            return Unauthorized(new { detail = "Perfil não encontrado." });
+        }
+
+        if (profile.Role is not (UserRoles.Professor or UserRoles.Aluno))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { detail = "Você não pode gerar questões." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Context) || request.Context.Trim().Length < GeneratedQuizSanitizer.MinContextLength)
+        {
+            return BadRequest(new { detail = "Descreva o assunto com pelo menos algumas frases antes de gerar." });
+        }
+
+        try
+        {
+            var questions = await quizGenerator.GenerateAsync(request, profile.Id, cancellationToken);
+            return Ok(new GenerateQuizQuestionsResponse(questions));
+        }
+        catch (GeminiApiException exception)
+        {
+            return StatusCode(exception.StatusCode, new { detail = exception.Message });
+        }
     }
 
     private static bool IsActivityAuthor(Profile profile, Activity activity) =>

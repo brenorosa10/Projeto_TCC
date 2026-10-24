@@ -120,6 +120,13 @@ builder.Services.AddScoped<StudyAccessService>();
 builder.Services.AddScoped<StudySessionService>();
 builder.Services.AddScoped<LiveSessionService>();
 builder.Services.AddScoped<AnalyticsService>();
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection(GeminiOptions.SectionName));
+builder.Services.AddSingleton<QuizGenerationRateLimiter>();
+builder.Services.AddHttpClient<GeminiQuizGenerator>(client =>
+{
+    client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+    client.Timeout = TimeSpan.FromSeconds(45);
+});
 builder.Services.AddSingleton(new MediaStorage(ResolveMediaRoot(builder)));
 builder.Services.AddSignalR(options =>
 {

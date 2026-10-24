@@ -646,6 +646,35 @@ public record AnalyticsQuestionResponse(
     IReadOnlyList<string> IncorrectNames
 );
 
+public record GenerateQuizQuestionsRequest(
+    [Required(ErrorMessage = "Descreva o assunto das questões.")]
+    [MinLength(10, ErrorMessage = "Descreva o assunto com pelo menos algumas frases.")]
+    [MaxLength(12000, ErrorMessage = "O contexto deve ter no máximo 12000 caracteres.")]
+    string Context,
+    [Range(1, 20, ErrorMessage = "Escolha entre 1 e 20 questões.")]
+    int Count,
+    [MaxLength(40)]
+    string? Difficulty = null,
+    [MaxLength(40)]
+    string? Kind = null
+);
+
+public record GeneratedQuizOptionResponse(
+    string Text,
+    bool IsCorrect
+);
+
+public record GeneratedQuizQuestionResponse(
+    string Kind,
+    string Prompt,
+    string? Explanation,
+    IReadOnlyList<GeneratedQuizOptionResponse> Options
+);
+
+public record GenerateQuizQuestionsResponse(
+    IReadOnlyList<GeneratedQuizQuestionResponse> Questions
+);
+
 public record AnalyticsOverviewResponse(
     IReadOnlyList<AnalyticsActivitySummaryResponse> Activities,
     Guid? SelectedActivityId,
