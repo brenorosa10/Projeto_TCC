@@ -17,6 +17,8 @@ services:
       Cors__Origins: ${Cors__Origins}
       # Mesmo caminho do volume abaixo. Não separe os dois.
       Media__Root: /data/media
+      Gemini__ApiKey: ${GEMINI_API_KEY:-}
+      Gemini__Model: ${GEMINI_MODEL:-gemini-2.5-flash}
     volumes:
       - backend-dp-keys:/app/dp-keys
       - backend-media:/data/media

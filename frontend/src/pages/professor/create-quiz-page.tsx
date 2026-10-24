@@ -37,12 +37,14 @@ import { assertActivityPayloadFits } from "@/lib/compress-image"
 import { isAcceptableImageUrl } from "@/lib/media-url"
 import { cleanContentBlocks, flattenContentBlocks, QUESTION_DIFFICULTIES } from "@/lib/content-blocks"
 import { findSection, ITEM_KIND_LABELS, QUIZ_ITEM_KINDS } from "@/lib/item-kinds"
+import { AiQuizGenerator } from "@/components/activity/ai-quiz-generator"
 import { parseQuizCsv, type ImportedQuizQuestion } from "@/lib/quiz-csv-import"
 import { cn } from "@/lib/utils"
 import type {
   ActivityItem,
   CreateActivityItemRequest,
   CreateActivityRequest,
+  GeneratedQuizQuestion,
   ItemKind,
 } from "@/lib/types"
 
@@ -231,6 +233,30 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
     requireExplanation: Boolean(item.requireExplanation),
     explanationMinLength: item.explanationMinLength ?? 20,
     explanationPrompt: item.explanationPrompt ?? "Como você pensou sobre a resposta?",
+  }
+}
+
+function questionFromGenerated(generated: GeneratedQuizQuestion): DraftQuestion {
+  const kind = generated.kind === "true_false" ? "true_false" : "multiple_choice"
+  const question = newQuestion(kind)
+  const correctTrue = generated.options.some(
+    (option) => option.isCorrect && option.text.toLowerCase().startsWith("verd")
+  )
+  return {
+    ...question,
+    kind,
+    prompt: generated.prompt,
+    explanation: generated.explanation ?? "",
+    correctTrue: kind === "true_false" ? correctTrue : question.correctTrue,
+    allowMultiple: false,
+    options:
+      kind === "multiple_choice"
+        ? generated.options.map((option) => ({
+            key: crypto.randomUUID(),
+            text: option.text,
+            isCorrect: option.isCorrect,
+          }))
+        : question.options,
   }
 }
 
@@ -568,6 +594,20 @@ export function ProfessorCreateQuizPage() {
     const index = Math.min(questionIndex, questions.length - 1)
     setQuestions((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
     setQuestionIndex(Math.max(0, index - 1))
+  }
+
+  function appendGenerated(generated: GeneratedQuizQuestion[]) {
+    const mapped = generated.map(questionFromGenerated)
+    const replaceBlank = questions.length === 1 && isBlankQuestion(questions[0])
+    setQuestions(replaceBlank ? mapped : [...questions, ...mapped])
+    setEditorTab("questoes")
+    setQuestionIndex(replaceBlank ? 0 : questions.length)
+    setQuestionPanel("pergunta")
+    toast.success(
+      mapped.length === 1
+        ? "1 questão adicionada. Revise e salve o quiz quando quiser."
+        : `${mapped.length} questões adicionadas. Revise e salve o quiz quando quiser.`
+    )
   }
 
   async function importCsvFile(file: File) {
@@ -915,6 +955,7 @@ export function ProfessorCreateQuizPage() {
               onSelect={setQuestionIndex}
               onAdd={addQuestion}
               onImportCsv={() => csvInputRef.current?.click()}
+              onAcceptGenerated={appendGenerated}
               onRemove={removeActiveQuestion}
               onReorder={(delta) => {
                 const index = Math.min(questionIndex, questions.length - 1)
@@ -1723,6 +1764,7 @@ function QuestionCarousel({
   onSelect,
   onAdd,
   onImportCsv,
+  onAcceptGenerated,
   onRemove,
   onReorder,
 }: {
@@ -1731,6 +1773,7 @@ function QuestionCarousel({
   onSelect: (index: number) => void
   onAdd: () => void
   onImportCsv: () => void
+  onAcceptGenerated: (questions: GeneratedQuizQuestion[]) => void
   onRemove: () => void
   onReorder: (delta: number) => void
 }) {
@@ -1798,6 +1841,9 @@ function QuestionCarousel({
           <FileUp className="h-5 w-5" />
           Importar CSV
         </Button>
+        <div className="sm:col-span-2">
+          <AiQuizGenerator onAccept={onAcceptGenerated} />
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <Button

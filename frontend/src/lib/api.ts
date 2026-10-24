@@ -5,6 +5,8 @@ import type {
   ApiErrorBody,
   ClassRoom,
   CreateActivityRequest,
+  GenerateQuizQuestionsRequest,
+  GenerateQuizQuestionsResponse,
   CreateClassRequest,
   CreateStudySessionRequest,
   EnsureProfileRequest,
@@ -143,6 +145,11 @@ export const api = {
     request<ActivitySummary[]>(`/api/classes/${classId}/activities`),
   listMyActivities: () => request<ActivitySummary[]>("/api/activities"),
   getActivity: (id: string) => request<Activity>(`/api/activities/${id}`),
+  generateQuizQuestions: (body: GenerateQuizQuestionsRequest) =>
+    request<GenerateQuizQuestionsResponse>("/api/activities/quiz/generate", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   createActivity: (body: CreateActivityRequest) =>
     request<Activity>("/api/activities", {
       method: "POST",
