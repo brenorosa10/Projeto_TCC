@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
-import { ArrowDown, ArrowUp } from "lucide-react"
+import { ArrowDown, ArrowUp, Check, RotateCcw } from "lucide-react"
 import { AlternativeBody } from "@/components/activity/alternative-media"
+import { FlashcardFace, FlashcardFlip } from "@/components/activity/flashcard-flip"
 import { RichText } from "@/components/rich-text/rich-text"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,19 +52,23 @@ export function ItemAnswerForm({
   if (item.kind === "flashcard") {
     return (
       <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => setFlipped((prev) => !prev)}
-          className="flex min-h-44 w-full flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-8 text-center shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-lift)]"
-        >
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {flipped ? "Verso" : "Frente"}
-          </p>
-          <RichText
-            value={flipped ? item.back || "—" : item.front}
-            className="rich-text-prompt mt-3 font-display text-2xl font-semibold"
-          />
-        </button>
+        <FlashcardFlip
+          flipped={flipped}
+          onFlip={() => setFlipped((prev) => !prev)}
+          front={
+            <FlashcardFace label="Frente" hint="Toque para ver o verso">
+              <RichText value={item.front} className="rich-text-prompt font-display text-2xl font-semibold" />
+            </FlashcardFace>
+          }
+          back={
+            <FlashcardFace label="Verso" hint="Marque se você lembrava">
+              <RichText
+                value={item.back || "—"}
+                className="rich-text-prompt font-display text-2xl font-semibold"
+              />
+            </FlashcardFace>
+          }
+        />
         {flipped ? (
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
@@ -73,6 +78,7 @@ export function ItemAnswerForm({
                 onSubmit({ itemId: item.id, remembered: true, responseTimeMs: elapsed() })
               }
             >
+              <Check className="h-4 w-4" />
               Lembrei
             </Button>
             <Button
@@ -83,6 +89,7 @@ export function ItemAnswerForm({
                 onSubmit({ itemId: item.id, remembered: false, responseTimeMs: elapsed() })
               }
             >
+              <RotateCcw className="h-4 w-4" />
               Não lembrei
             </Button>
           </div>
@@ -371,7 +378,7 @@ export function ItemAnswerForm({
                 aria-pressed={selected}
                 onClick={() => toggle(option.id)}
                 className={cn(
-                  "flex w-full items-start gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-all",
+                  "option-press flex w-full items-start gap-3 rounded-xl border bg-card px-4 py-3.5 text-left",
                   "hover:border-primary/60 hover:shadow-[var(--shadow-soft)] disabled:pointer-events-none disabled:opacity-60",
                   selected
                     ? "border-primary bg-primary/6 shadow-[var(--shadow-soft)]"

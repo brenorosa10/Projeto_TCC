@@ -26,7 +26,7 @@ export function QuestionCountdown({ endsAt }: { endsAt?: string | null }) {
         remaining === 0
           ? "bg-destructive/10 text-destructive"
           : urgent
-            ? "bg-destructive/10 text-destructive"
+            ? "animate-countdown-urgent bg-destructive/10 text-destructive"
             : "bg-muted text-foreground"
       )}
       aria-live="polite"

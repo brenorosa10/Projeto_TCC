@@ -4,6 +4,7 @@ import * as signalR from "@microsoft/signalr"
 import { toast } from "sonner"
 import { CheckCircle2, Hourglass, PartyPopper, Radio, Trophy, Users, XCircle } from "lucide-react"
 import { AlternativeBody } from "@/components/activity/alternative-media"
+import { CelebrationBurst } from "@/components/activity/celebration-burst"
 import { ItemAnswerForm } from "@/components/activity/item-answer-form"
 import { ItemPrompt } from "@/components/activity/item-prompt"
 import { QuestionCountdown } from "@/components/activity/question-countdown"
@@ -269,7 +270,7 @@ function StudentRoom({
             </Badge>
             <QuestionCountdown endsAt={state.questionEndsAt} />
           </div>
-          <div className="surface-card space-y-5 p-5 sm:p-6">
+          <div key={state.currentItem.id} className="surface-card animate-enter space-y-5 p-5 sm:p-6">
             <ItemPrompt item={state.currentItem} />
             {hasAnswered ? (
               <div className="flex items-center gap-3 rounded-xl border border-astro-sky/30 bg-astro-sky/8 px-4 py-3.5">
@@ -305,7 +306,7 @@ function StudentRoom({
             ) : null}
           </div>
           {state.currentItem ? (
-            <div className="surface-card space-y-4 p-5 sm:p-6">
+            <div key={`reveal-${state.currentItem.id}`} className="surface-card animate-enter space-y-4 p-5 sm:p-6">
               <PersonalBanner personal={state.personal} />
               <ItemPrompt item={state.currentItem} />
               {state.currentItem.options?.length ? (
@@ -316,7 +317,7 @@ function StudentRoom({
                       className={cn(
                         "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm",
                         option.isCorrect
-                          ? "border-success/40 bg-success/8"
+                          ? "animate-answer-glow border-success/40 bg-success/8"
                           : "border-border/70 bg-muted/30"
                       )}
                     >
@@ -359,6 +360,7 @@ function StudentRoom({
         <div className="space-y-5">
           <div className="surface-card relative overflow-hidden px-6 py-8 text-center">
             <div className="pattern-grid absolute inset-0 opacity-40" aria-hidden />
+            {isStrongFinish(state) ? <CelebrationBurst /> : null}
             <div className="relative space-y-4">
               <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-astro-violet/12 text-astro-violet">
                 <PartyPopper className="h-7 w-7" />
@@ -495,9 +497,10 @@ function Ranking({
           <li
             key={entry.studentId}
             className={cn(
-              "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm",
+              "animate-rank-in flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm",
               index === 0 ? "border-astro-amber/35 bg-astro-amber/8" : "border-border/70 bg-card"
             )}
+            style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
           >
             <span
               className={cn(
@@ -522,29 +525,45 @@ function Ranking({
   )
 }
 
+function isStrongFinish(state: LiveSessionState) {
+  const presented = presentedQuestionCount(state)
+  const answered = state.personal?.totalAnswered ?? 0
+  const total = Math.max(presented, answered)
+  if (!state.personal || total <= 0) return false
+  return state.personal.correctCount / total >= 0.8
+}
+
 function PersonalBanner({ personal }: { personal?: LiveSessionState["personal"] }) {
   if (!personal?.hasAnswered || personal.isCorrect == null) return null
 
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-xl border px-4 py-3.5 animate-pop-in",
+        "relative flex items-center gap-3 overflow-hidden rounded-xl border px-4 py-3.5",
         personal.isCorrect
-          ? "border-success/30 bg-success/8"
-          : "border-destructive/30 bg-destructive/8"
+          ? "animate-answer-glow border-success/30 bg-success/8"
+          : "animate-shake border-destructive/30 bg-destructive/8"
       )}
     >
+      {personal.isCorrect ? <CelebrationBurst /> : null}
       {personal.isCorrect ? (
-        <CheckCircle2 className="h-6 w-6 shrink-0 text-success" />
+        <CheckCircle2 className="relative h-6 w-6 shrink-0 animate-check-pop text-success" />
       ) : (
-        <XCircle className="h-6 w-6 shrink-0 text-destructive" />
+        <XCircle className="relative h-6 w-6 shrink-0 text-destructive" />
       )}
       <div className="min-w-0">
         <p className="font-display text-lg font-semibold">
           {personal.isCorrect ? "Você acertou!" : "Você errou"}
         </p>
         <p className="text-xs text-muted-foreground">
-          {plural(personal.correctCount, "acerto", "acertos")} · {plural(personal.score, "ponto", "pontos")} até agora
+          <span className={cn(personal.isCorrect && "animate-score-bump inline-block font-semibold text-success")}>
+            {plural(personal.correctCount, "acerto", "acertos")}
+          </span>
+          {" · "}
+          <span className={cn(personal.isCorrect && "animate-score-bump inline-block font-semibold text-foreground")}>
+            {plural(personal.score, "ponto", "pontos")}
+          </span>{" "}
+          até agora
         </p>
       </div>
     </div>
