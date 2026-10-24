@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { KeyRound } from "lucide-react"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
@@ -39,8 +40,14 @@ export function AlunoJoinClassPage() {
   return (
     <AppShell title="Entrar em turma">
       <form noValidate onSubmit={(e) => void handleJoin(e)} className="max-w-md space-y-6">
-        <div>
+        <div className="space-y-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <KeyRound className="h-6 w-6" aria-hidden />
+          </span>
           <h1 className="font-display text-3xl font-semibold">Ingressar com código</h1>
+          <p className="text-sm text-muted-foreground">
+            O código tem 8 caracteres e é compartilhado pelo professor.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="code">Código da turma</Label>

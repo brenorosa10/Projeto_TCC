@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
+import { BookOpen, SearchX } from "lucide-react"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
@@ -60,7 +61,11 @@ export function AlunoClassDetailPage() {
       {loading ? (
         <PageLoader />
       ) : !classroom ? (
-        <EmptyState title="Turma não encontrada" description="Ela pode ter sido removida ou o link está incorreto." />
+        <EmptyState
+          icon={SearchX}
+          title="Turma não encontrada"
+          description="Ela pode ter sido removida ou o link está incorreto."
+        />
       ) : (
         <div className="space-y-8">
           <div>
@@ -124,6 +129,7 @@ export function AlunoClassDetailPage() {
             <h2 className="font-display text-xl font-semibold">Atividades</h2>
             {activities.length === 0 ? (
               <EmptyState
+                icon={BookOpen}
                 title="Nenhuma atividade ainda"
                 description="O professor ainda não publicou quizzes ou flashcards nesta turma."
               />

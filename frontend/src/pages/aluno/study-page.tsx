@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
-import { ChevronDown } from "lucide-react"
+import { BookOpen, ChevronDown, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { DeleteActivityButton } from "@/components/activity/delete-activity-button"
 import { AppShell } from "@/components/layout/app-shell"
@@ -103,6 +103,7 @@ export function AlunoStudyPage() {
               >
                 {classQuizzes.length === 0 && classDecks.length === 0 ? (
                   <EmptyState
+                    icon={BookOpen}
                     title="Nada publicado nesta turma"
                     description="Quando o professor vincular quizzes ou flashcards, eles aparecem aqui."
                   />
@@ -132,6 +133,7 @@ export function AlunoStudyPage() {
           >
             {!hasStandalone ? (
               <EmptyState
+                icon={Sparkles}
                 title="Nenhum material avulso ainda"
                 description="Crie um quiz ou um deck de flashcards para estudar mesmo sem estar em uma turma."
               />

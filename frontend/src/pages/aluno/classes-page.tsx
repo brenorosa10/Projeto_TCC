@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
+import { GraduationCap, KeyRound, Users } from "lucide-react"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
@@ -28,7 +29,10 @@ export function AlunoClassesPage() {
           <h1 className="font-display text-3xl font-semibold">Minhas turmas</h1>
         </div>
         <Button asChild>
-          <Link to="/aluno/entrar">Entrar com código</Link>
+          <Link to="/aluno/entrar">
+            <KeyRound className="h-4 w-4" />
+            Entrar com código
+          </Link>
         </Button>
       </div>
 
@@ -36,6 +40,7 @@ export function AlunoClassesPage() {
         <PageLoader />
       ) : classes.length === 0 ? (
         <EmptyState
+          icon={Users}
           title="Você ainda não está em nenhuma turma"
           description="Use o código de 8 caracteres que o professor compartilhou."
         >
@@ -53,8 +58,9 @@ export function AlunoClassesPage() {
               <div>
                 <Link
                   to={`/aluno/turmas/${item.id}`}
-                  className="font-medium hover:text-primary"
+                  className="inline-flex items-center gap-2 font-medium hover:text-primary"
                 >
+                  <GraduationCap className="h-4 w-4 text-primary" aria-hidden />
                   {item.name}
                 </Link>
                 <p className="text-sm text-muted-foreground">

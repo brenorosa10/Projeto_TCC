@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, XCircle } from "lucide-react"
 import { AlternativeBody } from "@/components/activity/alternative-media"
+import { CelebrationBurst } from "@/components/activity/celebration-burst"
 import { ContentBlockList } from "@/components/activity/content-block-list"
 import { ItemAnswerForm } from "@/components/activity/item-answer-form"
 import { ItemPrompt } from "@/components/activity/item-prompt"
@@ -103,6 +104,7 @@ export function AlunoQuizStudyPage() {
         <PageLoader />
       ) : !study ? (
         <EmptyState
+          icon={XCircle}
           title="Quiz não encontrado"
           description="A atividade pode ter sido removida ou o link está incorreto."
         />
@@ -223,7 +225,13 @@ function PracticeView({
               {item.difficulty}
             </Badge>
           ) : null}
-          <span className="ml-auto text-xs font-medium text-muted-foreground">
+          <span
+            key={`${study.progress.correctCount}-${feedback?.isCorrect ? "ok" : "wait"}`}
+            className={cn(
+              "ml-auto text-xs font-medium text-muted-foreground",
+              feedback?.isCorrect && "animate-score-bump text-success"
+            )}
+          >
             {plural(study.progress.correctCount, "acerto", "acertos")}
           </span>
         </div>
@@ -260,13 +268,13 @@ function PracticeView({
                   <div
                     className={cn(
                       "flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-sm",
-                      isCorrect && "border-success/40 bg-success/8",
-                      isWrongPick && "border-destructive/40 bg-destructive/8",
+                      isCorrect && "animate-answer-glow border-success/40 bg-success/8",
+                      isWrongPick && "animate-shake border-destructive/40 bg-destructive/8",
                       !isCorrect && !isWrongPick && "border-border/70 bg-muted/30 opacity-70"
                     )}
                   >
                     {isCorrect ? (
-                      <CheckCircle2 className="mt-0.5 h-4.5 w-4.5 shrink-0 text-success" />
+                      <CheckCircle2 className="mt-0.5 h-4.5 w-4.5 shrink-0 animate-check-pop text-success" />
                     ) : isWrongPick ? (
                       <XCircle className="mt-0.5 h-4.5 w-4.5 shrink-0 text-destructive" />
                     ) : (
@@ -293,14 +301,15 @@ function PracticeView({
           <div className="space-y-4">
             <div
               className={cn(
-                "flex items-start gap-3 rounded-xl border px-4 py-3.5",
+                "relative flex items-start gap-3 overflow-hidden rounded-xl border px-4 py-3.5",
                 feedback.isCorrect
-                  ? "border-success/30 bg-success/8"
-                  : "border-destructive/30 bg-destructive/8"
+                  ? "animate-answer-glow border-success/30 bg-success/8"
+                  : "animate-shake border-destructive/30 bg-destructive/8"
               )}
             >
+              {feedback.isCorrect ? <CelebrationBurst /> : null}
               {feedback.isCorrect ? (
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+                <CheckCircle2 className="relative mt-0.5 h-5 w-5 shrink-0 animate-check-pop text-success" />
               ) : (
                 <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
               )}

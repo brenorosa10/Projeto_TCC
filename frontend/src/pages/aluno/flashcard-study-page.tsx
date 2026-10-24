@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 import { Link, useLocation, useParams } from "react-router-dom"
 import { toast } from "sonner"
-import { Layers, RefreshCw, Sparkles } from "lucide-react"
+import { Check, Layers, RefreshCw, Sparkles } from "lucide-react"
+import { FlashcardFace, FlashcardFlip } from "@/components/activity/flashcard-flip"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
 import { EmptyState, PageLoader } from "@/components/ui/page-loader"
@@ -116,7 +117,11 @@ export function AlunoFlashcardStudyPage() {
       {loading ? (
         <PageLoader />
       ) : !session ? (
-        <EmptyState title="Deck não encontrado" description="O deck pode ter sido removido ou o link está incorreto." />
+        <EmptyState
+          icon={Layers}
+          title="Deck não encontrado"
+          description="O deck pode ter sido removido ou o link está incorreto."
+        />
       ) : (
         <div className="mx-auto max-w-3xl space-y-6">
           <div>
@@ -196,31 +201,34 @@ export function AlunoFlashcardStudyPage() {
                 </span>
               </div>
 
-              <button
-                key={`${card.id}-${flipped}`}
-                type="button"
-                aria-expanded={flipped}
-                onClick={() => setFlipped((prev) => !prev)}
-                className="animate-pop-in flex min-h-56 w-full flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-10 text-center shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-lift)]"
-              >
-                <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  {flipped ? "Verso" : "Frente"}
-                </span>
-                {!flipped && card.imageDataUrl ? (
-                  <img
-                    src={card.imageDataUrl}
-                    alt="Imagem da frente do cartão"
-                    className="mt-4 max-h-56 w-full rounded-lg object-contain"
-                  />
-                ) : null}
-                <RichText
-                  value={flipped ? card.back : card.front}
-                  className="rich-text-prompt mt-4 font-display text-2xl font-semibold sm:text-3xl"
-                />
-                <span className="mt-5 text-sm text-muted-foreground">
-                  {flipped ? "Avalie se você lembrava" : "Toque no cartão para ver a resposta"}
-                </span>
-              </button>
+              <FlashcardFlip
+                key={card.id}
+                flipped={flipped}
+                onFlip={() => setFlipped((prev) => !prev)}
+                front={
+                  <FlashcardFace label="Frente" hint="Toque no cartão para ver a resposta">
+                    {card.imageDataUrl ? (
+                      <img
+                        src={card.imageDataUrl}
+                        alt="Imagem da frente do cartão"
+                        className="mx-auto mb-4 max-h-56 w-full rounded-lg object-contain"
+                      />
+                    ) : null}
+                    <RichText
+                      value={card.front}
+                      className="rich-text-prompt font-display text-2xl font-semibold sm:text-3xl"
+                    />
+                  </FlashcardFace>
+                }
+                back={
+                  <FlashcardFace label="Verso" hint="Avalie se você lembrava">
+                    <RichText
+                      value={card.back}
+                      className="rich-text-prompt font-display text-2xl font-semibold sm:text-3xl"
+                    />
+                  </FlashcardFace>
+                }
+              />
 
               {flipped ? (
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -230,6 +238,7 @@ export function AlunoFlashcardStudyPage() {
                     disabled={submitting}
                     onClick={() => void review(true)}
                   >
+                    <Check className="h-4 w-4" />
                     Lembrei
                   </Button>
                   <Button

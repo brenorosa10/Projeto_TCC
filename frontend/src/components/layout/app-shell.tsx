@@ -1,6 +1,13 @@
 import type { ReactNode } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { ArrowLeft, LogOut } from "lucide-react"
+import {
+  ArrowLeft,
+  BookOpen,
+  GraduationCap,
+  House,
+  LogOut,
+  Radio,
+} from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -47,10 +54,10 @@ export function AppShell({
           { to: "/professor/analytics", label: "Analytics" },
         ]
       : [
-          { to: "/aluno", label: "Início", exact: true },
-          { to: "/aluno/turmas", label: "Turmas" },
-          { to: "/aluno/estudar", label: "Estudar" },
-          { to: "/aluno/sessao", label: "Ao vivo" },
+          { to: "/aluno", label: "Início", exact: true, icon: House },
+          { to: "/aluno/turmas", label: "Turmas", icon: GraduationCap },
+          { to: "/aluno/estudar", label: "Estudar", icon: BookOpen },
+          { to: "/aluno/sessao", label: "Ao vivo", icon: Radio },
         ]
 
   return (
@@ -85,18 +92,20 @@ export function AppShell({
             <nav className="hidden items-center gap-1 md:flex">
               {navLinks.map((link) => {
                 const active = isNavActive(pathname, link.to, "exact" in link && link.exact)
+                const Icon = "icon" in link ? link.icon : undefined
                 return (
                   <Link
                     key={link.to}
                     to={link.to}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                       active
                         ? "bg-secondary text-primary"
                         : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
                     )}
                   >
+                    {Icon ? <Icon className="h-4 w-4" aria-hidden /> : null}
                     {link.label}
                   </Link>
                 )
@@ -149,16 +158,18 @@ export function AppShell({
         <nav className="scrollbar-none flex gap-1 overflow-x-auto border-b border-border/60 bg-background/60 px-4 py-2 backdrop-blur md:hidden">
           {navLinks.map((link) => {
             const active = isNavActive(pathname, link.to, "exact" in link && link.exact)
+            const Icon = "icon" in link ? link.icon : undefined
             return (
               <Link
                 key={link.to}
                 to={link.to}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
                   active ? "bg-primary text-primary-foreground" : "bg-secondary/70 text-muted-foreground"
                 )}
               >
+                {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
                 {link.label}
               </Link>
             )
@@ -171,7 +182,11 @@ export function AppShell({
   )
 }
 
-function isNavActive(pathname: string, to: string, exact?: boolean) {
+function isNavActive(
+  pathname: string,
+  to: string,
+  exact?: boolean
+) {
   if (exact) return pathname === to
   return pathname === to || pathname.startsWith(`${to}/`)
 }

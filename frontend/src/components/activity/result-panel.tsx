@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react"
 import { Check, ChevronDown, Sparkles, Trophy, X } from "lucide-react"
 import { AlternativeImage } from "@/components/activity/alternative-media"
+import { CelebrationBurst } from "@/components/activity/celebration-burst"
 import { RichText } from "@/components/rich-text/rich-text"
 import { cn, stripMarkdown } from "@/lib/utils"
 
@@ -59,6 +60,7 @@ export function ResultPanel({
         )}
       >
         <div className="pattern-grid absolute inset-0 opacity-[0.12]" aria-hidden />
+        {tone === "great" ? <CelebrationBurst /> : null}
         <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-3">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
@@ -100,12 +102,13 @@ export function ResultPanel({
             </div>
             <ul className="grid gap-2">
               {items.map((item, index) => (
-                <ResultRow
-                  key={item.itemId}
-                  index={index}
-                  item={item}
-                  label={itemLabel?.(item) ?? item.prompt ?? "Item"}
-                />
+                <li key={item.itemId} className="animate-rank-in" style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}>
+                  <ResultRow
+                    index={index}
+                    item={item}
+                    label={itemLabel?.(item) ?? item.prompt ?? "Item"}
+                  />
+                </li>
               ))}
             </ul>
           </div>
@@ -152,7 +155,7 @@ function ResultRow({
   const expandable = Boolean(item.explanation?.trim()) && !showAnswers
 
   return (
-    <li
+    <div
       className={cn(
         "overflow-hidden rounded-xl border transition-colors",
         item.isCorrect ? "border-success/25 bg-success/5" : "border-destructive/25 bg-destructive/5"
@@ -244,7 +247,7 @@ function ResultRow({
           <RichText value={item.explanation} className="text-sm" />
         </div>
       ) : null}
-    </li>
+    </div>
   )
 }
 
