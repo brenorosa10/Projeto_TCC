@@ -116,7 +116,7 @@ export function RichTextEditor({
 
       <div
         className={cn(
-          "overflow-hidden rounded-xl border border-input bg-field transition-shadow focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25",
+          "overflow-hidden rounded-xl border border-input bg-card transition-shadow focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25",
           disabled && "opacity-60"
         )}
       >
