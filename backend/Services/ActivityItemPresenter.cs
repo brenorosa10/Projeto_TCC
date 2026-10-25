@@ -64,7 +64,6 @@ public static class ActivityItemPresenter
             item.Id,
             item.Kind,
             prompt,
-            item.TimeLimitSeconds,
             item.Options?
                 .OrderBy(option => option.Position)
                 .Select(option => new QuestionOptionResponse(

@@ -216,7 +216,6 @@ public static class ActivityContentBuilder
                 Explanation = TrimToNull(item.Explanation)
                     ?? ContentBlocks.Flatten(feedbackBlocks)
                     ?? TrimToNull(string.Join("\n\n", item.FeedbackMessages ?? [])),
-                TimeLimitSeconds = kind == ItemKinds.Flashcard ? null : item.TimeLimitSeconds ?? 30,
                 Position = positionOffset + index,
                 AllowMultiple = kind == ItemKinds.MultipleChoice && item.AllowMultiple == true,
                 CaseSensitive = kind is ItemKinds.ShortAnswer or ItemKinds.Cloze && item.CaseSensitive == true,
@@ -362,11 +361,6 @@ public static class ActivityContentBuilder
         if (!ItemKinds.All.Contains(kind))
         {
             return "Tipo de questão não suportado. Use multiple_choice, true_false, short_answer, matching, ordering, cloze, categorize ou flashcard.";
-        }
-
-        if (kind != ItemKinds.Flashcard && item.TimeLimitSeconds is < 5 or > 300)
-        {
-            return "O tempo por questão deve ficar entre 5 e 300 segundos.";
         }
 
         var blockError = ContentBlocks.Validate(item.Intro)

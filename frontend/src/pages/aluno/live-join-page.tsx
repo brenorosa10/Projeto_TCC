@@ -7,7 +7,6 @@ import { AlternativeBody } from "@/components/activity/alternative-media"
 import { CelebrationBurst } from "@/components/activity/celebration-burst"
 import { ItemAnswerForm } from "@/components/activity/item-answer-form"
 import { ItemPrompt } from "@/components/activity/item-prompt"
-import { QuestionCountdown } from "@/components/activity/question-countdown"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -268,7 +267,6 @@ function StudentRoom({
             <Badge variant="outline">
               Questão {state.itemIndex + 1} de {state.itemCount}
             </Badge>
-            <QuestionCountdown endsAt={state.questionEndsAt} />
           </div>
           <div key={state.currentItem.id} className="surface-card animate-enter space-y-5 p-5 sm:p-6">
             <ItemPrompt item={state.currentItem} />

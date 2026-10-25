@@ -566,16 +566,6 @@
   }
 }
 
-@keyframes countdown-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.06);
-  }
-}
-
 @keyframes rank-in {
   from {
     opacity: 0;
@@ -601,10 +591,6 @@
 
 .animate-score-bump {
   animation: score-bump 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.animate-countdown-urgent {
-  animation: countdown-pulse 0.8s ease-in-out infinite;
 }
 
 .animate-rank-in {

@@ -144,7 +144,6 @@ export interface ActivityItem {
   kind: string
   prompt?: string | null
   explanation?: string | null
-  timeLimitSeconds?: number | null
   position: number
   options?: QuestionOption[] | null
   front?: string | null
@@ -210,7 +209,6 @@ export interface CreateActivityItemRequest {
   kind?: ItemKind
   prompt?: string
   explanation?: string
-  timeLimitSeconds?: number
   options?: CreateQuestionOptionRequest[]
   allowMultiple?: boolean
   acceptedAnswers?: string[]
@@ -491,7 +489,6 @@ export interface StudySessionItem {
   id: string
   kind: ItemKind | string
   prompt?: string | null
-  timeLimitSeconds?: number | null
   options?: QuestionOption[] | null
   front?: string | null
   back?: string | null
@@ -618,8 +615,6 @@ export interface LiveSessionState {
   itemCount: number
   presentedCount: number
   questionStartedAt?: string | null
-  timeLimitSeconds?: number | null
-  questionEndsAt?: string | null
   currentItem?: StudySessionItem | null
   tally: LiveAnswerTally
   participants: LiveParticipant[]

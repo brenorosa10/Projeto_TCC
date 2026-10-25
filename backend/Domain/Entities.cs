@@ -149,7 +149,6 @@ public class ActivityItem
     public string Kind { get; set; } = string.Empty;
     public string? Prompt { get; set; }
     public string? Explanation { get; set; }
-    public int? TimeLimitSeconds { get; set; }
     public int Position { get; set; }
     public List<QuestionOption>? Options { get; set; }
     public bool AllowMultiple { get; set; }
@@ -272,7 +271,6 @@ public class LiveSession
     public int ItemIndex { get; set; }
     public List<Guid> ItemIds { get; set; } = [];
     public DateTimeOffset? QuestionStartedAt { get; set; }
-    public int? TimeLimitSeconds { get; set; }
     public string? HostConnectionId { get; set; }
     public List<LiveParticipant> Participants { get; set; } = [];
     public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
