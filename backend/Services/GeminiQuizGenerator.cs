@@ -144,6 +144,7 @@ public sealed class GeminiQuizGenerator(
             Também escreva a pré-seção (o que o aluno lê antes de começar) e a pós-seção (a mensagem depois do resultado).
             Pré-seção: título curto, texto de abertura, de 2 a 4 objetivos de aprendizagem, de 2 a 4 dicas de estudo e um tempo estimado em minutos (1 a 180).
             Pós-seção: título e uma mensagem de encerramento que oriente a revisar os erros, sem inventar a nota.
+            Sugira também um tema curto em português (no máximo 40 caracteres), de preferência um destes: {string.Join(", ", ActivityThemes.Suggestions)}. Se nenhum servir, crie um rótulo curto. Não use "Geral" nem "Outros".
             Não inclua imagens.
             Contexto:
             {context}
@@ -206,7 +207,8 @@ public sealed class GeminiQuizGenerator(
                 }
             },
             prep = SectionSchema(includeLists: true),
-            feedback = SectionSchema(includeLists: false)
+            feedback = SectionSchema(includeLists: false),
+            theme = new { type = "string" }
         },
         required = new[] { "questions", "prep", "feedback" }
     };

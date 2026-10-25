@@ -91,6 +91,8 @@ export interface ActivitySummary {
   sourceActivityId?: string | null
   classIds: string[]
   isPublic: boolean
+  theme?: string | null
+  description?: string | null
 }
 
 export interface QuestionOption {
@@ -305,12 +307,14 @@ export interface GenerateQuizQuestionsResponse {
   questions: GeneratedQuizQuestion[]
   prep: GeneratedPrepSection
   feedback: GeneratedFeedbackSection
+  theme?: string | null
 }
 
 export interface AcceptedQuizGeneration {
   questions: GeneratedQuizQuestion[]
   prep: GeneratedPrepSection | null
   feedback: GeneratedFeedbackSection | null
+  theme?: string | null
 }
 
 export interface CreateActivityRequest {
@@ -319,6 +323,8 @@ export interface CreateActivityRequest {
   items?: CreateActivityItemRequest[]
   isPublic?: boolean
   sections?: CreateActivitySectionRequest[]
+  theme?: string
+  description?: string
 }
 
 export interface PublicActivitySummary {
@@ -328,6 +334,45 @@ export interface PublicActivitySummary {
   itemCount: number
   createdAt: string
   professorName?: string | null
+  theme?: string | null
+  description?: string | null
+  hasCover?: boolean
+  playCount?: number
+  difficulty?: string | null
+}
+
+export interface PublicThemeFacet {
+  name: string
+  count: number
+}
+
+export interface PublicThemeGroup {
+  theme: string
+  total: number
+  items: PublicActivitySummary[]
+}
+
+export interface PublicCatalog {
+  items: PublicActivitySummary[]
+  total: number
+  page: number
+  pageSize: number
+  sort: string
+  themes: PublicThemeFacet[]
+  groups?: PublicThemeGroup[] | null
+}
+
+export interface PublicCatalogQuery {
+  q?: string
+  type?: "quiz" | "flashcards"
+  themes?: string[]
+  sort?: "recent" | "popular" | "alpha"
+  minItems?: number
+  maxItems?: number
+  difficulty?: string
+  page?: number
+  pageSize?: number
+  view?: "grouped" | "list"
 }
 
 export interface StudyQuizSummary {

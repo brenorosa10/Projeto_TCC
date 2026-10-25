@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Plus, Trash2 } from "lucide-react"
+import { ActivityCatalogFields } from "@/components/activity/activity-catalog-fields"
 import { ItemImageField } from "@/components/activity/item-image-field"
 import { PrepFeedbackFields } from "@/components/activity/prep-feedback-fields"
 import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
@@ -31,6 +32,8 @@ export function ProfessorCreateFlashcardsPage() {
   const { profile } = useAuth()
   const nav = activityEditorNav(profile?.role)
   const [title, setTitle] = useState("")
+  const [theme, setTheme] = useState("")
+  const [description, setDescription] = useState("")
   const [isPublic, setIsPublic] = useState(false)
   const [prepId, setPrepId] = useState<string>()
   const [practiceId, setPracticeId] = useState<string>()
@@ -58,6 +61,8 @@ export function ProfessorCreateFlashcardsPage() {
           return
         }
         setTitle(activity.title)
+        setTheme(activity.theme ?? "")
+        setDescription(activity.description ?? "")
         setIsPublic(Boolean(activity.isPublic))
         const prep = findSection(activity.sections, "prep")
         const practice = findSection(activity.sections, "practice")
@@ -123,6 +128,8 @@ export function ProfessorCreateFlashcardsPage() {
       title: title.trim(),
       type: "flashcards",
       isPublic: nav.student ? false : isPublic,
+      theme: theme.trim() || undefined,
+      description: description.trim() || undefined,
       sections: [
         {
           id: prepId,
@@ -215,6 +222,15 @@ export function ProfessorCreateFlashcardsPage() {
         {!nav.student ? (
           <VisibilityCheckbox id="deck-public" checked={isPublic} onChange={setIsPublic} />
         ) : null}
+
+        <ActivityCatalogFields
+          themeId="deck-theme"
+          descriptionId="deck-description"
+          theme={theme}
+          description={description}
+          onTheme={setTheme}
+          onDescription={setDescription}
+        />
 
         <PrepFeedbackFields
           prepTitle={prepTitle}

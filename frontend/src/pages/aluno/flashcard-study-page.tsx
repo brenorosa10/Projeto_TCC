@@ -20,9 +20,17 @@ type Phase = "prep" | "cards" | "done"
 export function AlunoFlashcardStudyPage() {
   const { activityId } = useParams()
   const location = useLocation()
-  const { session: authSession } = useAuth()
-  const isGuest = location.pathname.startsWith("/explorar") || !authSession
-  const backHref = isGuest ? "/" : "/aluno/estudar"
+  const { session: authSession, profile } = useAuth()
+  const exploring = location.pathname.startsWith("/explorar")
+  const isGuest = exploring || !authSession
+  const backHref =
+    authSession && exploring
+      ? profile?.role === "professor"
+        ? "/professor"
+        : "/aluno"
+      : isGuest
+        ? "/"
+        : "/aluno/estudar"
   const [session, setSession] = useState<StudyFlashcardSession | null>(null)
   const [prep, setPrep] = useState<ActivitySection | null>(null)
   const [feedback, setFeedback] = useState<ActivitySection | null>(null)

@@ -11,38 +11,56 @@ namespace Astro.Api.Controllers;
 [ApiController]
 [AllowAnonymous]
 [Route("api/public")]
-public class PublicController(MongoDbContext db) : ControllerBase
+public class PublicController(MongoDbContext db, PublicCatalogService catalog) : ControllerBase
 {
     [HttpGet("activities")]
-    public async Task<ActionResult<IEnumerable<PublicActivitySummaryResponse>>> List(
+    public async Task<ActionResult<PublicCatalogResponse>> List(
+        [FromQuery] string? q,
+        [FromQuery] string? type,
+        [FromQuery] string[]? themes,
+        [FromQuery] string? sort,
+        [FromQuery] int? minItems,
+        [FromQuery] int? maxItems,
+        [FromQuery] string? difficulty,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        [FromQuery] string? view,
         CancellationToken cancellationToken)
     {
-        var activities = await db.Activities
-            .Find(a => a.IsPublic && (a.Type == ActivityTypes.Quiz || a.Type == ActivityTypes.Flashcards))
-            .SortByDescending(a => a.CreatedAt)
-            .Limit(48)
-            .ToListAsync(cancellationToken);
+        var parsed = PublicCatalogLogic.Parse(
+            q,
+            type,
+            themes,
+            sort,
+            minItems,
+            maxItems,
+            difficulty,
+            page,
+            pageSize,
+            view);
+        if (parsed.Error is not null || parsed.Criteria is null)
+        {
+            return BadRequest(new { detail = parsed.Error ?? "Não foi possível filtrar a vitrine." });
+        }
 
-        var professorIds = activities.Select(a => a.ProfessorId).Distinct().ToList();
-        var professors = professorIds.Count == 0
-            ? []
-            : await db.Profiles
-                .Find(Builders<Profile>.Filter.In(p => p.Id, professorIds))
-                .ToListAsync(cancellationToken);
-        var nameById = professors.ToDictionary(
-            p => p.Id,
-            p => p.Username ?? p.FullName ?? p.Email);
+        return Ok(await catalog.SearchAsync(parsed.Criteria, cancellationToken));
+    }
 
-        var summaries = activities.Select(activity =>
-            new PublicActivitySummaryResponse(
-                activity.Id,
-                activity.Title,
-                activity.Type,
-                activity.Items.Count,
-                activity.CreatedAt,
-                nameById.GetValueOrDefault(activity.ProfessorId)));
+    [HttpGet("activities/{id:guid}/cover")]
+    public async Task<IActionResult> Cover(Guid id, CancellationToken cancellationToken)
+    {
+        var activity = await FindPublicAsync(id, cancellationToken);
+        var prep = activity?.Sections.FirstOrDefault(section =>
+            section.Role == SectionRoles.Prep
+            && section.ImageBytes is { Length: > 0 }
+            && !string.IsNullOrWhiteSpace(section.ImageContentType));
+        if (prep?.ImageBytes is null || string.IsNullOrWhiteSpace(prep.ImageContentType))
+        {
+            return NotFound();
+        }
 
-        return Ok(summaries);
+        Response.Headers.CacheControl = "public,max-age=86400";
+        return File(prep.ImageBytes, prep.ImageContentType);
     }
 
     [HttpGet("activities/{id:guid}")]

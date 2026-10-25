@@ -83,6 +83,7 @@ public class ActivitiesController(
             Sections = built.Sections!,
             Items = built.Items!
         };
+        ActivityCatalog.Apply(activity, request.Theme, request.Description);
 
         var sizeError = ActivityImage.ValidateDocumentSize(activity);
         if (sizeError is not null)
@@ -137,6 +138,7 @@ public class ActivitiesController(
         activity.IsPublic = profile.Role == UserRoles.Professor && request.IsPublic;
         activity.Sections = built.Sections!;
         activity.Items = built.Items!;
+        ActivityCatalog.Apply(activity, request.Theme, request.Description);
 
         var sizeError = ActivityImage.ValidateDocumentSize(activity);
         if (sizeError is not null)
@@ -400,6 +402,7 @@ public class ActivitiesController(
             existing.ClassIds = linked;
             existing.ClassId = Guid.Empty;
             existing.IsPublic = quiz.IsPublic;
+            ActivityCatalog.CopyListing(quiz, existing);
             await db.Activities.ReplaceOneAsync(a => a.Id == existing.Id, existing, cancellationToken: cancellationToken);
             return Ok(ActivityMapper.ToResponse(existing, includeAnswers: true));
         }
@@ -417,6 +420,7 @@ public class ActivitiesController(
             Items = cards,
             Sections = ActivityContentBuilder.DefaultSections(cards)
         };
+        ActivityCatalog.CopyListing(quiz, deck);
 
         await db.Activities.InsertOneAsync(deck, cancellationToken: cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = deck.Id }, ActivityMapper.ToResponse(deck, includeAnswers: true));

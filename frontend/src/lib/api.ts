@@ -15,7 +15,8 @@ import type {
   Profile,
   RegisterRequest,
   AuthResponse,
-  PublicActivitySummary,
+  PublicCatalog,
+  PublicCatalogQuery,
   StudyAnswerFeedback,
   StudyFlashcardSession,
   StudyFlashcardSummary,
@@ -181,7 +182,23 @@ export const api = {
     request<Activity>(`/api/classes/${classId}/activities/${activityId}`, {
       method: "DELETE",
     }),
-  listPublicActivities: () => request<PublicActivitySummary[]>("/api/public/activities"),
+  listPublicActivities: (params: PublicCatalogQuery = {}) => {
+    const search = new URLSearchParams()
+    if (params.q) search.set("q", params.q)
+    if (params.type) search.set("type", params.type)
+    for (const theme of params.themes ?? []) {
+      if (theme) search.append("themes", theme)
+    }
+    if (params.sort) search.set("sort", params.sort)
+    if (typeof params.minItems === "number") search.set("minItems", String(params.minItems))
+    if (typeof params.maxItems === "number") search.set("maxItems", String(params.maxItems))
+    if (params.difficulty) search.set("difficulty", params.difficulty)
+    if (params.page) search.set("page", String(params.page))
+    if (params.pageSize) search.set("pageSize", String(params.pageSize))
+    if (params.view) search.set("view", params.view)
+    const query = search.toString()
+    return request<PublicCatalog>(`/api/public/activities${query ? `?${query}` : ""}`)
+  },
   getPublicActivity: (id: string) => request<Activity>(`/api/public/activities/${id}`),
   submitPublicAnswer: (activityId: string, body: SubmitStudyAnswerRequest) =>
     request<StudyAnswerFeedback>(`/api/public/quizzes/${activityId}/answers`, {

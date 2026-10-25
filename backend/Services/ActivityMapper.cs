@@ -15,7 +15,9 @@ public static class ActivityMapper
             activity.Items.Count,
             activity.SourceActivityId,
             activity.LinkedClassIds(),
-            activity.IsPublic);
+            activity.IsPublic,
+            activity.Theme,
+            activity.Description);
 
     public static ActivityResponse ToResponse(Activity activity, bool includeAnswers)
     {
@@ -48,7 +50,9 @@ public static class ActivityMapper
                 .Select(item => ToItemResponse(item, includeAnswers))
                 .ToList(),
             sections,
-            activity.Items.Count);
+            activity.Items.Count,
+            activity.Theme,
+            activity.Description);
     }
 
     public static ActivityItemResponse ToItemResponse(ActivityItem item, bool includeAnswers)

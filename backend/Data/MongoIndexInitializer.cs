@@ -60,7 +60,39 @@ public class MongoIndexInitializer(MongoDbContext db, ILogger<MongoIndexInitiali
                 new CreateIndexModel<Activity>(
                     Builders<Activity>.IndexKeys.Ascending(x => x.ClassId).Descending(x => x.CreatedAt)),
                 new CreateIndexModel<Activity>(
-                    Builders<Activity>.IndexKeys.Ascending(x => x.IsPublic).Ascending(x => x.Type).Descending(x => x.CreatedAt))
+                    Builders<Activity>.IndexKeys.Ascending(x => x.IsPublic).Ascending(x => x.Type).Descending(x => x.CreatedAt)),
+                new CreateIndexModel<Activity>(
+                    Builders<Activity>.IndexKeys
+                        .Ascending(x => x.IsPublic)
+                        .Ascending(x => x.Type)
+                        .Ascending(x => x.ThemeKey)
+                        .Descending(x => x.CreatedAt),
+                    new CreateIndexOptions<Activity>
+                    {
+                        Name = "public_type_theme_recent",
+                        PartialFilterExpression = Builders<Activity>.Filter.Eq(x => x.IsPublic, true)
+                    }),
+                new CreateIndexModel<Activity>(
+                    Builders<Activity>.IndexKeys
+                        .Ascending(x => x.IsPublic)
+                        .Ascending(x => x.Type)
+                        .Descending(x => x.PlayCount)
+                        .Descending(x => x.CreatedAt),
+                    new CreateIndexOptions<Activity>
+                    {
+                        Name = "public_type_popular",
+                        PartialFilterExpression = Builders<Activity>.Filter.Eq(x => x.IsPublic, true)
+                    }),
+                new CreateIndexModel<Activity>(
+                    Builders<Activity>.IndexKeys
+                        .Ascending(x => x.IsPublic)
+                        .Ascending(x => x.Type)
+                        .Ascending(x => x.Title),
+                    new CreateIndexOptions<Activity>
+                    {
+                        Name = "public_type_title",
+                        PartialFilterExpression = Builders<Activity>.Filter.Eq(x => x.IsPublic, true)
+                    })
             ],
             cancellationToken);
 
