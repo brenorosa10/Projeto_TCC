@@ -26,6 +26,16 @@ public static partial class AttachedVideo
             return (value, File, null);
         }
 
+        if (YouTubeIdPattern().IsMatch(value))
+        {
+            return (value, YouTube, null);
+        }
+
+        if (value.Length is >= 6 and <= 12 && value.All(char.IsDigit))
+        {
+            return (value, Vimeo, null);
+        }
+
         if (value.StartsWith("//", StringComparison.Ordinal) || value.Contains('\\') || value.Contains(' '))
         {
             return (null, null, "O vídeo por endereço precisa ser um link http ou https.");

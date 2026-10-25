@@ -37,9 +37,6 @@ export function ActivityCatalogFields({
             <option key={suggestion} value={suggestion} />
           ))}
         </datalist>
-        <p className="text-xs text-muted-foreground">
-          Opcional. Na vitrine pública, quem não escolhe um tema aparece em Geral.
-        </p>
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor={descriptionId}>Descrição</Label>

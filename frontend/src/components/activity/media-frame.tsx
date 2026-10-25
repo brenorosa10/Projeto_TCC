@@ -50,6 +50,12 @@ export function parseVideoAddress(value: string): { videoUrl: string; videoKind:
   if (/^\/api\/media\/[0-9a-f-]{36}$/i.test(trimmed)) {
     return { videoUrl: trimmed, videoKind: "file" }
   }
+  if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) {
+    return { videoUrl: trimmed, videoKind: "youtube" }
+  }
+  if (/^\d{6,12}$/.test(trimmed)) {
+    return { videoUrl: trimmed, videoKind: "vimeo" }
+  }
   const youtube = youtubeEmbedId(trimmed)
   if (youtube && /youtube|youtu\.be/i.test(trimmed)) {
     return { videoUrl: trimmed, videoKind: "youtube" }
