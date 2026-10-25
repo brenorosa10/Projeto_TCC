@@ -66,7 +66,6 @@ public static class ActivityMapper
             item.Kind,
             prompt,
             includeAnswers ? item.Explanation : null,
-            item.TimeLimitSeconds,
             item.Position,
             item.Options?
                 .OrderBy(option => option.Position)

@@ -67,7 +67,6 @@ type DraftQuestion = {
   kind: ItemKind
   prompt: string
   explanation: string
-  timeLimitSeconds: number
   imageDataUrl?: string
   imagePosition: "before" | "after"
   allowMultiple: boolean
@@ -125,7 +124,6 @@ function newQuestion(kind: ItemKind = "multiple_choice"): DraftQuestion {
     kind,
     prompt: "",
     explanation: "",
-    timeLimitSeconds: 30,
     imagePosition: "after",
     allowMultiple: false,
     options: [newOption(true), newOption(), newOption(), newOption()],
@@ -183,7 +181,6 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
     kind,
     prompt: item.prompt ?? item.front ?? "",
     explanation: item.explanation ?? "",
-    timeLimitSeconds: item.timeLimitSeconds ?? 30,
     imageDataUrl: item.imageDataUrl ?? undefined,
     imagePosition: item.imagePosition === "before" ? "before" : "after",
     allowMultiple: Boolean(item.allowMultiple),
@@ -340,7 +337,6 @@ function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
     promptBlocks,
     feedbackBlocks,
     feedbackMessages: feedbackMessages.length > 0 ? feedbackMessages : undefined,
-    timeLimitSeconds: Math.min(300, Math.max(5, question.timeLimitSeconds || 30)),
     topics: topics.length > 0 ? topics : undefined,
     difficulty: question.difficulty || undefined,
     requireExplanation: supportsReflection ? question.requireExplanation : undefined,
@@ -1194,21 +1190,6 @@ export function ProfessorCreateQuizPage() {
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor={`time-${question.key}`}>Tempo ao vivo (segundos)</Label>
-                    <Input
-                      id={`time-${question.key}`}
-                      type="number"
-                      min={5}
-                      max={300}
-                      value={question.timeLimitSeconds}
-                      onChange={(event) =>
-                        updateQuestion(question.key, {
-                          timeLimitSeconds: Number(event.target.value) || 30,
-                        })
-                      }
-                    />
                   </div>
                 </div>
 

@@ -19,7 +19,6 @@ import {
 } from "lucide-react"
 import { AlternativeBody } from "@/components/activity/alternative-media"
 import { CelebrationBurst } from "@/components/activity/celebration-burst"
-import { QuestionCountdown } from "@/components/activity/question-countdown"
 import { ItemPrompt } from "@/components/activity/item-prompt"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
@@ -870,7 +869,6 @@ function QuestionMeta({ state }: { state: LiveSessionState }) {
           <Users className="h-4 w-4 text-muted-foreground" />
           {answeredCount}/{participantCount} responderam
         </span>
-        {state.phase === "question" ? <QuestionCountdown endsAt={state.questionEndsAt} /> : null}
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div
