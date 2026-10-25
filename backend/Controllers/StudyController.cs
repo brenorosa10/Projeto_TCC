@@ -176,7 +176,9 @@ public class StudyController(
                     item.Front ?? string.Empty,
                     item.Back ?? string.Empty,
                     state?.BoxLevel ?? LeitnerScheduler.MinBox,
-                    ActivityImage.ToDataUrl(item));
+                    ActivityImage.ToDataUrl(item),
+                    item.VideoUrl,
+                    item.VideoKind);
             })
             .Where(card => card is not null)
             .Cast<StudyFlashcardCardResponse>()

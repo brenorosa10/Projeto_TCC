@@ -124,6 +124,14 @@ public class ActivitySection
 
     [BsonIgnoreIfNull]
     public string? ImageContentType { get; set; }
+
+    /// <summary>Endereço normalizado: caminho /api/media, URL direta, id do YouTube ou id do Vimeo.</summary>
+    [BsonIgnoreIfNull]
+    public string? VideoUrl { get; set; }
+
+    /// <summary>file, youtube ou vimeo. Ausente nas atividades só com imagem.</summary>
+    [BsonIgnoreIfNull]
+    public string? VideoKind { get; set; }
 }
 
 public class ContentBlock
@@ -178,6 +186,12 @@ public class ActivityItem
 
     [BsonIgnoreIfNull]
     public string? ImageContentType { get; set; }
+
+    [BsonIgnoreIfNull]
+    public string? VideoUrl { get; set; }
+
+    [BsonIgnoreIfNull]
+    public string? VideoKind { get; set; }
 
     [BsonExtraElements]
     public BsonDocument? Extra { get; set; }

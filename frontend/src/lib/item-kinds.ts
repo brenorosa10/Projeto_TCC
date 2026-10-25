@@ -65,6 +65,7 @@ export function hasSectionCopy(
         tips?: string[] | null
         estimatedMinutes?: number | null
         imageDataUrl?: string | null
+        videoUrl?: string | null
       }
     | null
     | undefined
@@ -75,7 +76,7 @@ export function hasSectionCopy(
   if (section?.objectives?.some((item) => item.trim()) || section?.tips?.some((item) => item.trim())) {
     return true
   }
-  if (section?.estimatedMinutes || section?.imageDataUrl) return true
+  if (section?.estimatedMinutes || section?.imageDataUrl || section?.videoUrl) return true
   if (!title) return false
   return !PLACEHOLDER_SECTION_TITLES.has(title.toLowerCase())
 }

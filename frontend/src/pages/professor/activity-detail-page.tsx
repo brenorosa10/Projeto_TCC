@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { Flag, Layers, Pencil, Radio, Rocket, SearchX } from "lucide-react"
 import { AlternativeBody } from "@/components/activity/alternative-media"
 import { ContentBlockList } from "@/components/activity/content-block-list"
+import { MediaFrame } from "@/components/activity/media-frame"
 import { PromptMedia } from "@/components/activity/question-preview"
 import { DeleteActivityButton } from "@/components/activity/delete-activity-button"
 import { RichText } from "@/components/rich-text/rich-text"
@@ -257,19 +258,18 @@ function SectionCopy({
         {section?.title?.trim() ? (
           <p className="font-display text-base font-semibold">{section.title}</p>
         ) : null}
-        {section?.imageDataUrl ? (
-          <img
-            src={section.imageDataUrl}
-            alt={
-              section.title?.trim()
-                ? `Imagem da seção ${section.title}`
-                : isPrep
-                  ? "Imagem da pré-seção"
-                  : "Imagem da pós-seção"
-            }
-            className="max-h-56 w-full rounded-lg border border-border object-contain bg-muted/30"
-          />
-        ) : null}
+        <MediaFrame
+          imageDataUrl={section?.imageDataUrl}
+          videoUrl={section?.videoUrl}
+          videoKind={section?.videoKind}
+          alt={
+            section?.title?.trim()
+              ? `Mídia da seção ${section.title}`
+              : isPrep
+                ? "Mídia da pré-seção"
+                : "Mídia da pós-seção"
+          }
+        />
         <RichText value={section?.body} className="text-sm" />
         {section?.objectives?.length ? (
           <div className="space-y-2">
@@ -339,6 +339,8 @@ function ActivityItemPreview({
       <div className="mt-2">
         <PromptMedia
           imageDataUrl={item.imageDataUrl}
+          videoUrl={item.videoUrl}
+          videoKind={item.videoKind}
           imagePosition={item.imagePosition}
           className="max-h-56"
         >

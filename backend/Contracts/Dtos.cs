@@ -147,7 +147,9 @@ public record CreateActivityItemRequest(
     bool? RequireExplanation = null,
     int? ExplanationMinLength = null,
     string? ExplanationPrompt = null,
-    string? ImagePosition = null
+    string? ImagePosition = null,
+    [MaxLength(2000)]
+    string? VideoUrl = null
 );
 
 public record CreateOrderEntryRequest(
@@ -195,7 +197,9 @@ public record CreateActivitySectionRequest(
     List<string>? Objectives = null,
     int? EstimatedMinutes = null,
     List<string>? Tips = null,
-    string? ImageDataUrl = null
+    string? ImageDataUrl = null,
+    [MaxLength(2000)]
+    string? VideoUrl = null
 );
 
 public record CreateActivityRequest(
@@ -269,7 +273,9 @@ public record ActivityItemResponse(
     bool? RequireExplanation = null,
     int? ExplanationMinLength = null,
     string? ExplanationPrompt = null,
-    string? ImagePosition = null
+    string? ImagePosition = null,
+    string? VideoUrl = null,
+    string? VideoKind = null
 );
 
 public record OrderEntryResponse(
@@ -307,7 +313,9 @@ public record ActivitySectionResponse(
     IReadOnlyList<string>? Objectives = null,
     int? EstimatedMinutes = null,
     IReadOnlyList<string>? Tips = null,
-    string? ImageDataUrl = null
+    string? ImageDataUrl = null,
+    string? VideoUrl = null,
+    string? VideoKind = null
 );
 
 public record ActivitySummaryResponse(
@@ -452,7 +460,9 @@ public record StudyFlashcardCardResponse(
     string Front,
     string Back,
     int BoxLevel,
-    string? ImageDataUrl
+    string? ImageDataUrl,
+    string? VideoUrl = null,
+    string? VideoKind = null
 );
 
 public record StudyFlashcardSessionResponse(
@@ -497,7 +507,9 @@ public record StudySessionSectionViewResponse(
     IReadOnlyList<string>? Objectives = null,
     int? EstimatedMinutes = null,
     IReadOnlyList<string>? Tips = null,
-    string? ImageDataUrl = null
+    string? ImageDataUrl = null,
+    string? VideoUrl = null,
+    string? VideoKind = null
 );
 
 public record StudySessionItemResponse(
@@ -522,7 +534,9 @@ public record StudySessionItemResponse(
     bool? RequireExplanation = null,
     int? ExplanationMinLength = null,
     string? ExplanationPrompt = null,
-    string? ImagePosition = null
+    string? ImagePosition = null,
+    string? VideoUrl = null,
+    string? VideoKind = null
 );
 
 public record StudySessionFeedbackItemResponse(

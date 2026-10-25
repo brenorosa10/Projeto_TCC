@@ -17,9 +17,21 @@ import { activityEditorNav } from "@/lib/activity-editor-paths"
 import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
 import { findSection } from "@/lib/item-kinds"
-import type { CreateActivityRequest } from "@/lib/types"
+import type { CreateActivityRequest, VideoKind } from "@/lib/types"
 
-type DraftCard = { key: string; id?: string; front: string; back: string; imageDataUrl?: string }
+type DraftCard = {
+  key: string
+  id?: string
+  front: string
+  back: string
+  imageDataUrl?: string
+  videoUrl?: string
+  videoKind?: VideoKind
+}
+
+function asVideoKind(value?: string | null): VideoKind | undefined {
+  return value === "file" || value === "youtube" || value === "vimeo" ? value : undefined
+}
 
 function newCard(): DraftCard {
   return { key: crypto.randomUUID(), front: "", back: "" }
@@ -44,6 +56,8 @@ export function ProfessorCreateFlashcardsPage() {
   const [prepMinutes, setPrepMinutes] = useState("")
   const [prepTips, setPrepTips] = useState("")
   const [prepImageDataUrl, setPrepImageDataUrl] = useState<string>()
+  const [prepVideoUrl, setPrepVideoUrl] = useState<string>()
+  const [prepVideoKind, setPrepVideoKind] = useState<VideoKind>()
   const [feedbackTitle, setFeedbackTitle] = useState("Resultados")
   const [feedbackBody, setFeedbackBody] = useState("")
   const [cards, setCards] = useState<DraftCard[]>([newCard()])
@@ -76,6 +90,8 @@ export function ProfessorCreateFlashcardsPage() {
         setPrepMinutes(prep?.estimatedMinutes ? String(prep.estimatedMinutes) : "")
         setPrepTips((prep?.tips ?? []).join("\n"))
         setPrepImageDataUrl(prep?.imageDataUrl ?? undefined)
+        setPrepVideoUrl(prep?.videoUrl ?? undefined)
+        setPrepVideoKind(asVideoKind(prep?.videoKind))
         setFeedbackTitle(feedback?.title ?? "Resultados")
         setFeedbackBody(feedback?.body ?? "")
         setCards(
@@ -85,6 +101,8 @@ export function ProfessorCreateFlashcardsPage() {
             front: item.front ?? "",
             back: item.back ?? "",
             imageDataUrl: item.imageDataUrl ?? undefined,
+            videoUrl: item.videoUrl ?? undefined,
+            videoKind: asVideoKind(item.videoKind),
           }))
         )
       })
@@ -140,6 +158,8 @@ export function ProfessorCreateFlashcardsPage() {
           estimatedMinutes: Number(prepMinutes) || undefined,
           tips: prepTips.split("\n").map((line) => line.trim()).filter(Boolean),
           imageDataUrl: prepImageDataUrl,
+          videoUrl: prepVideoUrl,
+          videoKind: prepVideoKind,
         },
         {
           id: practiceId,
@@ -150,6 +170,8 @@ export function ProfessorCreateFlashcardsPage() {
             front: card.front.trim(),
             back: card.back.trim(),
             imageDataUrl: card.imageDataUrl,
+            videoUrl: card.videoUrl,
+            videoKind: card.videoKind,
           })),
         },
         {
@@ -240,6 +262,8 @@ export function ProfessorCreateFlashcardsPage() {
           prepMinutes={prepMinutes}
           prepTips={prepTips}
           prepImageDataUrl={prepImageDataUrl}
+          prepVideoUrl={prepVideoUrl}
+          prepVideoKind={prepVideoKind}
           feedbackTitle={feedbackTitle}
           feedbackBody={feedbackBody}
           onPrepTitle={setPrepTitle}
@@ -247,7 +271,11 @@ export function ProfessorCreateFlashcardsPage() {
           onPrepObjectives={setPrepObjectives}
           onPrepMinutes={setPrepMinutes}
           onPrepTips={setPrepTips}
-          onPrepImageDataUrl={setPrepImageDataUrl}
+          onPrepMedia={(media) => {
+            setPrepImageDataUrl(media.imageDataUrl)
+            setPrepVideoUrl(media.videoUrl)
+            setPrepVideoKind(media.videoKind)
+          }}
           onFeedbackTitle={setFeedbackTitle}
           onFeedbackBody={setFeedbackBody}
         />
@@ -299,7 +327,15 @@ export function ProfessorCreateFlashcardsPage() {
                 <ItemImageField
                   id={`image-${card.key}`}
                   imageDataUrl={card.imageDataUrl}
-                  onChange={(imageDataUrl) => updateCard(card.key, { imageDataUrl })}
+                  videoUrl={card.videoUrl}
+                  videoKind={card.videoKind}
+                  onChange={(media) =>
+                    updateCard(card.key, {
+                      imageDataUrl: media.imageDataUrl,
+                      videoUrl: media.videoUrl,
+                      videoKind: media.videoKind,
+                    })
+                  }
                 />
               </div>
             </section>

@@ -495,7 +495,9 @@ public class StudySessionService(
                 section.Objectives,
                 section.EstimatedMinutes,
                 section.Tips,
-                ActivityImage.ToDataUrl(activity.Sections.FirstOrDefault(item => item.Id == section.Id)));
+                ActivityImage.ToDataUrl(activity.Sections.FirstOrDefault(item => item.Id == section.Id)),
+                activity.Sections.FirstOrDefault(item => item.Id == section.Id)?.VideoUrl,
+                activity.Sections.FirstOrDefault(item => item.Id == section.Id)?.VideoKind);
 
     private static StudySessionPlanSection? CurrentPlanSection(StudySession session) =>
         session.SectionIndex >= 0 && session.SectionIndex < session.Plan.Count

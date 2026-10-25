@@ -33,7 +33,9 @@ public static class ActivityMapper
                 section.Objectives,
                 section.EstimatedMinutes,
                 section.Tips,
-                ActivityImage.ToDataUrl(section)))
+                ActivityImage.ToDataUrl(section),
+                section.VideoUrl,
+                section.VideoKind))
             .ToList();
 
         return new ActivityResponse(
@@ -127,6 +129,8 @@ public static class ActivityMapper
             item.RequireExplanation ? true : null,
             item.RequireExplanation ? item.ExplanationMinLength : null,
             item.RequireExplanation ? item.ExplanationPrompt : null,
-            string.IsNullOrWhiteSpace(item.ImagePosition) ? "after" : item.ImagePosition);
+            string.IsNullOrWhiteSpace(item.ImagePosition) ? "after" : item.ImagePosition,
+            item.VideoUrl,
+            item.VideoKind);
     }
 }

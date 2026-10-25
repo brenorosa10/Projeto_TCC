@@ -48,6 +48,7 @@ import type {
   CreateActivityRequest,
   AcceptedQuizGeneration,
   ItemKind,
+  VideoKind,
 } from "@/lib/types"
 
 type DraftOption = {
@@ -68,6 +69,8 @@ type DraftQuestion = {
   prompt: string
   explanation: string
   imageDataUrl?: string
+  videoUrl?: string
+  videoKind?: VideoKind
   imagePosition: "before" | "after"
   allowMultiple: boolean
   options: DraftOption[]
@@ -89,6 +92,10 @@ type DraftQuestion = {
   requireExplanation: boolean
   explanationMinLength: number
   explanationPrompt: string
+}
+
+function asVideoKind(value?: string | null): VideoKind | undefined {
+  return value === "file" || value === "youtube" || value === "vimeo" ? value : undefined
 }
 
 function newLine(text = ""): DraftLine {
@@ -182,6 +189,8 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
     prompt: item.prompt ?? item.front ?? "",
     explanation: item.explanation ?? "",
     imageDataUrl: item.imageDataUrl ?? undefined,
+    videoUrl: item.videoUrl ?? undefined,
+    videoKind: asVideoKind(item.videoKind),
     imagePosition: item.imagePosition === "before" ? "before" : "after",
     allowMultiple: Boolean(item.allowMultiple),
     options:
@@ -332,6 +341,8 @@ function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
       feedbackMessages.join("\n\n") ||
       undefined,
     imageDataUrl: question.imageDataUrl,
+    videoUrl: question.videoUrl,
+    videoKind: question.videoKind,
     imagePosition: question.imagePosition,
     intro,
     promptBlocks,
@@ -469,6 +480,8 @@ export function ProfessorCreateQuizPage() {
   const [prepMinutes, setPrepMinutes] = useState("")
   const [prepTips, setPrepTips] = useState("")
   const [prepImageDataUrl, setPrepImageDataUrl] = useState<string>()
+  const [prepVideoUrl, setPrepVideoUrl] = useState<string>()
+  const [prepVideoKind, setPrepVideoKind] = useState<VideoKind>()
   const [feedbackTitle, setFeedbackTitle] = useState("Resultados")
   const [feedbackBody, setFeedbackBody] = useState("")
   const [questions, setQuestions] = useState<DraftQuestion[]>([newQuestion()])
@@ -506,6 +519,8 @@ export function ProfessorCreateQuizPage() {
         setPrepMinutes(prep?.estimatedMinutes ? String(prep.estimatedMinutes) : "")
         setPrepTips((prep?.tips ?? []).join("\n"))
         setPrepImageDataUrl(prep?.imageDataUrl ?? undefined)
+        setPrepVideoUrl(prep?.videoUrl ?? undefined)
+        setPrepVideoKind(asVideoKind(prep?.videoKind))
         setFeedbackTitle(feedback?.title ?? "Resultados")
         setFeedbackBody(feedback?.body ?? "")
         setQuestions(
@@ -799,6 +814,8 @@ export function ProfessorCreateQuizPage() {
           estimatedMinutes: Number(prepMinutes) || undefined,
           tips: lines(prepTips),
           imageDataUrl: prepImageDataUrl,
+          videoUrl: prepVideoUrl,
+          videoKind: prepVideoKind,
         },
         {
           id: practiceId,
@@ -987,6 +1004,8 @@ export function ProfessorCreateQuizPage() {
                 prepMinutes={prepMinutes}
                 prepTips={prepTips}
                 prepImageDataUrl={prepImageDataUrl}
+                prepVideoUrl={prepVideoUrl}
+                prepVideoKind={prepVideoKind}
                 feedbackTitle={feedbackTitle}
                 feedbackBody={feedbackBody}
                 onPrepTitle={setPrepTitle}
@@ -994,7 +1013,11 @@ export function ProfessorCreateQuizPage() {
                 onPrepObjectives={setPrepObjectives}
                 onPrepMinutes={setPrepMinutes}
                 onPrepTips={setPrepTips}
-                onPrepImageDataUrl={setPrepImageDataUrl}
+                onPrepMedia={(media) => {
+                  setPrepImageDataUrl(media.imageDataUrl)
+                  setPrepVideoUrl(media.videoUrl)
+                  setPrepVideoKind(media.videoKind)
+                }}
                 onFeedbackTitle={setFeedbackTitle}
                 onFeedbackBody={setFeedbackBody}
               />
@@ -1094,6 +1117,8 @@ export function ProfessorCreateQuizPage() {
                     intro={question.intro}
                     promptBlocks={question.promptBlocks}
                     imageDataUrl={question.imageDataUrl}
+                    videoUrl={question.videoUrl}
+                    videoKind={question.videoKind}
                     imagePosition={question.imagePosition}
                     topics={question.topics
                       .split(",")
@@ -1213,7 +1238,15 @@ export function ProfessorCreateQuizPage() {
                 <ItemImageField
                   id={`image-${question.key}`}
                   imageDataUrl={question.imageDataUrl}
-                  onChange={(imageDataUrl) => updateQuestion(question.key, { imageDataUrl })}
+                  videoUrl={question.videoUrl}
+                  videoKind={question.videoKind}
+                  onChange={(media) =>
+                    updateQuestion(question.key, {
+                      imageDataUrl: media.imageDataUrl,
+                      videoUrl: media.videoUrl,
+                      videoKind: media.videoKind,
+                    })
+                  }
                   position={question.imagePosition}
                   onPositionChange={(imagePosition) => updateQuestion(question.key, { imagePosition })}
                 />

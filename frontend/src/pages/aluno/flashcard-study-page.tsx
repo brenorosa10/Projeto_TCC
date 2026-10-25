@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api"
 import { PrepPanel } from "@/components/activity/prep-panel"
 import { ResultPanel } from "@/components/activity/result-panel"
+import { MediaFrame } from "@/components/activity/media-frame"
 import { RichText } from "@/components/rich-text/rich-text"
 import { findSection, hasSectionCopy } from "@/lib/item-kinds"
 import { plural } from "@/lib/utils"
@@ -154,6 +155,8 @@ export function AlunoFlashcardStudyPage() {
               estimatedMinutes={prep?.estimatedMinutes}
               tips={prep?.tips}
               imageDataUrl={prep?.imageDataUrl}
+              videoUrl={prep?.videoUrl}
+              videoKind={prep?.videoKind}
               itemCount={queue.length}
               actionLabel="Começar revisão"
               onContinue={() => setPhase("cards")}
@@ -215,13 +218,13 @@ export function AlunoFlashcardStudyPage() {
                 onFlip={() => setFlipped((prev) => !prev)}
                 front={
                   <FlashcardFace label="Frente" hint="Toque no cartão para ver a resposta">
-                    {card.imageDataUrl ? (
-                      <img
-                        src={card.imageDataUrl}
-                        alt="Imagem da frente do cartão"
-                        className="mx-auto mb-4 max-h-56 w-full rounded-lg object-contain"
-                      />
-                    ) : null}
+                    <MediaFrame
+                      imageDataUrl={card.imageDataUrl}
+                      videoUrl={card.videoUrl}
+                      videoKind={card.videoKind}
+                      alt="Mídia da frente do cartão"
+                      className="mb-4"
+                    />
                     <RichText
                       value={card.front}
                       className="rich-text-prompt font-display text-2xl font-semibold sm:text-3xl"

@@ -30,7 +30,7 @@ if (!string.IsNullOrWhiteSpace(listenPort))
 
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 20_971_520;
+    options.Limits.MaxRequestBodySize = 64 * 1024 * 1024;
 });
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -128,7 +128,11 @@ builder.Services.AddHttpClient<GeminiQuizGenerator>(client =>
     client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
     client.Timeout = TimeSpan.FromSeconds(45);
 });
-builder.Services.AddSingleton(new MediaStorage(ResolveMediaRoot(builder)));
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 64 * 1024 * 1024;
+});
+builder.Services.AddSingleton(new MediaStorage(ResolveMediaRoot(builder), ResolveMaxVideoBytes(builder)));
 builder.Services.AddSignalR(options =>
 {
     options.MaximumReceiveMessageSize = 10 * 1024 * 1024;
@@ -184,6 +188,14 @@ app.MapHub<LiveSessionHub>("/hubs/live");
 app.MapGet("/", () => Results.Ok(new { name = "Astro.Api", docs = "/swagger" }));
 
 app.Run();
+
+static long ResolveMaxVideoBytes(WebApplicationBuilder builder)
+{
+    var configured = builder.Configuration.GetValue<long?>("Media:MaxVideoBytes");
+    return configured is > 0 and <= 64L * 1024 * 1024
+        ? configured.Value
+        : MediaStorage.DefaultMaxVideoBytes;
+}
 
 static string ResolveMediaRoot(WebApplicationBuilder builder)
 {

@@ -140,11 +140,11 @@ public class OptionImageTests
         Assert.Equal(jpeg, await File.ReadAllBytesAsync(opened.Path));
 
         var rejected = await storage.SaveAsync(new MemoryStream("<html>"u8.ToArray()), 6, Guid.NewGuid(), CancellationToken.None);
-        Assert.Equal("Envie um arquivo JPEG, PNG, WebP ou GIF.", rejected.Error);
+        Assert.Equal("Envie uma imagem JPEG, PNG, WebP ou GIF, ou um vídeo MP4, WebM ou MOV.", rejected.Error);
 
         var oversized = new byte[ImageSignatures.MaxUploadBytes + 1];
         var tooBig = await storage.SaveAsync(new MemoryStream(oversized), oversized.Length, Guid.NewGuid(), CancellationToken.None);
-        Assert.Contains("3 MB", tooBig.Error);
+        Assert.Contains("JPEG", tooBig.Error);
     }
 
     private static CreateActivityRequest Quiz(params CreateQuestionOptionRequest[] options) =>

@@ -90,7 +90,9 @@ public static class ActivityItemPresenter
             item.RequireExplanation ? true : null,
             item.RequireExplanation ? item.ExplanationMinLength : null,
             item.RequireExplanation ? item.ExplanationPrompt : null,
-            string.IsNullOrWhiteSpace(item.ImagePosition) ? "after" : item.ImagePosition);
+            string.IsNullOrWhiteSpace(item.ImagePosition) ? "after" : item.ImagePosition,
+            item.VideoUrl,
+            item.VideoKind);
     }
 
     public static StudySessionItemResponse ToHostItem(ActivityItem item, Guid shuffleSeed)
