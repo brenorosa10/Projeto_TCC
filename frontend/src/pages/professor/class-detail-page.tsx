@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
+import {
+  BarChart3,
+  Layers,
+  Link2,
+  Pencil,
+  Radio,
+  SearchX,
+  Trash2,
+} from "lucide-react"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
@@ -144,7 +153,11 @@ export function ProfessorClassDetailPage() {
       {loading ? (
         <PageLoader />
       ) : !classroom ? (
-        <EmptyState title="Turma não encontrada" description="Ela pode ter sido removida ou o link está incorreto." />
+        <EmptyState
+          icon={SearchX}
+          title="Turma não encontrada"
+          description="Ela pode ter sido removida ou o link está incorreto."
+        />
       ) : (
         <div className="space-y-8">
           <div>
@@ -166,7 +179,10 @@ export function ProfessorClassDetailPage() {
           <div className="flex flex-wrap gap-2">
             <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
               <DialogTrigger asChild>
-                <Button variant="secondary">Vincular atividade</Button>
+                <Button variant="secondary">
+                  <Link2 className="h-4 w-4" />
+                  Vincular atividade
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -193,6 +209,7 @@ export function ProfessorClassDetailPage() {
                           disabled={linkingId === item.id}
                           onClick={() => void handleLink(item.id)}
                         >
+                          <Link2 className="h-4 w-4" />
                           Vincular
                         </Button>
                       </li>
@@ -202,15 +219,23 @@ export function ProfessorClassDetailPage() {
               </DialogContent>
             </Dialog>
             <Button asChild variant="outline">
-              <Link to={`/professor/ao-vivo?classId=${id}`}>Iniciar ao vivo</Link>
+              <Link to={`/professor/ao-vivo?classId=${id}`}>
+                <Radio className="h-4 w-4" />
+                Iniciar ao vivo
+              </Link>
             </Button>
             <Button asChild variant="outline">
-              <Link to="/professor/analytics">Ver analytics</Link>
+              <Link to="/professor/analytics">
+                <BarChart3 className="h-4 w-4" />
+                Ver analytics
+              </Link>
             </Button>
             <Button type="button" variant="outline" onClick={openEdit}>
+              <Pencil className="h-4 w-4" />
               Editar
             </Button>
             <Button type="button" variant="destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4" />
               Excluir
             </Button>
           </div>
@@ -285,6 +310,7 @@ export function ProfessorClassDetailPage() {
             <h2 className="font-display text-xl font-semibold">Atividades desta turma</h2>
             {activities.length === 0 ? (
               <EmptyState
+                icon={Layers}
                 title="Nenhuma atividade vinculada"
                 description="Crie na biblioteca e vincule aqui para os alunos estudarem."
               />

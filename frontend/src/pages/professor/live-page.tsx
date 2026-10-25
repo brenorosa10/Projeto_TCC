@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react"
 import { AlternativeBody } from "@/components/activity/alternative-media"
+import { CelebrationBurst } from "@/components/activity/celebration-burst"
 import { QuestionCountdown } from "@/components/activity/question-countdown"
 import { ItemPrompt } from "@/components/activity/item-prompt"
 import { AppShell } from "@/components/layout/app-shell"
@@ -434,6 +435,7 @@ function SetupForm({
                     disabled={resumingId === session.id}
                     onClick={() => onResume(session)}
                   >
+                    <Play className="h-4 w-4" />
                     {resumingId === session.id ? "Retomando..." : "Retomar"}
                   </Button>
                   <Button
@@ -443,6 +445,7 @@ function SetupForm({
                     disabled={endingId === session.id}
                     onClick={() => onEnd(session.id)}
                   >
+                    <Square className="h-4 w-4" />
                     {endingId === session.id ? "Encerrando..." : "Encerrar"}
                   </Button>
                 </div>
@@ -499,6 +502,7 @@ function SetupForm({
         </div>
         {classes.length === 0 ? (
           <EmptyState
+            icon={Users}
             title="Nenhuma turma ainda"
             description="Crie uma turma e vincule um quiz antes de iniciar uma sessão ao vivo."
           >
@@ -681,6 +685,7 @@ function HostRoom({
               )}
             </Button>
             <Button type="button" variant="outline" disabled={actionsLocked} onClick={onEnd}>
+              <Square className="h-4 w-4" />
               Encerrar
             </Button>
           </ActionBar>
@@ -707,6 +712,7 @@ function HostRoom({
               )}
             </Button>
             <Button type="button" variant="outline" disabled={actionsLocked} onClick={onEnd}>
+              <Square className="h-4 w-4" />
               Encerrar agora
             </Button>
           </ActionBar>
@@ -717,6 +723,7 @@ function HostRoom({
         <div className="space-y-5">
           <div className="surface-card relative overflow-hidden px-6 py-8 text-center">
             <div className="pattern-grid absolute inset-0 opacity-40" aria-hidden />
+            {state.ranking && state.ranking.length > 0 ? <CelebrationBurst /> : null}
             <div className="relative space-y-3">
               <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/12 text-success">
                 <Check className="h-7 w-7" />
@@ -730,6 +737,7 @@ function HostRoom({
                   </Link>
                 </Button>
                 <Button type="button" variant="outline" onClick={onReset}>
+                  <Radio className="h-4 w-4" />
                   Nova sessão
                 </Button>
               </div>
@@ -1035,11 +1043,12 @@ function RankingList({ ranking }: { ranking: LiveSessionState["ranking"] }) {
           <li
             key={entry.studentId}
             className={cn(
-              "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
+              "animate-rank-in flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
               index === 0
                 ? "border-astro-amber/35 bg-astro-amber/8"
                 : "border-border/70 bg-card"
             )}
+            style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }}
           >
             <span
               className={cn(

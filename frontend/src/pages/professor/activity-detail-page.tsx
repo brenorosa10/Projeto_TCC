@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
-import { Flag, Rocket } from "lucide-react"
+import { Flag, Layers, Pencil, Radio, Rocket, SearchX } from "lucide-react"
 import { AlternativeBody } from "@/components/activity/alternative-media"
 import { ContentBlockList } from "@/components/activity/content-block-list"
 import { PromptMedia } from "@/components/activity/question-preview"
@@ -85,6 +85,7 @@ export function ProfessorActivityDetailPage() {
         <PageLoader />
       ) : !activity ? (
         <EmptyState
+          icon={SearchX}
           title="Atividade não encontrada"
           description="Ela pode ter sido removida ou o link está incorreto."
         />
@@ -114,6 +115,7 @@ export function ProfessorActivityDetailPage() {
                       : `/professor/quiz/${activity.id}/editar`
                   }
                 >
+                  <Pencil className="h-4 w-4" />
                   Editar
                 </Link>
               </Button>
@@ -124,6 +126,7 @@ export function ProfessorActivityDetailPage() {
                   disabled={importing}
                   onClick={() => void handleImport()}
                 >
+                  <Layers className="h-4 w-4" />
                   {importing ? "Importando..." : "Importar flashcards"}
                 </Button>
               ) : null}
@@ -136,6 +139,7 @@ export function ProfessorActivityDetailPage() {
                         : "/professor/ao-vivo"
                     }
                   >
+                    <Radio className="h-4 w-4" />
                     Iniciar ao vivo
                   </Link>
                 </Button>

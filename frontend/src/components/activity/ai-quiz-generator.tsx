@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import { Sparkles, Trash2 } from "lucide-react"
+import { Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -501,15 +501,18 @@ export function AiQuizGenerator({
           <DialogFooter className="gap-2">
             {review ? (
               <Button type="button" variant="outline" disabled={generating} onClick={() => void generate()}>
+                <RefreshCw className="h-4 w-4" />
                 {generating ? "Gerando..." : "Gerar de novo"}
               </Button>
             ) : null}
             {review ? (
               <Button type="button" disabled={generating || review.questions.length === 0} onClick={accept}>
+                <Plus className="h-4 w-4" />
                 Adicionar ao quiz
               </Button>
             ) : (
               <Button type="button" disabled={generating} onClick={() => void generate()}>
+                <Sparkles className="h-4 w-4" />
                 {generating ? "Gerando..." : "Gerar questões"}
               </Button>
             )}

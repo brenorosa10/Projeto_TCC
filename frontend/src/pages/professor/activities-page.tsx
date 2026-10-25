@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
+import { FolderOpen, Layers, Library, Pencil, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { DeleteActivityButton } from "@/components/activity/delete-activity-button"
 import { AppShell } from "@/components/layout/app-shell"
@@ -49,10 +50,16 @@ export function ProfessorActivitiesPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild>
-            <Link to="/professor/quiz/novo">Novo quiz</Link>
+            <Link to="/professor/quiz/novo">
+              <Plus className="h-4 w-4" />
+              Novo quiz
+            </Link>
           </Button>
           <Button asChild variant="outline">
-            <Link to="/professor/flashcards/novo">Novos flashcards</Link>
+            <Link to="/professor/flashcards/novo">
+              <Layers className="h-4 w-4" />
+              Novos flashcards
+            </Link>
           </Button>
         </div>
       </div>
@@ -61,6 +68,7 @@ export function ProfessorActivitiesPage() {
         <PageLoader />
       ) : activities.length === 0 ? (
         <EmptyState
+          icon={Library}
           title="Nenhuma atividade ainda"
           description="Crie um quiz ou um deck para começar a biblioteca."
         />
@@ -74,8 +82,9 @@ export function ProfessorActivitiesPage() {
               <div>
                 <Link
                   to={`/professor/atividades/${item.id}`}
-                  className="font-medium text-foreground hover:text-primary"
+                  className="inline-flex items-center gap-2 font-medium text-foreground hover:text-primary"
                 >
+                  <FolderOpen className="h-4 w-4 text-primary" aria-hidden />
                   {item.title}
                 </Link>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -100,6 +109,7 @@ export function ProfessorActivitiesPage() {
                         : `/professor/quiz/${item.id}/editar`
                     }
                   >
+                    <Pencil className="h-4 w-4" />
                     Editar
                   </Link>
                 </Button>
@@ -114,6 +124,7 @@ export function ProfessorActivitiesPage() {
                     disabled={importingId === item.id}
                     onClick={() => void handleImport(item)}
                   >
+                    <Layers className="h-4 w-4" />
                     {importingId === item.id ? "Importando..." : "Importar flashcards"}
                   </Button>
                 ) : null}

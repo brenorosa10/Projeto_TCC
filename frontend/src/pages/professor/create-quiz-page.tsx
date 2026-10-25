@@ -10,6 +10,7 @@ import {
   FileUp,
   ListChecks,
   Plus,
+  Save,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react"
@@ -446,6 +447,7 @@ function SaveQuizBar({
   return (
     <div className="mt-4 border-t border-border/70 pt-4">
       <Button type="button" disabled={saving} onClick={onSave} className="h-12 w-full text-lg sm:w-auto">
+        <Save className="h-4 w-4" />
         {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar quiz"}
       </Button>
     </div>
@@ -865,7 +867,8 @@ export function ProfessorCreateQuizPage() {
               ) : null}{" "}
               / {isEditing ? "Editar quiz" : nav.student ? "Novo quiz avulso" : "Novo quiz"}
             </p>
-            <h1 className="mt-1 font-display text-2xl font-semibold">
+            <h1 className="mt-1 flex items-center gap-2 font-display text-2xl font-semibold">
+              <ListChecks className="h-6 w-6 text-primary" aria-hidden />
               {isEditing ? "Editar quiz" : nav.student ? "Criar quiz avulso" : "Criar quiz"}
             </h1>
             <input

@@ -2,9 +2,11 @@ import type { ReactNode } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
+  BarChart3,
   BookOpen,
   GraduationCap,
   House,
+  Layers,
   LogOut,
   Radio,
 } from "lucide-react"
@@ -47,11 +49,11 @@ export function AppShell({
     ? []
     : profile.role === "professor"
       ? [
-          { to: "/professor", label: "Início", exact: true },
-          { to: "/professor/turmas", label: "Turmas" },
-          { to: "/professor/atividades", label: "Atividades" },
-          { to: "/professor/ao-vivo", label: "Ao vivo" },
-          { to: "/professor/analytics", label: "Analytics" },
+          { to: "/professor", label: "Início", exact: true, icon: House },
+          { to: "/professor/turmas", label: "Turmas", icon: GraduationCap },
+          { to: "/professor/atividades", label: "Atividades", icon: Layers },
+          { to: "/professor/ao-vivo", label: "Ao vivo", icon: Radio },
+          { to: "/professor/analytics", label: "Analytics", icon: BarChart3 },
         ]
       : [
           { to: "/aluno", label: "Início", exact: true, icon: House },
