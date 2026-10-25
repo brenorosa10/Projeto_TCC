@@ -6,6 +6,11 @@ public class GeminiOptions
 
     public string ApiKey { get; set; } = "";
 
-    /// <summary>Modelo atual da linha Flash no AI Studio. Sobrescreva com GEMINI_MODEL / Gemini__Model.</summary>
-    public string Model { get; set; } = "gemini-2.5-flash";
+    public const string DefaultModel = "gemini-3.8-flash";
+
+    /// <summary>Modelo Flash atual no AI Studio. Sobrescreva com GEMINI_MODEL / Gemini__Model.</summary>
+    public string Model { get; set; } = DefaultModel;
+
+    /// <summary>Opcional. Usado depois que as tentativas do modelo principal esgotam em 503 ou 429 curto.</summary>
+    public string FallbackModel { get; set; } = "";
 }
