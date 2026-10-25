@@ -14,18 +14,18 @@
   --color-astro-violet: #6d5ce7;
   --color-astro-amber: #d98324;
 
-  --color-background: #d9e4ee;
-  --color-foreground: #16202c;
+  --color-background: #f4f7f9;
+  --color-foreground: #1d2430;
   --color-card: #ffffff;
-  --color-card-foreground: #16202c;
+  --color-card-foreground: #1d2430;
   --color-popover: #ffffff;
-  --color-popover-foreground: #16202c;
+  --color-popover-foreground: #1d2430;
   --color-primary: #12395c;
   --color-primary-foreground: #eafffb;
-  --color-secondary: #d4e4ef;
+  --color-secondary: #e2edf2;
   --color-secondary-foreground: #12395c;
-  --color-muted: #e4edf4;
-  --color-muted-foreground: #4a5666;
+  --color-muted: #eaeff3;
+  --color-muted-foreground: #5a6472;
   --color-accent: #9ff5ea;
   --color-accent-foreground: #0d2d49;
   --color-destructive: #c0362c;
@@ -34,10 +34,9 @@
   --color-success-foreground: #ffffff;
   --color-warning: #b7791f;
   --color-warning-foreground: #ffffff;
-  --color-border: #b7c8d6;
-  --color-input: #9fb4c6;
-  --color-surface: #e4eef6;
-  --color-ring: #2f7ea3;
+  --color-border: #d7dfe6;
+  --color-input: #cfd8e0;
+  --color-ring: #3f89ab;
 
   /* Code surface */
   --color-code-bg: #101a29;
@@ -50,7 +49,7 @@
   --radius-xl: 1.5rem;
   --radius-2xl: 2rem;
 
-  --shadow-soft: 0 1px 2px rgb(18 57 92 / 0.06), 0 10px 28px -14px rgb(18 57 92 / 0.28);
+  --shadow-soft: 0 1px 2px rgb(18 57 92 / 0.05), 0 8px 24px -12px rgb(18 57 92 / 0.18);
   --shadow-lift: 0 2px 4px rgb(18 57 92 / 0.06), 0 20px 40px -20px rgb(18 57 92 / 0.28);
   --shadow-glow: 0 0 0 1px rgb(159 245 234 / 0.5), 0 18px 40px -18px rgb(18 57 92 / 0.35);
 }
@@ -115,7 +114,7 @@
   }
 
   .bg-hero-atmosphere {
-    background-color: #d9e4ee;
+    background-color: #f4f7f9;
   }
 
   .pattern-grid {
@@ -126,11 +125,11 @@
   }
 
   .surface-card {
-    @apply rounded-xl border border-border bg-surface shadow-[var(--shadow-soft)];
+    @apply rounded-xl border border-border/80 bg-card shadow-[var(--shadow-soft)];
   }
 
   .surface-raised {
-    @apply rounded-xl border border-border bg-surface shadow-[var(--shadow-lift)];
+    @apply rounded-xl border border-border/70 bg-card/85 shadow-[var(--shadow-lift)] backdrop-blur;
   }
 
   .text-balance {

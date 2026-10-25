@@ -8,7 +8,7 @@ interface VisibilityCheckboxProps {
 
 export function VisibilityCheckbox({ id, checked, onChange }: VisibilityCheckboxProps) {
   return (
-    <div className="flex h-12 items-center rounded-xl border border-input bg-card px-3.5">
+    <div className="flex h-12 items-center rounded-xl border border-border/70 bg-card px-3.5">
       <label htmlFor={id} className="flex cursor-pointer items-center gap-2.5 text-sm whitespace-nowrap">
         <input
           id={id}

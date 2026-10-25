@@ -878,8 +878,8 @@ export function ProfessorCreateQuizPage() {
               className={cn(
                 "flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
                 editorTab === "geral"
-                  ? "border-primary bg-secondary shadow-[var(--shadow-soft)]"
-                  : "border-border bg-surface hover:border-primary/40"
+                  ? "border-primary bg-primary/8 shadow-[var(--shadow-soft)]"
+                  : "border-border/70 bg-card hover:border-primary/40"
               )}
             >
               <span
@@ -902,8 +902,8 @@ export function ProfessorCreateQuizPage() {
               className={cn(
                 "flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
                 editorTab === "questoes"
-                  ? "border-primary bg-secondary shadow-[var(--shadow-soft)]"
-                  : "border-border bg-surface hover:border-primary/40"
+                  ? "border-primary bg-primary/8 shadow-[var(--shadow-soft)]"
+                  : "border-border/70 bg-card hover:border-primary/40"
               )}
             >
               <span
