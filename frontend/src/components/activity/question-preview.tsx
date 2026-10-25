@@ -6,36 +6,41 @@ import { hasContentBlocks } from "@/lib/content-blocks"
 import { ITEM_KIND_LABELS } from "@/lib/item-kinds"
 import { cn } from "@/lib/utils"
 import { AlternativeBody } from "@/components/activity/alternative-media"
-import type { ContentBlock, ImagePosition, ItemKind } from "@/lib/types"
+import { MediaFrame } from "@/components/activity/media-frame"
+import type { ContentBlock, ImagePosition, ItemKind, VideoKind } from "@/lib/types"
 
 export function PromptMedia({
   imageDataUrl,
+  videoUrl,
+  videoKind,
   imagePosition = "after",
   children,
   className,
 }: {
   imageDataUrl?: string | null
+  videoUrl?: string | null
+  videoKind?: VideoKind | string | null
   imagePosition?: ImagePosition | string | null
   children: ReactNode
   className?: string
 }) {
-  const image = imageDataUrl ? (
-    <img
-      src={imageDataUrl}
-      alt="Imagem da questão"
-      className={cn(
-        "w-full rounded-xl border border-border object-contain bg-muted/30",
-        className ?? "max-h-72"
-      )}
-    />
-  ) : null
+  const media =
+    imageDataUrl || videoUrl ? (
+      <MediaFrame
+        imageDataUrl={imageDataUrl}
+        videoUrl={videoUrl}
+        videoKind={videoKind}
+        alt="Mídia da questão"
+        className={className}
+      />
+    ) : null
   const before = imagePosition === "before"
 
   return (
     <div className="space-y-3">
-      {before ? image : null}
+      {before ? media : null}
       {children}
-      {!before ? image : null}
+      {!before ? media : null}
     </div>
   )
 }
@@ -46,6 +51,8 @@ export function QuestionPreview({
   intro,
   promptBlocks,
   imageDataUrl,
+  videoUrl,
+  videoKind,
   imagePosition,
   topics,
   difficulty,
@@ -59,6 +66,8 @@ export function QuestionPreview({
   intro?: ContentBlock[] | null
   promptBlocks?: ContentBlock[] | null
   imageDataUrl?: string | null
+  videoUrl?: string | null
+  videoKind?: VideoKind | string | null
   imagePosition?: ImagePosition | string | null
   topics?: string[]
   difficulty?: string | null
@@ -89,7 +98,12 @@ export function QuestionPreview({
           ))}
         </div>
       ) : null}
-      <PromptMedia imageDataUrl={imageDataUrl} imagePosition={imagePosition}>
+      <PromptMedia
+        imageDataUrl={imageDataUrl}
+        videoUrl={videoUrl}
+        videoKind={videoKind}
+        imagePosition={imagePosition}
+      >
         {hasBlocks ? (
           <>
             <ContentBlockList blocks={intro} className="text-muted-foreground" />

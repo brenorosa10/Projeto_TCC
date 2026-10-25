@@ -19,7 +19,12 @@ export function ItemPrompt({ item }: { item: StudySessionItem }) {
           ))}
         </div>
       ) : null}
-      <PromptMedia imageDataUrl={item.imageDataUrl} imagePosition={item.imagePosition}>
+      <PromptMedia
+        imageDataUrl={item.imageDataUrl}
+        videoUrl={item.videoUrl}
+        videoKind={item.videoKind}
+        imagePosition={item.imagePosition}
+      >
         {hasBlocks ? (
           <>
             <ContentBlockList blocks={item.intro} className="text-muted-foreground" />

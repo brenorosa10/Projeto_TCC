@@ -25,7 +25,28 @@ O nginx de borda fica num diretório próprio (`~/proxy`), não dentro do Astro 
 6. Neste repositório: copie `.env.example` para `.env`, preencha Mongo/Google/JWT e `Auth__FrontendUrl` / `Cors__Origins` com `https://astroarq.online`.
 7. `./scripts/deploy.sh` (ou `docker compose up -d --build --remove-orphans`)
 
-O nginx de borda encaminha o domínio do Astro para o container `astro-frontend`. O nginx interno do container encaminha `/api`, `/hubs` e `/signin-google` para a API. Imagens enviadas nas alternativas de quiz passam por `POST /api/media` e são servidas em `/api/media/{id}`, então o proxy atual já cobre o upload (limite de corpo 21 MB). Os arquivos ficam no volume Docker `backend-media` (`/data/media` no container). O `docker compose up` cria o volume; ele sobrevive a rebuild. Não rode `docker compose down -v`, senão as imagens enviadas são apagadas. O endereço da imagem (upload ou link http/https) fica no documento da questão no MongoDB.
+O nginx de borda encaminha o domínio do Astro para o container `astro-frontend`. O nginx interno do container encaminha `/api`, `/hubs` e `/signin-google` para a API. Imagens das alternativas e vídeos de questão, pré-seção e flashcard passam por `POST /api/media` e são servidos em `/api/media/{id}`. Os arquivos ficam no volume Docker `backend-media` (`/data/media` no container). O `docker compose up` cria o volume; ele sobrevive a rebuild. Não rode `docker compose down -v`, senão os arquivos enviados são apagados. O endereço da mídia fica no documento da atividade no MongoDB (`imageUrl` na alternativa; `videoUrl` + `videoKind` na questão, no cartão e na pré-seção). Imagens de questão, cartão e pré-seção continuam no próprio documento, como data URL.
+
+Vídeo enviado: MP4, WebM ou MOV, até 50 MB por padrão (`Media:MaxVideoBytes` / `Media__MaxVideoBytes`, teto de 64 MB no código). YouTube e Vimeo são só o identificador do link, sem upload. O nginx interno do frontend já aceita corpo de 64 MB e repassa `Range`. O nginx de borda em `~/proxy` é compartilhado com o ScoreHistory: o `client_max_body_size 21m` do bloco `http` permanece. Para o Astro aceitar o vídeo, edite só o `location /` de `astroarq.online` (o arquivo versionado em `deploy/proxy/nginx.conf` já traz o trecho) e recarregue:
+
+```nginx
+location / {
+    client_max_body_size 64m;
+    proxy_pass http://astro-frontend:80;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Range $http_range;
+    proxy_set_header If-Range $http_if_range;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 86400;
+}
+```
+
+Depois: `docker exec proxy nginx -t && docker exec proxy nginx -s reload` (ou o equivalente do container de borda). Sem esse ajuste, um upload acima de 21 MB recebe 413 antes de chegar na API. `./scripts/deploy.sh` publica o nginx interno, o limite do Kestrel e o volume já existente; não há variável de ambiente nova obrigatória.
 
 ## Requisitos
 

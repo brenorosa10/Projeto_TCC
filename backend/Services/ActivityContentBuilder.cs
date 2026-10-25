@@ -115,10 +115,10 @@ public static class ActivityContentBuilder
 
             if (role == SectionRoles.Prep)
             {
-                var imageError = ActivityImage.Apply(section, request.ImageDataUrl);
-                if (imageError is not null)
+                var mediaError = ApplyMedia(section, request.ImageDataUrl, request.VideoUrl);
+                if (mediaError is not null)
                 {
-                    return (null, null, imageError);
+                    return (null, null, mediaError);
                 }
             }
 
@@ -244,10 +244,10 @@ public static class ActivityContentBuilder
                 return (null, payloadError);
             }
 
-            var imageError = ActivityImage.Apply(mappedItem, item.ImageDataUrl);
-            if (imageError is not null)
+            var mediaError = ApplyMedia(mappedItem, item.ImageDataUrl, item.VideoUrl);
+            if (mediaError is not null)
             {
-                return (null, imageError);
+                return (null, mediaError);
             }
 
             mapped.Add(mappedItem);
@@ -393,6 +393,60 @@ public static class ActivityContentBuilder
             ItemKinds.Flashcard => ValidateFlashcard(item),
             _ => "Tipo de questão não suportado."
         };
+    }
+
+    private static string? ApplyMedia(ActivitySection section, string? imageDataUrl, string? videoUrl)
+    {
+        var video = AttachedVideo.Normalize(videoUrl);
+        if (video.Error is not null)
+        {
+            return video.Error;
+        }
+
+        if (video.Kind is not null && !string.IsNullOrWhiteSpace(imageDataUrl))
+        {
+            return "Escolha uma imagem ou um vídeo.";
+        }
+
+        if (video.Kind is not null)
+        {
+            section.ImageBytes = null;
+            section.ImageContentType = null;
+            section.VideoUrl = video.Url;
+            section.VideoKind = video.Kind;
+            return null;
+        }
+
+        section.VideoUrl = null;
+        section.VideoKind = null;
+        return ActivityImage.Apply(section, imageDataUrl);
+    }
+
+    private static string? ApplyMedia(ActivityItem item, string? imageDataUrl, string? videoUrl)
+    {
+        var video = AttachedVideo.Normalize(videoUrl);
+        if (video.Error is not null)
+        {
+            return video.Error;
+        }
+
+        if (video.Kind is not null && !string.IsNullOrWhiteSpace(imageDataUrl))
+        {
+            return "Escolha uma imagem ou um vídeo.";
+        }
+
+        if (video.Kind is not null)
+        {
+            item.ImageBytes = null;
+            item.ImageContentType = null;
+            item.VideoUrl = video.Url;
+            item.VideoKind = video.Kind;
+            return null;
+        }
+
+        item.VideoUrl = null;
+        item.VideoKind = null;
+        return ActivityImage.Apply(item, imageDataUrl);
     }
 
     private static string? ValidateOptionContent(IReadOnlyList<CreateQuestionOptionRequest> options)
@@ -648,7 +702,9 @@ public static class ActivityContentBuilder
             EstimatedMinutes = existing?.EstimatedMinutes,
             Tips = existing?.Tips,
             ImageBytes = existing?.ImageBytes,
-            ImageContentType = existing?.ImageContentType
+            ImageContentType = existing?.ImageContentType,
+            VideoUrl = existing?.VideoUrl,
+            VideoKind = existing?.VideoKind
         };
     }
 

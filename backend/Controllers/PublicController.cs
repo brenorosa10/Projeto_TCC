@@ -120,7 +120,9 @@ public class PublicController(MongoDbContext db, PublicCatalogService catalog) :
                 item.Front ?? string.Empty,
                 item.Back ?? string.Empty,
                 LeitnerScheduler.MinBox,
-                ActivityImage.ToDataUrl(item)))
+                ActivityImage.ToDataUrl(item),
+                item.VideoUrl,
+                item.VideoKind))
             .ToList();
 
         return Ok(new StudyFlashcardSessionResponse(deck.Id, deck.Title, deck.Items.Count, cards.Count, cards));

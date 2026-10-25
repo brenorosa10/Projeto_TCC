@@ -146,6 +146,8 @@ export function AlunoQuizStudyPage() {
               estimatedMinutes={prepSection?.estimatedMinutes}
               tips={prepSection?.tips}
               imageDataUrl={prepSection?.imageDataUrl}
+              videoUrl={prepSection?.videoUrl}
+              videoKind={prepSection?.videoKind}
               itemCount={study.progress.practiceTotal}
               disabled={busy}
               actionLabel={

@@ -6,13 +6,19 @@ public sealed class MediaStorage
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly string _root;
+    public const long DefaultMaxVideoBytes = 50L * 1024 * 1024;
 
-    public MediaStorage(string root)
+    private readonly string _root;
+    private readonly long _maxVideoBytes;
+
+    public MediaStorage(string root, long maxVideoBytes = DefaultMaxVideoBytes)
     {
         _root = Path.GetFullPath(root);
+        _maxVideoBytes = maxVideoBytes > 0 ? maxVideoBytes : DefaultMaxVideoBytes;
         Directory.CreateDirectory(_root);
     }
+
+    public long MaxVideoBytes => _maxVideoBytes;
 
     public async Task<(string? Url, string? Error)> SaveAsync(
         Stream content,
@@ -20,49 +26,82 @@ public sealed class MediaStorage
         Guid ownerId,
         CancellationToken cancellationToken)
     {
-        if (declaredLength is > ImageSignatures.MaxUploadBytes)
+        if (declaredLength is > 0 && declaredLength > _maxVideoBytes)
         {
-            return (null, SizeError());
+            return (null, VideoSizeError());
         }
 
-        using var buffer = new MemoryStream();
-        var chunk = new byte[81_920];
-        while (true)
+        var tempName = $"{Guid.NewGuid():N}.part";
+        var tempPath = SafePath(tempName);
+        long total = 0;
+        try
         {
-            var read = await content.ReadAsync(chunk, cancellationToken);
-            if (read == 0)
+            await using (var output = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81_920, FileOptions.Asynchronous))
             {
-                break;
+                var chunk = new byte[81_920];
+                while (true)
+                {
+                    var read = await content.ReadAsync(chunk, cancellationToken);
+                    if (read == 0)
+                    {
+                        break;
+                    }
+
+                    if (total + read > _maxVideoBytes)
+                    {
+                        return (null, VideoSizeError());
+                    }
+
+                    await output.WriteAsync(chunk.AsMemory(0, read), cancellationToken);
+                    total += read;
+                }
             }
 
-            if (buffer.Length + read > ImageSignatures.MaxUploadBytes)
+            if (total == 0)
             {
-                return (null, SizeError());
+                return (null, "O arquivo enviado está vazio.");
             }
 
-            buffer.Write(chunk, 0, read);
-        }
+            var header = new byte[Math.Min(32, total)];
+            await using (var peek = File.OpenRead(tempPath))
+            {
+                var got = await peek.ReadAsync(header, cancellationToken);
+                if (got < header.Length)
+                {
+                    header = header[..got];
+                }
+            }
 
-        if (buffer.Length == 0)
+            var contentType = ImageSignatures.Detect(header) ?? VideoSignatures.Detect(header);
+            if (contentType is null)
+            {
+                return (null, "Envie uma imagem JPEG, PNG, WebP ou GIF, ou um vídeo MP4, WebM ou MOV.");
+            }
+
+            if (!VideoSignatures.IsVideo(contentType) && total > ImageSignatures.MaxUploadBytes)
+            {
+                return (null, $"A imagem deve ter no máximo {ImageSignatures.MaxUploadBytes / (1024 * 1024)} MB.");
+            }
+
+            var id = Guid.NewGuid();
+            var extension = VideoSignatures.IsVideo(contentType)
+                ? VideoSignatures.Extension(contentType)
+                : ImageSignatures.Extension(contentType);
+            var fileName = $"{id:N}{extension}";
+            var fullPath = SafePath(fileName);
+            File.Move(tempPath, fullPath);
+
+            var meta = new MediaMeta(id, ownerId, contentType, fileName, total, DateTimeOffset.UtcNow);
+            await File.WriteAllTextAsync(SafePath($"{id:N}.json"), JsonSerializer.Serialize(meta, JsonOptions), cancellationToken);
+            return ($"/api/media/{id}", null);
+        }
+        finally
         {
-            return (null, "A imagem enviada está vazia.");
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
         }
-
-        var bytes = buffer.ToArray();
-        var contentType = ImageSignatures.Detect(bytes);
-        if (contentType is null)
-        {
-            return (null, "Envie um arquivo JPEG, PNG, WebP ou GIF.");
-        }
-
-        var id = Guid.NewGuid();
-        var fileName = $"{id:N}{ImageSignatures.Extension(contentType)}";
-        var fullPath = SafePath(fileName);
-        await File.WriteAllBytesAsync(fullPath, bytes, cancellationToken);
-
-        var meta = new MediaMeta(id, ownerId, contentType, fileName, bytes.LongLength, DateTimeOffset.UtcNow);
-        await File.WriteAllTextAsync(SafePath($"{id:N}.json"), JsonSerializer.Serialize(meta, JsonOptions), cancellationToken);
-        return ($"/api/media/{id}", null);
     }
 
     public MediaFile? Open(Guid id)
@@ -91,7 +130,10 @@ public sealed class MediaStorage
             return null;
         }
 
-        var expectedName = $"{id:N}{ImageSignatures.Extension(meta.ContentType)}";
+        var extension = VideoSignatures.IsVideo(meta.ContentType)
+            ? VideoSignatures.Extension(meta.ContentType)
+            : ImageSignatures.Extension(meta.ContentType);
+        var expectedName = $"{id:N}{extension}";
         if (!string.Equals(meta.FileName, expectedName, StringComparison.Ordinal))
         {
             return null;
@@ -123,8 +165,15 @@ public sealed class MediaStorage
         return full;
     }
 
-    private static string SizeError() =>
-        $"A imagem deve ter no máximo {ImageSignatures.MaxUploadBytes / (1024 * 1024)} MB.";
+    private string VideoSizeError()
+    {
+        if (_maxVideoBytes % (1024 * 1024) == 0 && _maxVideoBytes >= 1024 * 1024)
+        {
+            return $"O vídeo deve ter no máximo {_maxVideoBytes / (1024 * 1024)} MB.";
+        }
+
+        return $"O vídeo deve ter no máximo {_maxVideoBytes} bytes.";
+    }
 
     private sealed record MediaMeta(
         Guid Id,

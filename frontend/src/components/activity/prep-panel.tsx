@@ -1,4 +1,6 @@
 import { ArrowRight, Clock, Lightbulb, Rocket, Target } from "lucide-react"
+import { MediaFrame } from "@/components/activity/media-frame"
+import type { VideoKind } from "@/lib/types"
 import { RichText } from "@/components/rich-text/rich-text"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -13,6 +15,8 @@ export function PrepPanel({
   estimatedMinutes,
   tips,
   imageDataUrl,
+  videoUrl,
+  videoKind,
   disabled,
   actionLabel = "Começar",
   fallbackBody,
@@ -26,6 +30,8 @@ export function PrepPanel({
   estimatedMinutes?: number | null
   tips?: string[] | null
   imageDataUrl?: string | null
+  videoUrl?: string | null
+  videoKind?: VideoKind | string | null
   disabled?: boolean
   actionLabel?: string
   fallbackBody?: string
@@ -63,11 +69,12 @@ export function PrepPanel({
       </header>
 
       <div className="space-y-6 px-6 py-6 sm:px-8">
-        {imageDataUrl ? (
-          <img
-            src={imageDataUrl}
-            alt="Imagem da pré-seção"
-            className="max-h-72 w-full rounded-xl border border-border bg-muted/40 object-contain"
+        {imageDataUrl || videoUrl ? (
+          <MediaFrame
+            imageDataUrl={imageDataUrl}
+            videoUrl={videoUrl}
+            videoKind={videoKind}
+            alt="Mídia da pré-seção"
           />
         ) : null}
 

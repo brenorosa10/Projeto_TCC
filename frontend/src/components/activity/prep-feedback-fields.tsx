@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Eye, Flag, Lightbulb, Rocket, Target } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
-import { ItemImageField } from "@/components/activity/item-image-field"
+import { ItemImageField, type ItemMediaValue } from "@/components/activity/item-image-field"
 import { ListField } from "@/components/activity/list-field"
 import { PrepPanel } from "@/components/activity/prep-panel"
 import { ResultPanel } from "@/components/activity/result-panel"
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import type { VideoKind } from "@/lib/types"
 
 function lines(value: string) {
   return value
@@ -25,6 +26,8 @@ export function PrepFeedbackFields({
   prepMinutes,
   prepTips,
   prepImageDataUrl,
+  prepVideoUrl,
+  prepVideoKind,
   feedbackTitle,
   feedbackBody,
   onPrepTitle,
@@ -32,7 +35,7 @@ export function PrepFeedbackFields({
   onPrepObjectives,
   onPrepMinutes,
   onPrepTips,
-  onPrepImageDataUrl,
+  onPrepMedia,
   onFeedbackTitle,
   onFeedbackBody,
 }: {
@@ -42,6 +45,8 @@ export function PrepFeedbackFields({
   prepMinutes?: string
   prepTips: string
   prepImageDataUrl?: string
+  prepVideoUrl?: string
+  prepVideoKind?: VideoKind | string | null
   feedbackTitle: string
   feedbackBody: string
   onPrepTitle: (value: string) => void
@@ -49,7 +54,7 @@ export function PrepFeedbackFields({
   onPrepObjectives: (value: string) => void
   onPrepMinutes?: (value: string) => void
   onPrepTips: (value: string) => void
-  onPrepImageDataUrl: (value?: string) => void
+  onPrepMedia: (value: ItemMediaValue) => void
   onFeedbackTitle: (value: string) => void
   onFeedbackBody: (value: string) => void
 }) {
@@ -98,6 +103,8 @@ export function PrepFeedbackFields({
               estimatedMinutes={Number(prepMinutes) || undefined}
               tips={lines(prepTips)}
               imageDataUrl={prepImageDataUrl}
+              videoUrl={prepVideoUrl}
+              videoKind={prepVideoKind}
               fallbackBody="Comece as questões quando estiver pronto."
               actionLabel="Começar"
               onContinue={() => setTab("feedback")}
@@ -173,7 +180,9 @@ export function PrepFeedbackFields({
             <ItemImageField
               id="prep-image"
               imageDataUrl={prepImageDataUrl}
-              onChange={onPrepImageDataUrl}
+              videoUrl={prepVideoUrl}
+              videoKind={prepVideoKind}
+              onChange={onPrepMedia}
             />
           </div>
         ) : (

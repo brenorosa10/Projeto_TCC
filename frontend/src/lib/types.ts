@@ -74,6 +74,7 @@ export type ContentBlockType = "markdown" | "code" | "question"
 export type QuestionDifficulty = "iniciante" | "intermediario" | "avancado"
 
 export type ImagePosition = "before" | "after"
+export type VideoKind = "file" | "youtube" | "vimeo"
 
 export interface ContentBlock {
   type: ContentBlockType | string
@@ -149,6 +150,8 @@ export interface ActivityItem {
   front?: string | null
   back?: string | null
   imageDataUrl?: string | null
+  videoUrl?: string | null
+  videoKind?: VideoKind | string | null
   sectionId?: string | null
   allowMultiple?: boolean | null
   acceptedAnswers?: string[] | null
@@ -183,6 +186,8 @@ export interface ActivitySection {
   estimatedMinutes?: number | null
   tips?: string[] | null
   imageDataUrl?: string | null
+  videoUrl?: string | null
+  videoKind?: VideoKind | string | null
 }
 
 export interface Activity extends ActivitySummary {
@@ -222,6 +227,8 @@ export interface CreateActivityItemRequest {
   front?: string
   back?: string
   imageDataUrl?: string
+  videoUrl?: string
+  videoKind?: VideoKind
   intro?: ContentBlock[]
   promptBlocks?: ContentBlock[]
   feedbackBlocks?: ContentBlock[]
@@ -267,6 +274,8 @@ export interface CreateActivitySectionRequest {
   estimatedMinutes?: number
   tips?: string[]
   imageDataUrl?: string
+  videoUrl?: string
+  videoKind?: VideoKind
 }
 
 export interface GenerateQuizQuestionsRequest {
@@ -450,6 +459,8 @@ export interface StudyFlashcardCard {
   back: string
   boxLevel: number
   imageDataUrl?: string | null
+  videoUrl?: string | null
+  videoKind?: VideoKind | string | null
 }
 
 export interface StudyFlashcardSession {
@@ -483,6 +494,8 @@ export interface StudySessionSectionView {
   estimatedMinutes?: number | null
   tips?: string[] | null
   imageDataUrl?: string | null
+  videoUrl?: string | null
+  videoKind?: VideoKind | string | null
 }
 
 export interface StudySessionItem {
@@ -493,6 +506,8 @@ export interface StudySessionItem {
   front?: string | null
   back?: string | null
   imageDataUrl?: string | null
+  videoUrl?: string | null
+  videoKind?: VideoKind | string | null
   allowMultiple?: boolean | null
   left?: MatchingEntry[] | null
   right?: MatchingEntry[] | null
