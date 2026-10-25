@@ -18,7 +18,8 @@ services:
       # Mesmo caminho do volume abaixo. Não separe os dois.
       Media__Root: /data/media
       Gemini__ApiKey: ${GEMINI_API_KEY:-}
-      Gemini__Model: ${GEMINI_MODEL:-gemini-2.5-flash}
+      Gemini__Model: ${GEMINI_MODEL:-gemini-3.8-flash}
+      Gemini__FallbackModel: ${GEMINI_FALLBACK_MODEL:-}
     volumes:
       - backend-dp-keys:/app/dp-keys
       - backend-media:/data/media
