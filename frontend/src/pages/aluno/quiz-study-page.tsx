@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, XCircle } from "lucide-react"
 import { AlternativeBody } from "@/components/activity/alternative-media"
 import { CelebrationBurst } from "@/components/activity/celebration-burst"
+import { VisualThemeFrame } from "@/components/activity/visual-theme"
 import { ContentBlockList } from "@/components/activity/content-block-list"
 import { ItemAnswerForm } from "@/components/activity/item-answer-form"
 import { ItemPrompt } from "@/components/activity/item-prompt"
@@ -259,7 +260,11 @@ function PracticeView({
         </div>
       </div>
 
-      <div key={item.id} className="surface-card animate-enter space-y-6 px-5 py-6 sm:px-7 sm:py-7">
+      <VisualThemeFrame
+        key={item.id}
+        theme={item.visualTheme}
+        className="surface-card animate-enter space-y-6 px-5 py-6 sm:px-7 sm:py-7"
+      >
         <ItemPrompt item={item} />
 
         {feedback && item.options && item.options.length > 0 ? (
@@ -366,7 +371,7 @@ function PracticeView({
         ) : (
           <ItemAnswerForm item={item} busy={busy} onSubmit={onSubmit} />
         )}
-      </div>
+      </VisualThemeFrame>
     </div>
   )
 }

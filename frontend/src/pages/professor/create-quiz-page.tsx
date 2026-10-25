@@ -23,6 +23,7 @@ import { ItemImageField } from "@/components/activity/item-image-field"
 import { OptionImageField } from "@/components/activity/option-image-field"
 import { PrepFeedbackFields } from "@/components/activity/prep-feedback-fields"
 import { QuestionPreview } from "@/components/activity/question-preview"
+import { VisualThemeFrame, VisualThemePicker } from "@/components/activity/visual-theme"
 import { VisibilityCheckbox } from "@/components/activity/visibility-checkbox"
 import { RichTextEditor } from "@/components/rich-text/rich-text-editor"
 import { AppShell } from "@/components/layout/app-shell"
@@ -33,6 +34,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/contexts/auth-context"
 import { activityEditorNav } from "@/lib/activity-editor-paths"
+import { normalizeVisualTheme, type VisualThemeId } from "@/lib/visual-themes"
 import { api } from "@/lib/api"
 import { assertActivityPayloadFits } from "@/lib/compress-image"
 import { isAcceptableImageUrl } from "@/lib/media-url"
@@ -92,6 +94,7 @@ type DraftQuestion = {
   requireExplanation: boolean
   explanationMinLength: number
   explanationPrompt: string
+  visualTheme: VisualThemeId
 }
 
 function asVideoKind(value?: string | null): VideoKind | undefined {
@@ -153,6 +156,7 @@ function newQuestion(kind: ItemKind = "multiple_choice"): DraftQuestion {
     requireExplanation: false,
     explanationMinLength: 20,
     explanationPrompt: "Como você pensou sobre a resposta?",
+    visualTheme: "padrao",
   }
 }
 
@@ -241,6 +245,7 @@ function questionFromItem(item: ActivityItem): DraftQuestion {
     requireExplanation: Boolean(item.requireExplanation),
     explanationMinLength: item.explanationMinLength ?? 20,
     explanationPrompt: item.explanationPrompt ?? "Como você pensou sobre a resposta?",
+    visualTheme: normalizeVisualTheme(item.visualTheme),
   }
 }
 
@@ -255,6 +260,7 @@ function questionFromGenerated(generated: AcceptedQuizGeneration["questions"][nu
     kind,
     prompt: generated.prompt,
     explanation: generated.explanation ?? "",
+    visualTheme: "padrao",
     correctTrue: kind === "true_false" ? correctTrue : question.correctTrue,
     allowMultiple: false,
     options:
@@ -344,6 +350,7 @@ function toItemPayload(question: DraftQuestion): CreateActivityItemRequest {
     videoUrl: question.videoUrl,
     videoKind: question.videoKind,
     imagePosition: question.imagePosition,
+    visualTheme: question.visualTheme === "padrao" ? "padrao" : question.visualTheme,
     intro,
     promptBlocks,
     feedbackBlocks,
@@ -1109,7 +1116,15 @@ export function ProfessorCreateQuizPage() {
                   </div>
                 </div>
 
-                <div key={question.key} className="animate-enter space-y-3 p-3 sm:p-4">
+                <VisualThemeFrame
+                  key={question.key}
+                  theme={question.visualTheme}
+                  className="animate-enter space-y-3 rounded-b-xl p-3 sm:p-4"
+                >
+                <VisualThemePicker
+                  value={question.visualTheme}
+                  onChange={(visualTheme) => updateQuestion(question.key, { visualTheme })}
+                />
                 {previewQuestion ? (
                   <QuestionPreview
                     kind={question.kind}
@@ -1813,7 +1828,7 @@ export function ProfessorCreateQuizPage() {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
-                </div>
+                </VisualThemeFrame>
                 </>
               )
             })()}

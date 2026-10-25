@@ -2,6 +2,8 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Flag, Layers, Pencil, Radio, Rocket, SearchX } from "lucide-react"
+import { VisualThemeFrame } from "@/components/activity/visual-theme"
+import { visualThemeLabel, normalizeVisualTheme } from "@/lib/visual-themes"
 import { AlternativeBody } from "@/components/activity/alternative-media"
 import { ContentBlockList } from "@/components/activity/content-block-list"
 import { MediaFrame } from "@/components/activity/media-frame"
@@ -320,12 +322,20 @@ function ActivityItemPreview({
 }) {
   const isCard = activityType === "flashcards" || item.kind === "flashcard"
   return (
-    <>
+    <VisualThemeFrame
+      theme={item.visualTheme}
+      className={
+        normalizeVisualTheme(item.visualTheme) === "padrao" ? undefined : "rounded-xl p-3"
+      }
+    >
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {isCard ? `Cartão ${index + 1}` : `Questão ${index + 1}`}
         {item.kind ? ` · ${itemKindLabel(item.kind)}` : null}
         {item.difficulty ? ` · ${item.difficulty}` : null}
         {item.requireExplanation ? " · reflexão" : null}
+        {normalizeVisualTheme(item.visualTheme) !== "padrao"
+          ? ` · ${visualThemeLabel(item.visualTheme)}`
+          : null}
       </p>
       {item.topics && item.topics.length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -440,6 +450,6 @@ function ActivityItemPreview({
           <RichText value={item.explanation} className="mt-1 text-sm" />
         </div>
       ) : null}
-    </>
+    </VisualThemeFrame>
   )
 }

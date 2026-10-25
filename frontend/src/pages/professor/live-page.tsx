@@ -20,6 +20,7 @@ import {
 import { AlternativeBody } from "@/components/activity/alternative-media"
 import { CelebrationBurst } from "@/components/activity/celebration-burst"
 import { ItemPrompt } from "@/components/activity/item-prompt"
+import { VisualThemeFrame } from "@/components/activity/visual-theme"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -625,7 +626,10 @@ function HostRoom({
       {state.phase === "question" && state.currentItem && !sessionEnded ? (
         <div className="space-y-5">
           <QuestionMeta state={state} />
-          <div className="surface-card space-y-5 p-5 sm:p-6">
+          <VisualThemeFrame
+            theme={state.currentItem.visualTheme}
+            className="surface-card space-y-5 p-5 sm:p-6"
+          >
             <ItemPrompt item={state.currentItem} />
             {state.currentItem.options?.length ? (
               <ul className="grid gap-2">
@@ -663,7 +667,7 @@ function HostRoom({
                 Os alunos estão respondendo esta questão.
               </p>
             )}
-          </div>
+          </VisualThemeFrame>
           <ActionBar>
             <Button type="button" disabled={actionsLocked} onClick={onAdvance}>
               {state.mode === "quiz" ? (
@@ -885,7 +889,10 @@ function RevealCard({ state }: { state: LiveSessionState }) {
   if (!reveal) return null
 
   return (
-    <div className="surface-card space-y-5 p-5 sm:p-6">
+    <VisualThemeFrame
+      theme={state.currentItem?.visualTheme}
+      className="surface-card space-y-5 p-5 sm:p-6"
+    >
       {state.currentItem ? <ItemPrompt item={state.currentItem} /> : null}
       {state.currentItem?.options?.length ? (
         <ul className="grid gap-2">
@@ -949,7 +956,7 @@ function RevealCard({ state }: { state: LiveSessionState }) {
           <RichText value={reveal.explanation} className="text-sm" />
         </div>
       ) : null}
-    </div>
+    </VisualThemeFrame>
   )
 }
 

@@ -669,6 +669,194 @@
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
+/* Tema visual da questão. O padrão não redefine nada: quizzes antigos ficam como estão. */
+@property --vt-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f4f7f9;
+}
+@property --vt-fg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #1d2430;
+}
+@property --vt-card {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --vt-primary {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #12395c;
+}
+@property --vt-muted {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #5a6472;
+}
+@property --vt-border {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d7dfe6;
+}
+
+.visual-theme-frame {
+  transition:
+    --vt-bg 0.45s ease,
+    --vt-fg 0.45s ease,
+    --vt-card 0.45s ease,
+    --vt-primary 0.45s ease,
+    --vt-muted 0.45s ease,
+    --vt-border 0.45s ease,
+    background-color 0.45s ease,
+    color 0.45s ease,
+    border-color 0.45s ease;
+}
+
+[data-visual-theme] {
+  --color-background: var(--vt-bg);
+  --color-foreground: var(--vt-fg);
+  --color-card: var(--vt-card);
+  --color-card-foreground: var(--vt-fg);
+  --color-popover: var(--vt-card);
+  --color-popover-foreground: var(--vt-fg);
+  --color-primary: var(--vt-primary);
+  --color-primary-foreground: var(--vt-primary-fg, #eafffb);
+  --color-secondary: var(--vt-secondary, var(--vt-card));
+  --color-secondary-foreground: var(--vt-fg);
+  --color-muted: var(--vt-muted-bg, color-mix(in srgb, var(--vt-fg) 8%, var(--vt-card)));
+  --color-muted-foreground: var(--vt-muted);
+  --color-accent: var(--vt-accent, var(--vt-primary));
+  --color-accent-foreground: var(--vt-fg);
+  --color-border: var(--vt-border);
+  --color-input: var(--vt-border);
+  --color-ring: var(--vt-primary);
+  --color-success: var(--vt-success, #14804a);
+  --color-destructive: var(--vt-danger, #c0362c);
+  color: var(--vt-fg);
+  background-color: var(--vt-bg);
+}
+
+[data-visual-theme="espaco"] {
+  --vt-bg: #0f1728;
+  --vt-fg: #eef4ff;
+  --vt-card: #1a2740;
+  --vt-primary: #7ee0d6;
+  --vt-primary-fg: #07211f;
+  --vt-secondary: #243656;
+  --vt-muted: #c5d2e6;
+  --vt-muted-bg: #243656;
+  --vt-border: #3c5274;
+  --vt-accent: #b7a6ff;
+  --vt-success: #3dce8a;
+  --vt-danger: #ff8d86;
+}
+
+[data-visual-theme="oceano"] {
+  --vt-bg: #e5f6fb;
+  --vt-fg: #0d2c3d;
+  --vt-card: #f7fdff;
+  --vt-primary: #0e7490;
+  --vt-primary-fg: #f0fdff;
+  --vt-secondary: #d4eef6;
+  --vt-muted: #3d5c6b;
+  --vt-border: #b7d7e4;
+  --vt-accent: #67e8f9;
+  --vt-success: #0f7a4a;
+  --vt-danger: #b42318;
+}
+
+[data-visual-theme="floresta"] {
+  --vt-bg: #e7f3e4;
+  --vt-fg: #142818;
+  --vt-card: #f6fbf4;
+  --vt-primary: #1f6b3a;
+  --vt-primary-fg: #f3fff6;
+  --vt-secondary: #d7ead3;
+  --vt-muted: #3e5644;
+  --vt-border: #c3dcc6;
+  --vt-accent: #c8f07a;
+  --vt-success: #166534;
+  --vt-danger: #b42318;
+}
+
+[data-visual-theme="por-do-sol"] {
+  --vt-bg: #fff1e6;
+  --vt-fg: #3a2014;
+  --vt-card: #fffaf6;
+  --vt-primary: #c2410c;
+  --vt-primary-fg: #fff7ed;
+  --vt-secondary: #ffe0cc;
+  --vt-muted: #7a5342;
+  --vt-border: #f0c9b0;
+  --vt-accent: #fdba74;
+  --vt-success: #157a45;
+  --vt-danger: #b42318;
+}
+
+[data-visual-theme="neon"] {
+  --vt-bg: #14081f;
+  --vt-fg: #f6f0ff;
+  --vt-card: #241038;
+  --vt-primary: #f25cff;
+  --vt-primary-fg: #1a0520;
+  --vt-secondary: #3a1858;
+  --vt-muted: #dcccf0;
+  --vt-muted-bg: #3a1858;
+  --vt-border: #5c3480;
+  --vt-accent: #39f3c4;
+  --vt-success: #5dffa1;
+  --vt-danger: #ff6b8a;
+}
+
+[data-visual-theme="ambar"] {
+  --vt-bg: #fff8e8;
+  --vt-fg: #2d230c;
+  --vt-card: #fffdf8;
+  --vt-primary: #b45309;
+  --vt-primary-fg: #fffbeb;
+  --vt-secondary: #fdecc8;
+  --vt-muted: #6b5428;
+  --vt-border: #edd7a4;
+  --vt-accent: #fbbf24;
+  --vt-success: #157a45;
+  --vt-danger: #b42318;
+}
+
+[data-visual-theme="lavanda"] {
+  --vt-bg: #f4f0ff;
+  --vt-fg: #241b3a;
+  --vt-card: #fbf9ff;
+  --vt-primary: #6d28d9;
+  --vt-primary-fg: #faf5ff;
+  --vt-secondary: #ebe4ff;
+  --vt-muted: #5c5274;
+  --vt-border: #ddd4f5;
+  --vt-accent: #c4b5fd;
+  --vt-success: #157a45;
+  --vt-danger: #b42318;
+}
+
+[data-visual-theme="gelo"] {
+  --vt-bg: #eef6f8;
+  --vt-fg: #12303a;
+  --vt-card: #ffffff;
+  --vt-primary: #0f5f73;
+  --vt-primary-fg: #f3fbfd;
+  --vt-secondary: #dcecef;
+  --vt-muted: #4a6570;
+  --vt-border: #c9dde4;
+  --vt-accent: #b7e4ef;
+  --vt-success: #0f7a4a;
+  --vt-danger: #b42318;
+}
+
+[data-visual-theme="espaco"] .text-astro-navy,
+[data-visual-theme="neon"] .text-astro-navy {
+  color: var(--vt-fg);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

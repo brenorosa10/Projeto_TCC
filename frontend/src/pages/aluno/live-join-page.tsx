@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { CheckCircle2, Hourglass, PartyPopper, Radio, Trophy, Users, XCircle } from "lucide-react"
 import { AlternativeBody } from "@/components/activity/alternative-media"
 import { CelebrationBurst } from "@/components/activity/celebration-burst"
+import { VisualThemeFrame } from "@/components/activity/visual-theme"
 import { ItemAnswerForm } from "@/components/activity/item-answer-form"
 import { ItemPrompt } from "@/components/activity/item-prompt"
 import { AppShell } from "@/components/layout/app-shell"
@@ -268,7 +269,11 @@ function StudentRoom({
               Questão {state.itemIndex + 1} de {state.itemCount}
             </Badge>
           </div>
-          <div key={state.currentItem.id} className="surface-card animate-enter space-y-5 p-5 sm:p-6">
+          <VisualThemeFrame
+            key={state.currentItem.id}
+            theme={state.currentItem.visualTheme}
+            className="surface-card animate-enter space-y-5 p-5 sm:p-6"
+          >
             <ItemPrompt item={state.currentItem} />
             {hasAnswered ? (
               <div className="flex items-center gap-3 rounded-xl border border-astro-sky/30 bg-astro-sky/8 px-4 py-3.5">
@@ -286,7 +291,7 @@ function StudentRoom({
                 submitLabel="Enviar"
               />
             )}
-          </div>
+          </VisualThemeFrame>
         </div>
       ) : null}
 
@@ -304,7 +309,11 @@ function StudentRoom({
             ) : null}
           </div>
           {state.currentItem ? (
-            <div key={`reveal-${state.currentItem.id}`} className="surface-card animate-enter space-y-4 p-5 sm:p-6">
+            <VisualThemeFrame
+              key={`reveal-${state.currentItem.id}`}
+              theme={state.currentItem.visualTheme}
+              className="surface-card animate-enter space-y-4 p-5 sm:p-6"
+            >
               <PersonalBanner personal={state.personal} />
               <ItemPrompt item={state.currentItem} />
               {state.currentItem.options?.length ? (
@@ -348,7 +357,7 @@ function StudentRoom({
                   <RichText value={state.reveal.explanation} className="text-sm" />
                 </div>
               ) : null}
-            </div>
+            </VisualThemeFrame>
           ) : null}
           {state.ranking ? <Ranking entries={state.ranking.slice(0, 8)} title="Ranking parcial" /> : null}
         </div>

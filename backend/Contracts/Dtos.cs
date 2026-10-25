@@ -149,7 +149,9 @@ public record CreateActivityItemRequest(
     string? ExplanationPrompt = null,
     string? ImagePosition = null,
     [MaxLength(2000)]
-    string? VideoUrl = null
+    string? VideoUrl = null,
+    [MaxLength(32)]
+    string? VisualTheme = null
 );
 
 public record CreateOrderEntryRequest(
@@ -275,7 +277,8 @@ public record ActivityItemResponse(
     string? ExplanationPrompt = null,
     string? ImagePosition = null,
     string? VideoUrl = null,
-    string? VideoKind = null
+    string? VideoKind = null,
+    string? VisualTheme = null
 );
 
 public record OrderEntryResponse(
@@ -536,7 +539,8 @@ public record StudySessionItemResponse(
     string? ExplanationPrompt = null,
     string? ImagePosition = null,
     string? VideoUrl = null,
-    string? VideoKind = null
+    string? VideoKind = null,
+    string? VisualTheme = null
 );
 
 public record StudySessionFeedbackItemResponse(
