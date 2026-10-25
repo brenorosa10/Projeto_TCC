@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,6 +50,7 @@ export function DeleteActivityButton({
   return (
     <>
       <Button type="button" variant={variant} size={size} onClick={() => setOpen(true)}>
+        <Trash2 className="h-4 w-4" />
         Excluir
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>

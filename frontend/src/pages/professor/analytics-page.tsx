@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
-import { AlertTriangle, Users } from "lucide-react"
+import { AlertTriangle, BarChart3, Play, Radio, Square, Users } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -100,18 +100,25 @@ export function ProfessorAnalyticsPage() {
     <AppShell title="Analytics">
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-3xl font-semibold">Painel analítico</h1>
+          <h1 className="flex items-center gap-2 font-display text-3xl font-semibold">
+            <BarChart3 className="h-7 w-7 text-primary" aria-hidden />
+            Painel analítico
+          </h1>
         </div>
 
         {loading ? (
           <PageLoader />
         ) : !data || data.activities.length === 0 ? (
           <EmptyState
+            icon={BarChart3}
             title="Sem dados ainda"
             description="Realize uma sessão ao vivo para gerar métricas de acerto por questão."
           >
             <Button asChild>
-              <Link to="/professor/ao-vivo">Iniciar sessão</Link>
+              <Link to="/professor/ao-vivo">
+                <Radio className="h-4 w-4" />
+                Iniciar sessão
+              </Link>
             </Button>
           </EmptyState>
         ) : (
@@ -198,6 +205,7 @@ export function ProfessorAnalyticsPage() {
                     <>
                       <Button asChild size="sm">
                         <Link to={`/professor/ao-vivo?sessionId=${selectedSession.id}`}>
+                          <Play className="h-4 w-4" />
                           Retomar sessão
                         </Link>
                       </Button>
@@ -207,6 +215,7 @@ export function ProfessorAnalyticsPage() {
                         variant="outline"
                         onClick={() => setConfirmEnd(selectedSession)}
                       >
+                        <Square className="h-4 w-4" />
                         Encerrar sessão
                       </Button>
                     </>
@@ -284,7 +293,10 @@ export function ProfessorAnalyticsPage() {
                           {session.status !== "ended" ? (
                             <>
                               <Button asChild size="sm">
-                                <Link to={`/professor/ao-vivo?sessionId=${session.id}`}>Retomar</Link>
+                                <Link to={`/professor/ao-vivo?sessionId=${session.id}`}>
+                                  <Play className="h-4 w-4" />
+                                  Retomar
+                                </Link>
                               </Button>
                               <Button
                                 type="button"
@@ -292,6 +304,7 @@ export function ProfessorAnalyticsPage() {
                                 variant="outline"
                                 onClick={() => setConfirmEnd(session)}
                               >
+                                <Square className="h-4 w-4" />
                                 Encerrar
                               </Button>
                             </>

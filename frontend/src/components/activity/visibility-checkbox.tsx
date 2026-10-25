@@ -1,3 +1,4 @@
+import { Globe } from "lucide-react"
 import { Label } from "@/components/ui/label"
 
 interface VisibilityCheckboxProps {
@@ -17,6 +18,7 @@ export function VisibilityCheckbox({ id, checked, onChange }: VisibilityCheckbox
           checked={checked}
           onChange={(event) => onChange(event.target.checked)}
         />
+        <Globe className="h-4 w-4 text-primary" aria-hidden />
         <span className="font-medium">Tornar público</span>
       </label>
       <Label className="sr-only" htmlFor={id}>

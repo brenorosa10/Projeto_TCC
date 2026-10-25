@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
+import { GraduationCap, Plus, Users } from "lucide-react"
 import { toast } from "sonner"
 import { AppShell } from "@/components/layout/app-shell"
 import { Button } from "@/components/ui/button"
@@ -84,7 +85,10 @@ export function ProfessorClassesPage() {
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>Nova turma</Button>
+            <Button>
+              <Plus className="h-4 w-4" />
+              Nova turma
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <form noValidate onSubmit={(e) => void handleCreate(e)}>
@@ -127,6 +131,7 @@ export function ProfessorClassesPage() {
         <PageLoader />
       ) : classes.length === 0 ? (
         <EmptyState
+          icon={Users}
           title="Nenhuma turma ainda"
           description="Crie a primeira turma para gerar um código de acesso aos alunos."
         />
@@ -137,8 +142,9 @@ export function ProfessorClassesPage() {
               <div>
                 <Link
                   to={`/professor/turmas/${item.id}`}
-                  className="font-medium text-foreground hover:text-primary"
+                  className="inline-flex items-center gap-2 font-medium text-foreground hover:text-primary"
                 >
+                  <GraduationCap className="h-4 w-4 text-primary" aria-hidden />
                   {item.name}
                 </Link>
                 <p className="text-sm text-muted-foreground">

@@ -4,6 +4,7 @@ import {
   BarChart3,
   BookOpen,
   Layers,
+  Plus,
   Radio,
   Sparkles,
   type LucideIcon,
@@ -70,12 +71,16 @@ export function ProfessorDashboardPage() {
             <div className="flex flex-wrap gap-3 pt-1">
               <Button asChild>
                 <Link to="/professor/quiz/novo">
+                  <Plus className="h-4 w-4" />
                   Criar quiz
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link to="/professor/flashcards/novo">Criar flashcards</Link>
+                <Link to="/professor/flashcards/novo">
+                  <Layers className="h-4 w-4" />
+                  Criar flashcards
+                </Link>
               </Button>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
-import { Plus, Trash2 } from "lucide-react"
+import { Layers, Plus, Save, Trash2 } from "lucide-react"
 import { ActivityCatalogFields } from "@/components/activity/activity-catalog-fields"
 import { ItemImageField } from "@/components/activity/item-image-field"
 import { PrepFeedbackFields } from "@/components/activity/prep-feedback-fields"
@@ -204,7 +204,8 @@ export function ProfessorCreateFlashcardsPage() {
             ) : null}{" "}
             / {isEditing ? "Editar flashcards" : nav.student ? "Novo deck avulso" : "Novos flashcards"}
           </p>
-          <h1 className="mt-2 font-display text-3xl font-semibold">
+          <h1 className="mt-2 flex items-center gap-2 font-display text-3xl font-semibold">
+            <Layers className="h-7 w-7 text-primary" aria-hidden />
             {isEditing ? "Editar flashcards" : nav.student ? "Criar deck avulso" : "Criar flashcards"}
           </h1>
         </div>
@@ -319,6 +320,7 @@ export function ProfessorCreateFlashcardsPage() {
         <div className="sticky bottom-4 z-10">
           <div className="surface-raised flex flex-wrap items-center gap-3 p-4">
             <Button type="submit" disabled={saving}>
+              <Save className="h-4 w-4" />
               {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar flashcards"}
             </Button>
           </div>
