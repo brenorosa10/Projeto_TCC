@@ -209,7 +209,11 @@ public record CreateActivityRequest(
     string Type,
     List<CreateActivityItemRequest>? Items,
     bool IsPublic = false,
-    List<CreateActivitySectionRequest>? Sections = null
+    List<CreateActivitySectionRequest>? Sections = null,
+    [MaxLength(40, ErrorMessage = "O tema deve ter no máximo 40 caracteres.")]
+    string? Theme = null,
+    [MaxLength(280, ErrorMessage = "A descrição deve ter no máximo 280 caracteres.")]
+    string? Description = null
 );
 
 public record AssignActivityClassesRequest(
@@ -317,7 +321,9 @@ public record ActivitySummaryResponse(
     int ItemCount,
     Guid? SourceActivityId,
     IReadOnlyList<Guid> ClassIds,
-    bool IsPublic
+    bool IsPublic,
+    string? Theme = null,
+    string? Description = null
 );
 
 public record ActivityResponse(
@@ -331,7 +337,9 @@ public record ActivityResponse(
     bool IsPublic,
     IReadOnlyList<ActivityItemResponse> Items,
     IReadOnlyList<ActivitySectionResponse>? Sections = null,
-    int ItemCount = 0
+    int ItemCount = 0,
+    string? Theme = null,
+    string? Description = null
 );
 
 public record PublicActivitySummaryResponse(
@@ -340,7 +348,30 @@ public record PublicActivitySummaryResponse(
     string Type,
     int ItemCount,
     DateTimeOffset CreatedAt,
-    string? ProfessorName
+    string? ProfessorName,
+    string? Theme = null,
+    string? Description = null,
+    bool HasCover = false,
+    int PlayCount = 0,
+    string? Difficulty = null
+);
+
+public record PublicThemeFacetResponse(string Name, int Count);
+
+public record PublicThemeGroupResponse(
+    string Theme,
+    int Total,
+    IReadOnlyList<PublicActivitySummaryResponse> Items
+);
+
+public record PublicCatalogResponse(
+    IReadOnlyList<PublicActivitySummaryResponse> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    string Sort,
+    IReadOnlyList<PublicThemeFacetResponse> Themes,
+    IReadOnlyList<PublicThemeGroupResponse>? Groups
 );
 
 public record StudyQuizSummaryResponse(
@@ -687,7 +718,8 @@ public record GeneratedFeedbackSectionResponse(
 public record GenerateQuizQuestionsResponse(
     IReadOnlyList<GeneratedQuizQuestionResponse> Questions,
     GeneratedPrepSectionResponse Prep,
-    GeneratedFeedbackSectionResponse Feedback
+    GeneratedFeedbackSectionResponse Feedback,
+    string? Theme = null
 );
 
 public record AnalyticsOverviewResponse(

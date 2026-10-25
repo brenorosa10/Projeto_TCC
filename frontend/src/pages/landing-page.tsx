@@ -1,37 +1,15 @@
-import { useEffect, useState } from "react"
-import { Link, Navigate } from "react-router-dom"
+import { useState } from "react"
+import { Navigate } from "react-router-dom"
 import { Code2, Flag, GraduationCap, Rocket, Users } from "lucide-react"
 import { AuthMethodDialog } from "@/components/auth/auth-method-dialog"
-import { Badge } from "@/components/ui/badge"
+import { PublicCatalog } from "@/components/public/public-catalog"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
-import { api } from "@/lib/api"
-import { activityCountLabel } from "@/lib/utils"
-import type { PublicActivitySummary, UserRole } from "@/lib/types"
+import type { UserRole } from "@/lib/types"
 
 export function LandingPage() {
   const { session, profile, loading } = useAuth()
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
-  const [publicActivities, setPublicActivities] = useState<PublicActivitySummary[]>([])
-  const [publicLoading, setPublicLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    api
-      .listPublicActivities()
-      .then((items) => {
-        if (!cancelled) setPublicActivities(items)
-      })
-      .catch(() => {
-        if (!cancelled) setPublicActivities([])
-      })
-      .finally(() => {
-        if (!cancelled) setPublicLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   if (!loading && session && profile) {
     return (
@@ -42,11 +20,8 @@ export function LandingPage() {
     )
   }
 
-  const publicQuizzes = publicActivities.filter((item) => item.type === "quiz")
-  const publicDecks = publicActivities.filter((item) => item.type === "flashcards")
-
   return (
-    <div className="relative min-h-screen overflow-hidden bg-hero-atmosphere">
+    <div className="relative min-h-screen overflow-x-hidden bg-hero-atmosphere">
       <div className="pattern-grid pointer-events-none absolute inset-0 opacity-70" />
       <div className="animate-soft-pulse pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-astro-mint/40 blur-3xl" />
       <div className="animate-soft-pulse pointer-events-none absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-astro-sky/35 blur-3xl" />
@@ -117,87 +92,12 @@ export function LandingPage() {
           </p>
         </section>
 
-        <section id="explorar" className="animate-fade-up-delay-2 pb-8">
-          <h2 className="font-display text-2xl font-semibold">Estudo público</h2>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            Quizzes e flashcards abertos pela comunidade. Não precisa de conta para estudar.
-          </p>
-
-          {publicLoading ? (
-            <div className="mt-8 grid gap-3 md:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="skeleton h-24 rounded-xl" />
-              ))}
-            </div>
-          ) : publicActivities.length === 0 ? (
-            <p className="mt-6 text-sm text-muted-foreground">
-              Nenhum conteúdo público no momento. Quando um professor marcar um quiz ou deck como
-              público, ele aparece aqui.
-            </p>
-          ) : (
-            <div className="mt-8 grid gap-10 md:grid-cols-2">
-              <PublicList
-                title="Quizzes"
-                empty="Nenhum quiz público."
-                items={publicQuizzes}
-                hrefFor={(id) => `/explorar/quiz/${id}`}
-              />
-              <PublicList
-                title="Flashcards"
-                empty="Nenhum deck público."
-                items={publicDecks}
-                hrefFor={(id) => `/explorar/flashcards/${id}`}
-              />
-            </div>
-          )}
-        </section>
+        <div className="animate-fade-up-delay-2 pb-8">
+          <PublicCatalog />
+        </div>
       </div>
 
       <AuthMethodDialog role={selectedRole} onClose={() => setSelectedRole(null)} />
-    </div>
-  )
-}
-
-function PublicList({
-  title,
-  empty,
-  items,
-  hrefFor,
-}: {
-  title: string
-  empty: string
-  items: PublicActivitySummary[]
-  hrefFor: (id: string) => string
-}) {
-  return (
-    <div>
-      <h3 className="font-display text-lg font-semibold">{title}</h3>
-      {items.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">{empty}</p>
-      ) : (
-        <ul className="mt-4 grid gap-3">
-          {items.map((item) => (
-            <li
-              key={item.id}
-              className="surface-card flex flex-col gap-3 p-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <p className="font-medium text-pretty">{item.title}</p>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                  <Badge variant="secondary">Público</Badge>
-                  <span>
-                    {activityCountLabel(item.itemCount, item.type)}
-                    {item.professorName ? ` · ${item.professorName}` : null}
-                  </span>
-                </div>
-              </div>
-              <Button asChild size="sm" className="shrink-0">
-                <Link to={hrefFor(item.id)}>Estudar</Link>
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   )
 }

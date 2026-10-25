@@ -114,6 +114,8 @@ public static partial class PortugueseValidation
         {
             "name" => "o nome",
             "title" => "o título",
+            "theme" => "o tema",
+            "description" => "a descrição",
             "email" => "o e-mail",
             "password" => "a senha",
             "username" => "o nome de usuário",

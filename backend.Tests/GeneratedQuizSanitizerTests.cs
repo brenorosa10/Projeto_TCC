@@ -78,6 +78,42 @@ public class GeneratedQuizSanitizerTests
         Assert.Equal(["Verdadeiro", "Falso"], questions[1].Options.Select(option => option.Text).ToArray());
         Assert.True(questions[1].Options[0].IsCorrect);
         Assert.False(questions[1].Options[1].IsCorrect);
+        Assert.Null(generated.Theme);
+    }
+
+    [Fact]
+    public void SuggestedTheme_IsCanonicalizedAndOptional()
+    {
+        const string json = """
+            {
+              "theme": "  historia ",
+              "questions": [
+                {
+                  "kind": "multiple_choice",
+                  "prompt": "Qual planeta é conhecido como planeta vermelho?",
+                  "explanation": "Marte tem óxido de ferro na superfície.",
+                  "options": [
+                    { "text": "Marte", "isCorrect": true },
+                    { "text": "Vênus", "isCorrect": false }
+                  ]
+                }
+              ],
+              "prep": {
+                "title": "Antes de começar",
+                "body": "Releia as características dos planetas rochosos antes das questões."
+              },
+              "feedback": {
+                "title": "Resultados",
+                "body": "Revise as questões erradas e compare com o gabarito."
+              }
+            }
+            """;
+
+        var generated = GeneratedQuizSanitizer.Sanitize(json, requestedCount: 1, requestedKind: null);
+        Assert.Equal("História", generated.Theme);
+
+        var generic = json.Replace("\"  historia \"", "\"Geral\"");
+        Assert.Null(GeneratedQuizSanitizer.Sanitize(generic, 1, null).Theme);
     }
 
     [Fact]

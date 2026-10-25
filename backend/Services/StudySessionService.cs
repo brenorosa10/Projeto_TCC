@@ -75,6 +75,10 @@ public class StudySessionService(
 
         MoveTo(session, FirstPlayableIndex(plan));
         await db.StudySessions.InsertOneAsync(session, cancellationToken: cancellationToken);
+        await db.Activities.UpdateOneAsync(
+            item => item.Id == activity.Id,
+            Builders<Activity>.Update.Inc(item => item.PlayCount, 1),
+            cancellationToken: cancellationToken);
         return new SessionOperationResult
         {
             Session = ToResponse(session, activity),

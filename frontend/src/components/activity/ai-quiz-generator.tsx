@@ -36,6 +36,7 @@ type ReviewBundle = {
   questions: ReviewQuestion[]
   prep: GeneratedPrepSection
   feedback: GeneratedFeedbackSection
+  theme: string
   applyPrep: boolean
   applyFeedback: boolean
 }
@@ -105,6 +106,7 @@ export function AiQuizGenerator({
         },
         applyPrep: !prepHasContent,
         applyFeedback: !feedbackHasContent,
+        theme: response.theme ?? "",
       })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível gerar as questões.")
@@ -228,7 +230,7 @@ export function AiQuizGenerator({
       toast.error("A pós-seção precisa de título e mensagem de encerramento.")
       return
     }
-    onAccept({ questions: cleaned, prep, feedback })
+    onAccept({ questions: cleaned, prep, feedback, theme: review.theme.trim() || null })
     setOpen(false)
     setReview(null)
   }
@@ -262,6 +264,19 @@ export function AiQuizGenerator({
 
           {review ? (
             <div className="space-y-4">
+              <div className="grid gap-1.5">
+                <Label htmlFor="ai-theme">Tema sugerido</Label>
+                <Input
+                  id="ai-theme"
+                  value={review.theme}
+                  maxLength={40}
+                  placeholder="Ex: História"
+                  onChange={(event) => setReview({ ...review, theme: event.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Entra no quiz só se o tema ainda estiver vazio.
+                </p>
+              </div>
               <SectionReview
                 title="Pré-seção"
                 apply={review.applyPrep}

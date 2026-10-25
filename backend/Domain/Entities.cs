@@ -66,6 +66,25 @@ public class Activity
     public string Type { get; set; } = string.Empty;
     public Guid? SourceActivityId { get; set; }
     public bool IsPublic { get; set; }
+
+    /// <summary>Rótulo exibido na vitrine. Ausente nos documentos antigos (caem em Geral).</summary>
+    [BsonIgnoreIfNull]
+    public string? Theme { get; set; }
+
+    /// <summary>Tema dobrado (sem acento, minúsculo) para filtro e agrupamento.</summary>
+    [BsonIgnoreIfNull]
+    public string? ThemeKey { get; set; }
+
+    /// <summary>Resumo curto opcional da vitrine. A pré-seção continua sendo a descrição longa.</summary>
+    [BsonIgnoreIfNull]
+    public string? Description { get; set; }
+
+    /// <summary>Sessões de estudo iniciadas. Documentos antigos não têm o campo e contam como zero.</summary>
+    public int PlayCount { get; set; }
+
+    /// <summary>Dificuldades distintas das questões, gravadas na hora de salvar.</summary>
+    public List<string> Difficulties { get; set; } = [];
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<ActivitySection> Sections { get; set; } = [];
     public List<ActivityItem> Items { get; set; } = [];

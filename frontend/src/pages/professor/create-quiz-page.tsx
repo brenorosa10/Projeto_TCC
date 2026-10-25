@@ -37,6 +37,7 @@ import { assertActivityPayloadFits } from "@/lib/compress-image"
 import { isAcceptableImageUrl } from "@/lib/media-url"
 import { cleanContentBlocks, flattenContentBlocks, QUESTION_DIFFICULTIES } from "@/lib/content-blocks"
 import { findSection, ITEM_KIND_LABELS, QUIZ_ITEM_KINDS } from "@/lib/item-kinds"
+import { ActivityCatalogFields } from "@/components/activity/activity-catalog-fields"
 import { AiQuizGenerator } from "@/components/activity/ai-quiz-generator"
 import { parseQuizCsv, type ImportedQuizQuestion } from "@/lib/quiz-csv-import"
 import { cn } from "@/lib/utils"
@@ -458,6 +459,8 @@ export function ProfessorCreateQuizPage() {
   const { profile } = useAuth()
   const nav = activityEditorNav(profile?.role)
   const [title, setTitle] = useState("")
+  const [theme, setTheme] = useState("")
+  const [description, setDescription] = useState("")
   const [isPublic, setIsPublic] = useState(false)
   const [prepId, setPrepId] = useState<string>()
   const [practiceId, setPracticeId] = useState<string>()
@@ -490,6 +493,8 @@ export function ProfessorCreateQuizPage() {
           return
         }
         setTitle(activity.title)
+        setTheme(activity.theme ?? "")
+        setDescription(activity.description ?? "")
         setIsPublic(Boolean(activity.isPublic))
         const prep = findSection(activity.sections, "prep")
         const practice = findSection(activity.sections, "practice")
@@ -610,6 +615,9 @@ export function ProfessorCreateQuizPage() {
     if (generated.feedback) {
       setFeedbackTitle(generated.feedback.title)
       setFeedbackBody(generated.feedback.body)
+    }
+    if (generated.theme && !theme.trim()) {
+      setTheme(generated.theme)
     }
     setEditorTab("questoes")
     setQuestionIndex(replaceBlank ? 0 : questions.length)
@@ -781,6 +789,8 @@ export function ProfessorCreateQuizPage() {
       title: title.trim(),
       type: "quiz",
       isPublic: nav.student ? false : isPublic,
+      theme: theme.trim() || undefined,
+      description: description.trim() || undefined,
       sections: [
         {
           id: prepId,
@@ -961,6 +971,15 @@ export function ProfessorCreateQuizPage() {
                   ) : null}
                 </div>
               </div>
+
+              <ActivityCatalogFields
+                themeId="quiz-theme"
+                descriptionId="quiz-description"
+                theme={theme}
+                description={description}
+                onTheme={setTheme}
+                onDescription={setDescription}
+              />
 
               <PrepFeedbackFields
                 prepTitle={prepTitle}

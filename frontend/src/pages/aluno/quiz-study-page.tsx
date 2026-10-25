@@ -25,9 +25,17 @@ export function AlunoQuizStudyPage() {
   const { activityId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const { session: authSession } = useAuth()
-  const isGuest = location.pathname.startsWith("/explorar") || !authSession
-  const backHref = isGuest ? "/" : "/aluno/estudar"
+  const { session: authSession, profile } = useAuth()
+  const exploring = location.pathname.startsWith("/explorar")
+  const isGuest = exploring || !authSession
+  const backHref =
+    authSession && exploring
+      ? profile?.role === "professor"
+        ? "/professor"
+        : "/aluno"
+      : isGuest
+        ? "/"
+        : "/aluno/estudar"
   const [study, setStudy] = useState<StudySession | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)

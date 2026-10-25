@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
+import { PublicCatalog } from "@/components/public/public-catalog"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 import { cn } from "@/lib/utils"
@@ -85,6 +86,12 @@ export function ProfessorDashboardPage() {
             <ActionCard key={action.to} {...action} />
           ))}
         </div>
+
+        <PublicCatalog
+          audience="professor"
+          heading="Quizzes públicos"
+          lead="Veja o que outros professores abriram para a comunidade e jogue direto daqui."
+        />
       </div>
     </AppShell>
   )

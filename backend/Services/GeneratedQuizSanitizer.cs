@@ -54,7 +54,14 @@ public static partial class GeneratedQuizSanitizer
         return new GenerateQuizQuestionsResponse(
             accepted,
             BuildPrep(payload.Prep),
-            BuildFeedback(payload.Feedback));
+            BuildFeedback(payload.Feedback),
+            BuildTheme(payload.Theme));
+    }
+
+    private static string? BuildTheme(string? raw)
+    {
+        var (display, _) = ActivityThemes.Normalize(raw);
+        return display;
     }
 
     private static GeneratedPrepSectionResponse BuildPrep(GeneratedSectionDraft? draft)
@@ -318,6 +325,7 @@ public static partial class GeneratedQuizSanitizer
         public List<GeneratedQuizQuestionDraft>? Questions { get; set; }
         public GeneratedSectionDraft? Prep { get; set; }
         public GeneratedSectionDraft? Feedback { get; set; }
+        public string? Theme { get; set; }
     }
 
     private sealed class GeneratedSectionDraft

@@ -120,6 +120,7 @@ builder.Services.AddScoped<StudyAccessService>();
 builder.Services.AddScoped<StudySessionService>();
 builder.Services.AddScoped<LiveSessionService>();
 builder.Services.AddScoped<AnalyticsService>();
+builder.Services.AddScoped<PublicCatalogService>();
 builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection(GeminiOptions.SectionName));
 builder.Services.AddSingleton<QuizGenerationRateLimiter>();
 builder.Services.AddHttpClient<GeminiQuizGenerator>(client =>
