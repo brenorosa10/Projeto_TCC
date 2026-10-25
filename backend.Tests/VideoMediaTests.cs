@@ -35,6 +35,62 @@ public class VideoMediaTests
     }
 
     [Theory]
+    [InlineData("dQw4w9WgXcQ", "dQw4w9WgXcQ", "youtube")]
+    [InlineData("123456789", "123456789", "vimeo")]
+    public void AcceptsStoredPlayerIds(string input, string expected, string kind)
+    {
+        var parsed = AttachedVideo.Normalize(input);
+        Assert.Null(parsed.Error);
+        Assert.Equal(expected, parsed.Url);
+        Assert.Equal(kind, parsed.Kind);
+    }
+
+    [Theory]
+    [InlineData("dQw4w9WgXcQ", "youtube")]
+    [InlineData("123456789", "vimeo")]
+    [InlineData("/api/media/11111111-1111-1111-1111-111111111111", "file")]
+    [InlineData("https://cdn.exemplo.com/aula.mp4", "file")]
+    public void ResavingStoredVideoKeepsIt(string stored, string kind)
+    {
+        var item = new CreateActivityItemRequest(
+            null,
+            "multiple_choice",
+            "Assista e responda",
+            null,
+            [
+                new CreateQuestionOptionRequest(null, "A", true),
+                new CreateQuestionOptionRequest(null, "B", false)
+            ],
+            false,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            VideoUrl: stored);
+        var built = ActivityContentBuilder.Build(
+            "quiz",
+            new CreateActivityRequest(
+                "Quiz",
+                "quiz",
+                null,
+                Sections:
+                [
+                    new CreateActivitySectionRequest(null, "prep", null, null, null, null, VideoUrl: stored),
+                    new CreateActivitySectionRequest(null, "practice", null, null, null, [item]),
+                    new CreateActivitySectionRequest(null, "feedback", "Resultados", null, "score_summary", null)
+                ]));
+
+        Assert.Null(built.Error);
+        Assert.Equal(stored, built.Items![0].VideoUrl);
+        Assert.Equal(kind, built.Items[0].VideoKind);
+        Assert.Equal(stored, built.Sections![0].VideoUrl);
+        Assert.Equal(kind, built.Sections[0].VideoKind);
+    }
+
+    [Theory]
     [InlineData("javascript:alert(1)")]
     [InlineData("ftp://exemplo.com/a.mp4")]
     [InlineData("https://user:pass@exemplo.com/a.mp4")]
