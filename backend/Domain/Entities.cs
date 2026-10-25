@@ -193,6 +193,13 @@ public class ActivityItem
     [BsonIgnoreIfNull]
     public string? VideoKind { get; set; }
 
+    /// <summary>
+    /// Aparência da questão (espaço, oceano, ...). Ausente = visual padrão do sistema.
+    /// Não confundir com Activity.Theme, que é a categoria do catálogo público.
+    /// </summary>
+    [BsonIgnoreIfNull]
+    public string? VisualTheme { get; set; }
+
     [BsonExtraElements]
     public BsonDocument? Extra { get; set; }
 }

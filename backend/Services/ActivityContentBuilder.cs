@@ -208,6 +208,12 @@ public static class ActivityContentBuilder
             var intro = ContentBlocks.Normalize(item.Intro);
             var promptBlocks = ContentBlocks.Normalize(item.PromptBlocks);
             var feedbackBlocks = ContentBlocks.Normalize(item.FeedbackBlocks);
+            var themeError = VisualThemes.TryNormalize(item.VisualTheme, out var visualTheme);
+            if (themeError is not null)
+            {
+                return (null, themeError);
+            }
+
             var mappedItem = new ActivityItem
             {
                 Id = existing?.Id ?? Guid.NewGuid(),
@@ -235,7 +241,8 @@ public static class ActivityContentBuilder
                 ExplanationPrompt = ContentBlocks.SupportsReflection(kind) && item.RequireExplanation == true
                     ? (TrimToNull(item.ExplanationPrompt) ?? "Como você pensou sobre a resposta?")
                     : null,
-                ImagePosition = NormalizeImagePosition(item.ImagePosition)
+                ImagePosition = NormalizeImagePosition(item.ImagePosition),
+                VisualTheme = visualTheme
             };
 
             var payloadError = ApplyKindPayload(mappedItem, item, existing);

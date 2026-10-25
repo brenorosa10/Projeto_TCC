@@ -172,6 +172,7 @@ export interface ActivityItem {
   explanationMinLength?: number | null
   explanationPrompt?: string | null
   imagePosition?: ImagePosition | string | null
+  visualTheme?: string | null
 }
 
 export interface ActivitySection {
@@ -240,6 +241,7 @@ export interface CreateActivityItemRequest {
   explanationMinLength?: number
   explanationPrompt?: string
   imagePosition?: ImagePosition | string
+  visualTheme?: string
 }
 
 export interface CreateOrderEntryRequest {
@@ -523,6 +525,7 @@ export interface StudySessionItem {
   explanationMinLength?: number | null
   explanationPrompt?: string | null
   imagePosition?: ImagePosition | string | null
+  visualTheme?: string | null
 }
 
 export interface StudySessionFeedbackItem {

@@ -131,6 +131,7 @@ public static class ActivityMapper
             item.RequireExplanation ? item.ExplanationPrompt : null,
             string.IsNullOrWhiteSpace(item.ImagePosition) ? "after" : item.ImagePosition,
             item.VideoUrl,
-            item.VideoKind);
+            item.VideoKind,
+            item.VisualTheme);
     }
 }
