@@ -590,7 +590,8 @@ public record CreateLiveSessionRequest(
     [Required]
     Guid ActivityId,
     [Required]
-    Guid ClassId
+    Guid ClassId,
+    bool? ShowHostAnswers = null
 );
 
 public record LiveParticipantResponse(
@@ -652,7 +653,8 @@ public record LiveSessionStateResponse(
     IReadOnlyList<LiveRankingEntryResponse>? Ranking,
     LiveQuestionRevealResponse? Reveal,
     LivePersonalResultResponse? Personal,
-    bool ShowAnswerKey
+    bool ShowAnswerKey,
+    bool ShowHostAnswers
 );
 
 public record AnalyticsActivitySummaryResponse(

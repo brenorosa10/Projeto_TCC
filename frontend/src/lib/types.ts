@@ -640,11 +640,13 @@ export interface LiveSessionState {
   reveal?: LiveQuestionReveal | null
   personal?: LivePersonalResult | null
   showAnswerKey: boolean
+  showHostAnswers: boolean
 }
 
 export interface CreateLiveSessionRequest {
   activityId: string
   classId: string
+  showHostAnswers?: boolean
 }
 
 export interface AnalyticsActivitySummary {

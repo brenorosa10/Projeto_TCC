@@ -293,6 +293,13 @@ public class LiveSession
     public List<Guid> ItemIds { get; set; } = [];
     public DateTimeOffset? QuestionStartedAt { get; set; }
     public string? HostConnectionId { get; set; }
+
+    /// <summary>
+    /// Null em sessões antigas: a tela do professor continua mostrando a resposta correta.
+    /// </summary>
+    [BsonIgnoreIfNull]
+    public bool? ShowHostAnswers { get; set; }
+
     public List<LiveParticipant> Participants { get; set; } = [];
     public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? EndedAt { get; set; }
