@@ -54,6 +54,7 @@ export function ProfessorLivePage() {
   const [classId, setClassId] = useState(searchParams.get("classId") ?? "")
   const [activityId, setActivityId] = useState(searchParams.get("activityId") ?? "")
   const [creating, setCreating] = useState(false)
+  const [showHostAnswers, setShowHostAnswers] = useState(true)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [state, setState] = useState<LiveSessionState | null>(null)
@@ -239,7 +240,7 @@ export function ProfessorLivePage() {
     setCreating(true)
     let created: LiveSessionState | null = null
     try {
-      created = await api.createLiveSession({ classId, activityId })
+      created = await api.createLiveSession({ classId, activityId, showHostAnswers })
       const joined = await connectHost(created, "Não foi possível criar a sessão")
       const emptyLobby = created.phase === "lobby" && created.participants.length === 0
       if (!joined && emptyLobby) {
@@ -325,11 +326,13 @@ export function ProfessorLivePage() {
           activeSessions={activeSessions}
           classId={classId}
           activityId={activityId}
+          showHostAnswers={showHostAnswers}
           creating={creating}
           resumingId={resumingId}
           endingId={endingId}
           onClassId={handleClassId}
           onActivityId={setActivityId}
+          onShowHostAnswers={setShowHostAnswers}
           onCreate={() => void handleCreate()}
           onResume={(session) => void connectHost(session)}
           onEnd={setConfirmEndId}
@@ -385,11 +388,13 @@ function SetupForm({
   activeSessions,
   classId,
   activityId,
+  showHostAnswers,
   creating,
   resumingId,
   endingId,
   onClassId,
   onActivityId,
+  onShowHostAnswers,
   onCreate,
   onResume,
   onEnd,
@@ -399,11 +404,13 @@ function SetupForm({
   activeSessions: LiveSessionState[]
   classId: string
   activityId: string
+  showHostAnswers: boolean
   creating: boolean
   resumingId: string | null
   endingId: string | null
   onClassId: (value: string) => void
   onActivityId: (value: string) => void
+  onShowHostAnswers: (value: boolean) => void
   onCreate: () => void
   onResume: (session: LiveSessionState) => void
   onEnd: (sessionId: string) => void
@@ -516,6 +523,21 @@ function SetupForm({
             Nenhum quiz vinculado a esta turma. Vincule uma atividade na página da turma.
           </p>
         ) : null}
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/70 bg-card px-3.5 py-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]"
+            checked={showHostAnswers}
+            onChange={(event) => onShowHostAnswers(event.target.checked)}
+          />
+          <span className="space-y-1">
+            <span className="block font-medium">Mostrar respostas nesta tela</span>
+            <span className="block text-muted-foreground">
+              Desmarque se for compartilhar a tela. A alternativa correta, o gabarito e a explicação
+              ficam ocultos aqui. Os alunos continuam vendo o próprio resultado.
+            </span>
+          </span>
+        </label>
         <Button
           type="button"
           className="w-full sm:w-auto"
@@ -548,6 +570,7 @@ function HostRoom({
   onReset: () => void
 }) {
   const [confirmStart, setConfirmStart] = useState(false)
+  const [confirmEnd, setConfirmEnd] = useState(false)
   const isLastItem = state.itemIndex + 1 >= state.itemCount
   const nobodyJoined = state.participants.length === 0
   const sessionEnded = state.phase === "ended" || state.status === "ended"
@@ -585,16 +608,20 @@ function HostRoom({
               Nenhum aluno entrou ainda. Confirme antes de começar a sessão sem participantes.
             </p>
           ) : null}
-          <ActionBar>
-            <Button type="button" disabled={actionsLocked} onClick={requestStart}>
-              <Play className="h-4 w-4" />
-              {connected ? "Começar" : "Conectando..."}
-            </Button>
-            <Button type="button" variant="outline" disabled={actionsLocked} onClick={onEnd}>
-              <Square className="h-4 w-4" />
-              Encerrar
-            </Button>
-          </ActionBar>
+          <ActionBar
+            primary={
+              <Button type="button" disabled={actionsLocked} onClick={requestStart}>
+                <Play className="h-4 w-4" />
+                {connected ? "Começar" : "Conectando..."}
+              </Button>
+            }
+            destructive={
+              <Button type="button" variant="destructive" disabled={actionsLocked} onClick={() => setConfirmEnd(true)}>
+                <Square className="h-4 w-4" />
+                Encerrar
+              </Button>
+            }
+          />
           <Dialog open={confirmStart} onOpenChange={setConfirmStart}>
             <DialogContent>
               <DialogHeader>
@@ -668,30 +695,34 @@ function HostRoom({
               </p>
             )}
           </VisualThemeFrame>
-          <ActionBar>
-            <Button type="button" disabled={actionsLocked} onClick={onAdvance}>
-              {state.mode === "quiz" ? (
-                <>
-                  <Eye className="h-4 w-4" />
-                  Revelar respostas
-                </>
-              ) : isLastItem ? (
-                <>
-                  <Square className="h-4 w-4" />
-                  Encerrar sessão
-                </>
-              ) : (
-                <>
-                  <SkipForward className="h-4 w-4" />
-                  Próxima questão
-                </>
-              )}
-            </Button>
-            <Button type="button" variant="outline" disabled={actionsLocked} onClick={onEnd}>
-              <Square className="h-4 w-4" />
-              Encerrar
-            </Button>
-          </ActionBar>
+          <ActionBar
+            primary={
+              <Button type="button" disabled={actionsLocked} onClick={onAdvance}>
+                {state.mode === "quiz" ? (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    {state.showHostAnswers ? "Revelar respostas" : "Ver resultado da sala"}
+                  </>
+                ) : isLastItem ? (
+                  <>
+                    <Square className="h-4 w-4" />
+                    Encerrar sessão
+                  </>
+                ) : (
+                  <>
+                    <SkipForward className="h-4 w-4" />
+                    Próxima questão
+                  </>
+                )}
+              </Button>
+            }
+            destructive={
+              <Button type="button" variant="destructive" disabled={actionsLocked} onClick={() => setConfirmEnd(true)}>
+                <Square className="h-4 w-4" />
+                Encerrar
+              </Button>
+            }
+          />
         </div>
       ) : null}
 
@@ -700,25 +731,29 @@ function HostRoom({
           <QuestionMeta state={state} />
           {state.reveal ? <RevealCard state={state} /> : null}
           {state.ranking ? <RankingList ranking={state.ranking} /> : null}
-          <ActionBar>
-            <Button type="button" disabled={actionsLocked} onClick={onAdvance}>
-              {isLastItem ? (
-                <>
-                  <Square className="h-4 w-4" />
-                  Encerrar sessão
-                </>
-              ) : (
-                <>
-                  <SkipForward className="h-4 w-4" />
-                  Próxima questão
-                </>
-              )}
-            </Button>
-            <Button type="button" variant="outline" disabled={actionsLocked} onClick={onEnd}>
-              <Square className="h-4 w-4" />
-              Encerrar agora
-            </Button>
-          </ActionBar>
+          <ActionBar
+            primary={
+              <Button type="button" disabled={actionsLocked} onClick={onAdvance}>
+                {isLastItem ? (
+                  <>
+                    <Square className="h-4 w-4" />
+                    Encerrar sessão
+                  </>
+                ) : (
+                  <>
+                    <SkipForward className="h-4 w-4" />
+                    Próxima questão
+                  </>
+                )}
+              </Button>
+            }
+            destructive={
+              <Button type="button" variant="destructive" disabled={actionsLocked} onClick={() => setConfirmEnd(true)}>
+                <Square className="h-4 w-4" />
+                Encerrar agora
+              </Button>
+            }
+          />
         </div>
       ) : null}
 
@@ -750,6 +785,33 @@ function HostRoom({
           <ParticipantList participants={state.participants} ended />
         </div>
       ) : null}
+      <Dialog open={confirmEnd} onOpenChange={setConfirmEnd}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Encerrar sessão?</DialogTitle>
+            <DialogDescription>
+              A sala PIN {state.pin} será encerrada agora. Os alunos deixam de responder e o
+              placar fica no ponto em que a sessão parou.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConfirmEnd(false)}>
+              Continuar sessão
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={actionsLocked}
+              onClick={() => {
+                setConfirmEnd(false)
+                onEnd()
+              }}
+            >
+              Encerrar sessão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -856,9 +918,20 @@ function PinCard({ pin }: { pin: string }) {
   )
 }
 
-function ActionBar({ children }: { children: React.ReactNode }) {
+function ActionBar({
+  primary,
+  destructive,
+}: {
+  primary: React.ReactNode
+  destructive: React.ReactNode
+}) {
   return (
-    <div className="surface-card flex flex-wrap gap-2 p-3 sm:p-4">{children}</div>
+    <div className="surface-card flex flex-col gap-8 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-16 sm:p-4">
+      <div className="flex [&_button]:w-full sm:[&_button]:w-auto">{primary}</div>
+      <div className="flex border-t border-border/80 pt-6 sm:border-t-0 sm:pt-0 [&_button]:w-full sm:[&_button]:w-auto">
+        {destructive}
+      </div>
+    </div>
   )
 }
 

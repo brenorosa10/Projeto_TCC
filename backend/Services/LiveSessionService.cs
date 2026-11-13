@@ -103,7 +103,8 @@ public class LiveSessionService(
             Status = LiveSessionStatuses.Lobby,
             Phase = LiveSessionPhases.Lobby,
             ItemIds = itemIds,
-            StartedAt = DateTimeOffset.UtcNow
+            StartedAt = DateTimeOffset.UtcNow,
+            ShowHostAnswers = LiveHostAnswerPolicy.ShowsAnswers(request.ShowHostAnswers)
         };
 
         await db.LiveSessions.InsertOneAsync(session, cancellationToken: cancellationToken);
@@ -204,10 +205,7 @@ public class LiveSessionService(
                 return LiveOperationResult.Fail(StatusCodes.Status403Forbidden, "Entre com uma conta de aluno para participar.");
             }
 
-            if (!loaded.Classroom!.Enrollments.Any(enrollment => enrollment.StudentId == profile.Id))
-            {
-                return LiveOperationResult.Fail(StatusCodes.Status403Forbidden, "Você precisa estar matriculado na turma desta sessão.");
-            }
+            await EnsureSessionClassEnrollmentAsync(loaded.Classroom!, profile, cancellationToken);
         }
 
         return LiveOperationResult.Ok(
@@ -273,10 +271,7 @@ public class LiveSessionService(
             return LiveOperationResult.Fail(StatusCodes.Status409Conflict, "Esta sessão já encerrou.");
         }
 
-        if (!loaded.Classroom!.Enrollments.Any(enrollment => enrollment.StudentId == profile.Id))
-        {
-            return LiveOperationResult.Fail(StatusCodes.Status403Forbidden, "Você precisa estar matriculado na turma desta sessão.");
-        }
+        await EnsureSessionClassEnrollmentAsync(loaded.Classroom!, profile, cancellationToken);
 
         var name = DisplayName(profile);
         var existingFilter = Builders<LiveSession>.Filter.And(
@@ -608,8 +603,10 @@ public class LiveSessionService(
             ? activity.Items.FirstOrDefault(item => item.Id == id)
             : null;
 
-        var showAnswerKey = isHost
-            || (session.Mode == ActivityTypes.Quiz
+        var showHostAnswers = LiveHostAnswerPolicy.ShowsAnswers(session.ShowHostAnswers);
+        var showAnswerKey = (isHost && showHostAnswers)
+            || (!isHost
+                && session.Mode == ActivityTypes.Quiz
                 && session.Phase is LiveSessionPhases.Reveal or LiveSessionPhases.Ended);
 
         StudySessionItemResponse? currentItem = null;
@@ -639,16 +636,19 @@ public class LiveSessionService(
             var incorrect = currentAttempts.Count(attempt => attempt.IsCorrect == false);
             var unanswered = Math.Max(0, session.Participants.Count - currentAttempts.Count);
             var answered = correct + incorrect;
-            reveal = new LiveQuestionRevealResponse(
-                revealId,
-                correct,
-                incorrect,
-                unanswered,
-                answered == 0 ? 0 : Math.Round(100.0 * correct / answered, 1),
-                currentEntity.Options?.Where(option => option.IsCorrect).Select(option => option.Id).ToList(),
-                ContentBlocks.CombinedExplanation(currentEntity),
-                ContentBlocks.ToResponse(currentEntity.FeedbackBlocks),
-                currentEntity.FeedbackMessages);
+            reveal = LiveHostAnswerPolicy.SanitizeReveal(
+                new LiveQuestionRevealResponse(
+                    revealId,
+                    correct,
+                    incorrect,
+                    unanswered,
+                    answered == 0 ? 0 : Math.Round(100.0 * correct / answered, 1),
+                    currentEntity.Options?.Where(option => option.IsCorrect).Select(option => option.Id).ToList(),
+                    ContentBlocks.CombinedExplanation(currentEntity),
+                    ContentBlocks.ToResponse(currentEntity.FeedbackBlocks),
+                    currentEntity.FeedbackMessages),
+                isHost,
+                showHostAnswers);
         }
 
         IReadOnlyList<LiveRankingEntryResponse>? ranking = null;
@@ -702,7 +702,8 @@ public class LiveSessionService(
             ranking,
             reveal,
             personal,
-            showAnswerKey);
+            showAnswerKey,
+            showHostAnswers);
     }
 
     private static List<LiveRankingEntryResponse> BuildRanking(LiveSession session, IReadOnlyList<AnswerAttempt> attempts)
@@ -805,6 +806,42 @@ public class LiveSessionService(
                 && session.Status != LiveSessionStatuses.Ended)
             .SortByDescending(session => session.StartedAt)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task EnsureSessionClassEnrollmentAsync(
+        ClassRoom classroom,
+        Profile profile,
+        CancellationToken cancellationToken)
+    {
+        if (classroom.Enrollments.Any(enrollment => enrollment.StudentId == profile.Id))
+        {
+            return;
+        }
+
+        var enrollment = new ClassEnrollment
+        {
+            StudentId = profile.Id,
+            StudentName = DisplayName(profile),
+            JoinedAt = DateTimeOffset.UtcNow
+        };
+
+        var result = await db.Classes.UpdateOneAsync(
+            item => item.Id == classroom.Id && !item.Enrollments.Any(enrollment => enrollment.StudentId == profile.Id),
+            Builders<ClassRoom>.Update.Push(item => item.Enrollments, enrollment),
+            cancellationToken: cancellationToken);
+
+        if (result.MatchedCount == 0)
+        {
+            var current = await db.Classes.Find(item => item.Id == classroom.Id).FirstOrDefaultAsync(cancellationToken);
+            if (current is not null)
+            {
+                classroom.Enrollments = current.Enrollments;
+            }
+
+            return;
+        }
+
+        classroom.Enrollments.Add(enrollment);
     }
 
     private async Task<Profile?> GetProfileAsync(CancellationToken cancellationToken)
