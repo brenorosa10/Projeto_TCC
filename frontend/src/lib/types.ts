@@ -670,6 +670,16 @@ export interface AnalyticsSessionSummary {
   participants: LiveParticipant[]
 }
 
+export interface AnalyticsReflection {
+  studentId: string
+  studentName: string
+  selectedOptions?: string | null
+  isCorrect?: boolean | null
+  text: string
+  answeredAt: string
+  source: "live" | "individual" | string
+}
+
 export interface AnalyticsQuestion {
   itemId: string
   prompt: string
@@ -682,6 +692,8 @@ export interface AnalyticsQuestion {
   highError: boolean
   correctNames: string[]
   incorrectNames: string[]
+  requiresReflection?: boolean
+  reflections?: AnalyticsReflection[]
 }
 
 export interface AnalyticsOverview {

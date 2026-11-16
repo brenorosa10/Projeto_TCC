@@ -4,6 +4,19 @@ namespace Astro.Api.Services;
 
 public static class StudyAnswerFormatter
 {
+    public static string? SelectedOptionLabels(
+        ActivityItem? item,
+        Guid? selectedOptionId,
+        IReadOnlyList<Guid>? selectedOptionIds)
+    {
+        if (item is null || item.Kind is not (ItemKinds.MultipleChoice or ItemKinds.TrueFalse))
+        {
+            return null;
+        }
+
+        return OptionText(item, selectedOptionIds, selectedOptionId);
+    }
+
     public static string? StudentAnswer(ActivityItem? item, StudySessionAnswer answer)
     {
         if (item is null)

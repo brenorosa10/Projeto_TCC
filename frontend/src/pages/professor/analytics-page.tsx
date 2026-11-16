@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
-import { AlertTriangle, BarChart3, Play, Radio, Square, Users } from "lucide-react"
+import { AlertTriangle, BarChart3, ChevronDown, Play, Radio, Square, Users } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,12 @@ import { EmptyState, PageLoader } from "@/components/ui/page-loader"
 import { api } from "@/lib/api"
 import { liveSessionStatusLabel } from "@/lib/item-kinds"
 import { cn, plural } from "@/lib/utils"
-import type { AnalyticsOverview, AnalyticsQuestion, AnalyticsSessionSummary } from "@/lib/types"
+import type {
+  AnalyticsOverview,
+  AnalyticsQuestion,
+  AnalyticsReflection,
+  AnalyticsSessionSummary,
+} from "@/lib/types"
 
 export function ProfessorAnalyticsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -427,7 +432,73 @@ function QuestionCard({
           <NameList title="Erraram" names={question.incorrectNames} empty="Ninguém errou." />
         </div>
       ) : null}
+      {question.requiresReflection ? (
+        <ReflectionsSection reflections={question.reflections ?? []} />
+      ) : null}
     </li>
+  )
+}
+
+function ReflectionsSection({ reflections }: { reflections: AnalyticsReflection[] }) {
+  const [open, setOpen] = useState(false)
+  const count = reflections.length
+
+  return (
+    <div className="border-t border-border/70">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        aria-expanded={open}
+      >
+        <span className="text-sm font-semibold">Reflexões dos alunos ({count})</span>
+        <ChevronDown
+          className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        count === 0 ? (
+          <p className="px-4 pb-4 text-sm text-muted-foreground">
+            Nenhuma reflexão escrita foi enviada ainda.
+          </p>
+        ) : (
+          <ul className="space-y-3 px-4 pb-4">
+            {reflections.map((reflection, index) => (
+              <li
+                key={`${reflection.studentId}-${reflection.answeredAt}-${index}`}
+                className="rounded-xl border border-border/70 bg-muted/30 p-3"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-medium">{reflection.studentName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {reflection.selectedOptions?.trim()
+                        ? reflection.selectedOptions
+                        : "Sem alternativa registrada"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="outline">
+                      {reflection.source === "individual" ? "Individual" : "Ao vivo"}
+                    </Badge>
+                    {reflection.isCorrect === true ? (
+                      <Badge variant="outline">Acertou</Badge>
+                    ) : reflection.isCorrect === false ? (
+                      <Badge variant="destructive">Errou</Badge>
+                    ) : null}
+                  </div>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm">{reflection.text}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {new Date(reflection.answeredAt).toLocaleString("pt-BR")}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+    </div>
   )
 }
 
