@@ -678,6 +678,16 @@ public record AnalyticsSessionSummaryResponse(
     IReadOnlyList<LiveParticipantResponse> Participants
 );
 
+public record AnalyticsReflectionResponse(
+    Guid StudentId,
+    string StudentName,
+    string? SelectedOptions,
+    bool? IsCorrect,
+    string Text,
+    DateTimeOffset AnsweredAt,
+    string Source
+);
+
 public record AnalyticsQuestionResponse(
     Guid ItemId,
     string Prompt,
@@ -689,7 +699,9 @@ public record AnalyticsQuestionResponse(
     double ErrorPercent,
     bool HighError,
     IReadOnlyList<string> CorrectNames,
-    IReadOnlyList<string> IncorrectNames
+    IReadOnlyList<string> IncorrectNames,
+    bool RequiresReflection = false,
+    IReadOnlyList<AnalyticsReflectionResponse>? Reflections = null
 );
 
 public record GenerateQuizQuestionsRequest(
